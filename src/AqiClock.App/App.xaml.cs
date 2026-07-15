@@ -48,9 +48,11 @@ public partial class App : System.Windows.Application
         _serviceProvider = services.BuildServiceProvider(
             new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
 
-        LogStarting(
-            _serviceProvider.GetRequiredService<ILogger<App>>(),
-            typeof(App).Assembly.GetName().Version);
+        ILogger<App> logger = _serviceProvider.GetRequiredService<ILogger<App>>();
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            LogStarting(logger, typeof(App).Assembly.GetName().Version);
+        }
 
         _serviceProvider.GetRequiredService<MainWindow>().Show();
     }
