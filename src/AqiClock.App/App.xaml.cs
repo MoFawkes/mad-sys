@@ -11,6 +11,8 @@ namespace AqiClock.App;
 
 public partial class App : System.Windows.Application
 {
+    private static readonly Version? ApplicationVersion = typeof(App).Assembly.GetName().Version;
+
     private ServiceProvider? _serviceProvider;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -51,7 +53,7 @@ public partial class App : System.Windows.Application
         ILogger<App> logger = _serviceProvider.GetRequiredService<ILogger<App>>();
         if (logger.IsEnabled(LogLevel.Information))
         {
-            LogStarting(logger, typeof(App).Assembly.GetName().Version);
+            LogStarting(logger, ApplicationVersion);
         }
 
         _serviceProvider.GetRequiredService<MainWindow>().Show();
