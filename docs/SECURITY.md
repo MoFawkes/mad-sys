@@ -9,7 +9,7 @@ Threat model: a small-school internal tool. Primary risks are (1) staff modifyin
 ## 1. Authentication
 
 - Supabase Auth, **email + password** only in MVP (no OAuth — school staff may not have Google/Microsoft org accounts; revisit post-MVP).
-- Invite-only: signups disabled in Supabase Auth settings; admins create users in the Supabase dashboard (MVP) which fires the invite/confirmation email.
+- Invite-only: global signups are disabled in Supabase Auth settings; the email provider remains enabled so invited/admin-created users can sign in. Admins create users in the Supabase dashboard (MVP), which fires the invite/confirmation email.
 - Password policy: Supabase minimum length set to 10; leaked-password protection enabled.
 - Password reset: standard Supabase email flow, initiated from the sign-in screen.
 - The app ships only the **anon key** + project URL (safe to embed by design — all authority comes from RLS + the user's JWT). The **service-role key is never** in the client, the repo, or CI variables accessible to the build; it is used only by humans/migration tooling.

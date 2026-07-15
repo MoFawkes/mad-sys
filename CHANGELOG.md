@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added (Phase 3 — server contract)
 
 - Pinned Supabase CLI project tooling and local-stack configuration with invite-only authentication defaults.
+- Kept the email authentication provider enabled while globally blocking public signups, allowing invited and admin-created users to sign in.
 - Ordered Postgres migrations for the eight-table schema, constraints, indexes, RLS, explicit Data API grants, audit/profile/last-admin triggers, and Realtime publication.
 - Idempotent local seed data for AQI, a complete empty week schedule, and a sample Normal Day timetable.
 - GitHub Actions jobs for Windows .NET validation and repeatable Ubuntu Supabase migration/seed resets.
