@@ -1,0 +1,55 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.11.35327.3
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AqiClock.Domain", "src\AqiClock.Domain\AqiClock.Domain.csproj", "{0865638B-EAAE-4D66-AF2D-215BF411B938}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AqiClock.Application", "src\AqiClock.Application\AqiClock.Application.csproj", "{BCA051DF-C756-401A-B57D-4B7CA164167D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AqiClock.Infrastructure", "src\AqiClock.Infrastructure\AqiClock.Infrastructure.csproj", "{8B84773D-6299-4546-9F04-E2C30E2DDA79}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AqiClock.App", "src\AqiClock.App\AqiClock.App.csproj", "{730D01C4-B642-45BA-9E15-2889DF1507F3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AqiClock.Domain.Tests", "tests\AqiClock.Domain.Tests\AqiClock.Domain.Tests.csproj", "{9AF07CE9-3C8D-47BD-A70F-8750DF1CEB48}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AqiClock.Application.Tests", "tests\AqiClock.Application.Tests\AqiClock.Application.Tests.csproj", "{C22DC469-B1B6-449A-8E2D-019C0175B655}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AqiClock.IntegrationTests", "tests\AqiClock.IntegrationTests\AqiClock.IntegrationTests.csproj", "{5A5827FD-D23C-44AE-849C-F4BD4BFB235A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0865638B-EAAE-4D66-AF2D-215BF411B938}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0865638B-EAAE-4D66-AF2D-215BF411B938}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0865638B-EAAE-4D66-AF2D-215BF411B938}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0865638B-EAAE-4D66-AF2D-215BF411B938}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BCA051DF-C756-401A-B57D-4B7CA164167D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BCA051DF-C756-401A-B57D-4B7CA164167D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BCA051DF-C756-401A-B57D-4B7CA164167D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BCA051DF-C756-401A-B57D-4B7CA164167D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8B84773D-6299-4546-9F04-E2C30E2DDA79}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8B84773D-6299-4546-9F04-E2C30E2DDA79}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8B84773D-6299-4546-9F04-E2C30E2DDA79}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8B84773D-6299-4546-9F04-E2C30E2DDA79}.Release|Any CPU.Build.0 = Release|Any CPU
+		{730D01C4-B642-45BA-9E15-2889DF1507F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{730D01C4-B642-45BA-9E15-2889DF1507F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{730D01C4-B642-45BA-9E15-2889DF1507F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{730D01C4-B642-45BA-9E15-2889DF1507F3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9AF07CE9-3C8D-47BD-A70F-8750DF1CEB48}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9AF07CE9-3C8D-47BD-A70F-8750DF1CEB48}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9AF07CE9-3C8D-47BD-A70F-8750DF1CEB48}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9AF07CE9-3C8D-47BD-A70F-8750DF1CEB48}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C22DC469-B1B6-449A-8E2D-019C0175B655}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C22DC469-B1B6-449A-8E2D-019C0175B655}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C22DC469-B1B6-449A-8E2D-019C0175B655}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C22DC469-B1B6-449A-8E2D-019C0175B655}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5A5827FD-D23C-44AE-849C-F4BD4BFB235A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5A5827FD-D23C-44AE-849C-F4BD4BFB235A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5A5827FD-D23C-44AE-849C-F4BD4BFB235A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5A5827FD-D23C-44AE-849C-F4BD4BFB235A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
