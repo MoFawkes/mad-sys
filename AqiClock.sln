@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AqiClock.Application.Tests"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AqiClock.IntegrationTests", "tests\AqiClock.IntegrationTests\AqiClock.IntegrationTests.csproj", "{5A5827FD-D23C-44AE-849C-F4BD4BFB235A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AqiClock.SupabaseTests", "tests\AqiClock.SupabaseTests\AqiClock.SupabaseTests.csproj", "{72C444DB-B8E1-43BE-881F-7AEBAF60BCB1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,5 +53,9 @@ Global
 		{5A5827FD-D23C-44AE-849C-F4BD4BFB235A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5A5827FD-D23C-44AE-849C-F4BD4BFB235A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5A5827FD-D23C-44AE-849C-F4BD4BFB235A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{72C444DB-B8E1-43BE-881F-7AEBAF60BCB1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{72C444DB-B8E1-43BE-881F-7AEBAF60BCB1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{72C444DB-B8E1-43BE-881F-7AEBAF60BCB1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{72C444DB-B8E1-43BE-881F-7AEBAF60BCB1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

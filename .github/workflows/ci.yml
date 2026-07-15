@@ -32,7 +32,7 @@ jobs:
         run: dotnet test AqiClock.sln --configuration Release --no-build --no-restore
 
   supabase:
-    name: Supabase migrations and seed
+    name: Supabase migrations, seed and RLS matrix
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -43,6 +43,11 @@ jobs:
         with:
           version: 2.109.1
 
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
       - name: Start local Supabase
         run: supabase start
 
@@ -51,3 +56,20 @@ jobs:
 
       - name: Prove migrations and seed are repeatable
         run: supabase db reset --local --yes
+
+      - name: Export local Supabase test environment
+        shell: bash
+        run: |
+          eval "$(supabase status -o env)"
+          {
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "SUPABASE_DB_URL=$DB_URL"
+          } >> "$GITHUB_ENV"
+
+      - name: Restore Supabase tests
+        run: dotnet restore tests/AqiClock.SupabaseTests/AqiClock.SupabaseTests.csproj --configfile NuGet.Config
+
+      - name: Run RLS and behavioural matrix
+        run: dotnet test tests/AqiClock.SupabaseTests/AqiClock.SupabaseTests.csproj --configuration Release --no-restore

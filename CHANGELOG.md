@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Ordered Postgres migrations for the eight-table schema, constraints, indexes, RLS, explicit Data API grants, audit/profile/last-admin triggers, and Realtime publication.
 - Idempotent local seed data for AQI, a complete empty week schedule, and a sample Normal Day timetable.
 - GitHub Actions jobs for Windows .NET validation and repeatable Ubuntu Supabase migration/seed resets.
+- Release-blocking HTTP-level RLS matrix covering every table, persona, and operation, plus behavioural tests for auth/profile triggers, immediate deactivation, audit images, FK/cascade rules, last-admin protection, and Realtime publication membership.
 
 ### Security (Phase 3)
 

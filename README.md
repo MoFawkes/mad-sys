@@ -51,6 +51,19 @@ dotnet build AqiClock.sln
 dotnet test AqiClock.sln --no-build
 ```
 
+## Supabase integration tests
+
+The RLS and behavioural tests require Docker Desktop and a running local Supabase stack. They skip automatically when `SUPABASE_URL` is absent.
+
+```powershell
+npx supabase start
+npx supabase db reset --local --yes
+npx supabase status -o env
+dotnet test tests/AqiClock.SupabaseTests/AqiClock.SupabaseTests.csproj
+```
+
+Map local `API_URL`, `ANON_KEY`, `SERVICE_ROLE_KEY`, and `DB_URL` values to `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_DB_URL` in the current shell. These are disposable local-stack credentials only; never store a cloud service-role key in source or CI configuration.
+
 ## Configuration
 
 Copy `.env.example` values into your preferred local environment-variable mechanism. The application reads variables prefixed with `AQICLOCK_`; use a double underscore for nested configuration keys. Only the Supabase project URL and **anon** key belong in client configuration — never commit credentials, and never place the service-role key anywhere in this repository or the app (see `docs/SECURITY.md`).
