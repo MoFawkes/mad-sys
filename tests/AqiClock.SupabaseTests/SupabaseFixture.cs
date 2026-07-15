@@ -32,7 +32,8 @@ public sealed class SupabaseFixture : IAsyncLifetime, IDisposable
     public static readonly Guid OrgBFixedId = Guid.Parse("00000000-0000-0000-0000-000000000002");
 
     private readonly HttpClient _http = new();
-    private readonly Func<string> _dbConnectionString = () => SupabaseEnvironment.DbConnectionString;
+    private readonly Func<string> _dbConnectionString = () =>
+        NormalizeConnectionString(SupabaseEnvironment.DbConnectionString);
     private readonly Dictionary<TestPersona, string> _tokens = [];
 
     public string RunId { get; } = Guid.NewGuid().ToString("N")[..8];
@@ -275,6 +276,27 @@ public sealed class SupabaseFixture : IAsyncLifetime, IDisposable
         }
 
         return command;
+    }
+
+    private static string NormalizeConnectionString(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out Uri? uri)
+            || (uri.Scheme != "postgresql" && uri.Scheme != "postgres"))
+        {
+            return value;
+        }
+
+        string[] userInfo = uri.UserInfo.Split(':', 2);
+        var builder = new NpgsqlConnectionStringBuilder
+        {
+            Host = uri.Host,
+            Port = uri.Port,
+            Database = uri.AbsolutePath.TrimStart('/'),
+            Username = Uri.UnescapeDataString(userInfo[0]),
+            Password = userInfo.Length == 2 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty,
+            SslMode = SslMode.Disable,
+        };
+        return builder.ConnectionString;
     }
 }
 
