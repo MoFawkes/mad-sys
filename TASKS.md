@@ -37,10 +37,12 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] `seed.sql`: one organization, 7 week_schedule rows, sample "Normal Day" timetable.
 - [ ] Cloud: disable public signups, enable leaked-password protection, and set minimum password length 10. (Local config already mirrors invite-only signup and minimum length.)
 - [ ] Bootstrap first admin user via dashboard; document the exact steps in README.
-- [ ] Integration test harness against `supabase start` (local stack) with per-role JWTs.
-- [ ] RLS test matrix: each table × {anon, staff, admin, deactivated} × {select, insert, update, delete} — release-blocking in CI.
-- [ ] Audit trigger tests (before/after images, actor capture); last-admin guard test; RESTRICT delete tests.
-- [x] CI scaffold: Windows build/tests and Ubuntu clean/repeated Supabase reset. RLS/behaviour tests remain required before the Phase 3 gate is green.
+- [x] Integration test harness against `supabase start` (local stack) with per-role JWTs.
+- [x] RLS test matrix: each table × {anon, staff, admin, deactivated, cross-org} × {select, insert, update, delete} — release-blocking in CI.
+- [x] Audit trigger tests (before/after images, actor capture); last-admin guard test; RESTRICT delete tests.
+- [x] CI: Windows build/tests and Ubuntu clean/repeated Supabase reset plus release-blocking RLS/behaviour tests.
+
+**Engineering gate:** green in CI on 2026-07-15 (173 Supabase tests); Phase 4 may begin. Cloud project creation and first-admin bootstrap remain owner actions.
 
 ## Phase 4 — Infrastructure: cache, auth, sync (depends on Phases 2–3)
 

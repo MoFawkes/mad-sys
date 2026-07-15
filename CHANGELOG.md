@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Idempotent local seed data for AQI, a complete empty week schedule, and a sample Normal Day timetable.
 - GitHub Actions jobs for Windows .NET validation and repeatable Ubuntu Supabase migration/seed resets.
 - Release-blocking HTTP-level RLS matrix covering every table, persona, and operation, plus behavioural tests for auth/profile triggers, immediate deactivation, audit images, FK/cascade rules, last-admin protection, and Realtime publication membership.
+- Verified the Phase 3 engineering gate in CI: two clean database resets and all 173 Supabase integration tests passed.
 
 ### Security (Phase 3)
 
