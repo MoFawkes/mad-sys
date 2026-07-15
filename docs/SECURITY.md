@@ -42,6 +42,12 @@ Additional guards:
 - Realtime: authorization enabled so change events respect RLS.
 - RLS tests are release-blocking in CI (ARCHITECTURE.md §9): for each table × role × (own org / other org) assert allow/deny.
 
+Hardening details implemented by the migrations:
+- All `SECURITY DEFINER` helpers live in the unexposed `private` schema and use `set search_path = ''`; names in policies are fully qualified.
+- Default function execution is revoked. Only `authenticated` receives `USAGE` on `private` and `EXECUTE` on the two RLS lookup helpers; trigger functions are not client-callable.
+- Data API table privileges are explicit: `anon` receives none, while `authenticated` receives only the operations for which an RLS policy exists. RLS remains the row-level authority.
+- RLS helper calls are wrapped in scalar `select` expressions so Postgres can cache them per statement.
+
 ## 4. Client-side storage security
 
 | Data | Location | Protection |

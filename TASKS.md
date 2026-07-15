@@ -30,16 +30,17 @@ Ordered by implementation dependency: each phase builds only on the phases above
 ## Phase 3 — Supabase backend (schema before any client code that uses it)
 
 - [ ] Create Supabase project; record URL + anon key in `.env.example` shape (B-6 region/tier).
-- [ ] `supabase/` folder with CLI config; migrations under `supabase/migrations/`.
-- [ ] Migration 1: tables per DATABASE.md §1 (organizations, profiles, timetables, periods, week_schedule, date_overrides, announcements, audit_log) + indexes + CHECK constraints + `set_updated_at()` trigger.
-- [ ] Migration 2: `current_org_id()` / `is_admin()` helpers + RLS policies per SECURITY.md §3.
-- [ ] Migration 3: audit triggers, `on_auth_user_created` profile trigger, profile column-guard trigger, last-admin guard trigger.
-- [ ] `seed.sql`: one organization, 7 week_schedule rows, sample "Normal Day" timetable.
-- [ ] Disable public signups; enable leaked-password protection; set min password length 10.
+- [x] `supabase/` folder with pinned CLI config; migrations under `supabase/migrations/`.
+- [x] Migration 1: tables per DATABASE.md §1 (organizations, profiles, timetables, periods, week_schedule, date_overrides, announcements, audit_log) + indexes + CHECK constraints + `set_updated_at()` trigger.
+- [x] Migration 2: hardened `current_org_id()` / `is_admin()` helpers + explicit Data API grants + RLS policies per SECURITY.md §3.
+- [x] Migration 3: audit triggers, `on_auth_user_created` profile trigger, profile column-guard trigger, last-admin guard trigger, and Realtime publication.
+- [x] `seed.sql`: one organization, 7 week_schedule rows, sample "Normal Day" timetable.
+- [ ] Cloud: disable public signups, enable leaked-password protection, and set minimum password length 10. (Local config already mirrors invite-only signup and minimum length.)
 - [ ] Bootstrap first admin user via dashboard; document the exact steps in README.
 - [ ] Integration test harness against `supabase start` (local stack) with per-role JWTs.
 - [ ] RLS test matrix: each table × {anon, staff, admin, deactivated} × {select, insert, update, delete} — release-blocking in CI.
 - [ ] Audit trigger tests (before/after images, actor capture); last-admin guard test; RESTRICT delete tests.
+- [x] CI scaffold: Windows build/tests and Ubuntu clean/repeated Supabase reset. RLS/behaviour tests remain required before the Phase 3 gate is green.
 
 ## Phase 4 — Infrastructure: cache, auth, sync (depends on Phases 2–3)
 

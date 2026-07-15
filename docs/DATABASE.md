@@ -90,7 +90,7 @@ Written **only** by triggers (SECURITY DEFINER function); no client insert/updat
 | Column | Type | Notes |
 |---|---|---|
 | id | bigint identity PK | |
-| org_id | uuid not null | |
+| org_id | uuid null | Null only for system/bootstrap audit events where neither the changed row nor actor resolves an organisation. |
 | actor_id | uuid null | `auth.uid()` at time of change; null for service-role/seed changes |
 | action | text not null | 'insert' / 'update' / 'delete' |
 | entity_type | text not null | table name |
@@ -127,6 +127,7 @@ Full policy detail in SECURITY.md §3; design summary:
 - `profiles`: users can update **only** their own `display_name`; `role`/`is_active`/`org_id` changes require admin (enforced by a separate column-guard trigger, since RLS is row-level not column-level).
 - `audit_log`: `SELECT` for admins only; no write policies at all (trigger writes bypass RLS via SECURITY DEFINER).
 - Realtime respects RLS automatically (Supabase Realtime authorization), so staff receive change events only for rows they can read — which is everything in their org, so no special handling.
+- The migration explicitly adds `timetables`, `periods`, `week_schedule`, `date_overrides`, `announcements`, and `profiles` to the `supabase_realtime` publication.
 
 ---
 

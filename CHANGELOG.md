@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added (Phase 3 — server contract)
+
+- Pinned Supabase CLI project tooling and local-stack configuration with invite-only authentication defaults.
+- Ordered Postgres migrations for the eight-table schema, constraints, indexes, RLS, explicit Data API grants, audit/profile/last-admin triggers, and Realtime publication.
+- Idempotent local seed data for AQI, a complete empty week schedule, and a sample Normal Day timetable.
+- GitHub Actions jobs for Windows .NET validation and repeatable Ubuntu Supabase migration/seed resets.
+
+### Security (Phase 3)
+
+- Isolated security-definer functions in a private schema with locked search paths and restricted execution.
+- Denied anonymous Data API table access and kept deactivated-user lockout in the database authorization path.
+- Kept service-role credentials out of source and CI configuration.
+
 ### Added (Phase 2)
 
 - Full planning documentation set under `docs/` (specification, architecture, database, UI flows, security, business rules, decisions ADR-001…ADR-014) and dependency-ordered `TASKS.md`.
