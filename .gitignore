@@ -17,3 +17,7 @@ artifacts/
 *.db-shm
 *.db-wal
 logs/
+node_modules/
+supabase/.temp/
+supabase/.branches/
+.supabase-home/
