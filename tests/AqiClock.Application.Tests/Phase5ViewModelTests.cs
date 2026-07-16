@@ -14,6 +14,23 @@ namespace AqiClock.Application.Tests;
 
 public sealed class Phase5ViewModelTests
 {
+    [Fact]
+    public void CompactLayoutIsFixedFramelessStripAndNormalLayoutRestoresChrome()
+    {
+        WindowLayout compact = WindowLayouts.For(DisplayMode.Compact);
+        WindowLayout normal = WindowLayouts.For(DisplayMode.Normal);
+
+        Assert.Equal(320, compact.Width); Assert.Equal(80, compact.Height); Assert.True(compact.IsFrameless);
+        Assert.Equal(720, normal.Width); Assert.Equal(760, normal.Height); Assert.False(normal.IsFrameless);
+    }
+
+    [Fact]
+    public void ClosingSignInExitsOnlyWhileSignedOut()
+    {
+        Assert.True(WindowLifecycle.ShouldExitAfterSignInClose(SessionState.SignedOut));
+        Assert.False(WindowLifecycle.ShouldExitAfterSignInClose(new SessionState(Guid.NewGuid(), "staff@example.test", UserRole.Staff, true, false)));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

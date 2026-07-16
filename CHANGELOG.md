@@ -21,6 +21,8 @@ All notable changes to this project will be documented in this file.
 - Initialized the disposable SQLite cache before session restore/sign-in can query a cached profile, allowing the role to arrive later with the Profiles snapshot on a true first run.
 - Kept unexpected local persistence failures inside the sign-in error state instead of escalating them to the global crash dialog.
 - Added seam-level regressions for blank-email command gating, unexpected persistence errors, and real fresh-file cache initialization during sign-in.
+- Applied compact mode as an explicit fixed 320×80 frameless window presentation, avoiding WPF local-value precedence over style triggers.
+- Stopped sign-in routing from constructing a hidden main window; closing sign-in while signed out now exits cleanly, and signing out closes Settings before returning to sign-in.
 
 ### Added (Phase 4 — client infrastructure)
 

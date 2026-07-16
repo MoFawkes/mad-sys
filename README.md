@@ -68,6 +68,16 @@ dotnet test tests/AqiClock.SupabaseTests/AqiClock.SupabaseTests.csproj --configu
 
 These are disposable local-stack credentials scoped to the current shell; never store a cloud service-role key in source or CI configuration.
 
+To launch the WPF app against the local stack, set the client-safe URL and anon key in the same shell before starting it:
+
+```powershell
+$env:AQICLOCK_Supabase__Url = $status.API_URL
+$env:AQICLOCK_Supabase__AnonKey = $status.ANON_KEY
+dotnet run --project src/AqiClock.App/AqiClock.App.csproj --configuration Release
+```
+
+Without these overrides, the checked-in placeholder configuration intentionally cannot authenticate.
+
 ## Configuration
 
 Copy `.env.example` values into your preferred local environment-variable mechanism. The application reads variables prefixed with `AQICLOCK_`; use a double underscore for nested configuration keys. Only the Supabase project URL and **anon** key belong in client configuration — never commit credentials, and never place the service-role key anywhere in this repository or the app (see `docs/SECURITY.md`).
