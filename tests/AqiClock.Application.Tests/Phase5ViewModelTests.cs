@@ -25,6 +25,18 @@ public sealed class Phase5ViewModelTests
     }
 
     [Fact]
+    public void CompactPlacementNormalizationDoesNotChangeNormalPlacement()
+    {
+        WindowPlacement normal = new(10, 20, 720, 760);
+        AppSettings original = new() { NormalPlacement = normal };
+
+        AppSettings updated = WindowPlacements.Apply(original, DisplayMode.Compact, new WindowPlacement(30, 40, 320, 760, true));
+
+        Assert.Equal(normal, updated.NormalPlacement);
+        Assert.Equal(new WindowPlacement(30, 40, 320, 80), updated.CompactPlacement);
+    }
+
+    [Fact]
     public void ClosingSignInExitsOnlyWhileSignedOut()
     {
         Assert.True(WindowLifecycle.ShouldExitAfterSignInClose(SessionState.SignedOut));
@@ -93,10 +105,30 @@ public sealed class Phase5ViewModelTests
         try
         {
             var options = Options.Create(new AqiClockOptions { DataDirectory = directory });
-            var writer = new SettingsService(options);
+            using var writer = new SettingsService(options);
             await writer.SaveAsync(new AppSettings { Theme = AppTheme.Dark, EndWarningMinutes = 12, CompactOnLaunch = true });
-            var reader = new SettingsService(options); await reader.LoadAsync();
+            using var reader = new SettingsService(options); await reader.LoadAsync();
             Assert.Equal(AppTheme.Dark, reader.Current.Theme); Assert.Equal(12, reader.Current.EndWarningMinutes); Assert.True(reader.Current.CompactOnLaunch);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task ConcurrentSettingsSavesAreSerializedAndLeaveValidJson()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "AqiClockSettingsRace", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var options = Options.Create(new AqiClockOptions { DataDirectory = directory });
+            using var service = new SettingsService(options);
+
+            await Task.WhenAll(Enumerable.Range(0, 25).Select(index =>
+                service.SaveAsync(new AppSettings { EndWarningMinutes = index % 16, CompactOnLaunch = index % 2 == 0 })));
+
+            using var reader = new SettingsService(options);
+            await reader.LoadAsync();
+            Assert.InRange(reader.Current.EndWarningMinutes, 0, 15);
+            Assert.False(File.Exists(Path.Combine(directory, "settings.json.tmp")));
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }

@@ -23,6 +23,8 @@ All notable changes to this project will be documented in this file.
 - Added seam-level regressions for blank-email command gating, unexpected persistence errors, and real fresh-file cache initialization during sign-in.
 - Applied compact mode as an explicit fixed 320×80 frameless window presentation, avoiding WPF local-value precedence over style triggers.
 - Stopped sign-in routing from constructing a hidden main window; closing sign-in while signed out now exits cleanly, and signing out closes Settings before returning to sign-in.
+- Serialized atomic settings writes and debounced placement persistence so rapid resize/drag/mode events cannot race over `settings.json.tmp`.
+- Suppressed intermediate geometry during mode transitions, normalized compact placement to 320×80, and moved compact dragging to mouse-move so double-click restore is reliable.
 
 ### Added (Phase 4 — client infrastructure)
 

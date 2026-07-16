@@ -18,3 +18,17 @@ public static class WindowLifecycle
 {
     public static bool ShouldExitAfterSignInClose(SessionState session) => session.UserId is null;
 }
+
+public static class WindowPlacements
+{
+    public static AppSettings Apply(AppSettings settings, DisplayMode mode, WindowPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        WindowPlacement normalized = mode == DisplayMode.Compact
+            ? placement with { Width = WindowLayouts.For(DisplayMode.Compact).Width, Height = WindowLayouts.For(DisplayMode.Compact).Height, IsMaximized = false }
+            : placement;
+        return mode == DisplayMode.Compact
+            ? settings with { CompactPlacement = normalized }
+            : settings with { NormalPlacement = normalized };
+    }
+}

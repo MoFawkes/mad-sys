@@ -6,10 +6,11 @@ using Microsoft.Extensions.Options;
 
 namespace AqiClock.App.Services;
 
-public sealed class SettingsService : ISettingsService
+public sealed class SettingsService : ISettingsService, IDisposable
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly string _path;
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
 
     public SettingsService(IOptions<AqiClockOptions> options)
     {
@@ -32,14 +33,24 @@ public sealed class SettingsService : ISettingsService
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
     {
         Validate(settings);
-        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-        string temporary = _path + ".tmp";
-        await using (FileStream stream = File.Create(temporary))
-            await JsonSerializer.SerializeAsync(stream, settings, JsonOptions, cancellationToken).ConfigureAwait(false);
-        File.Move(temporary, _path, true);
-        Current = settings;
-        Changed?.Invoke(this, new SettingsChanged(settings));
+        await _saveGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+            string temporary = _path + ".tmp";
+            await using (FileStream stream = File.Create(temporary))
+                await JsonSerializer.SerializeAsync(stream, settings, JsonOptions, cancellationToken).ConfigureAwait(false);
+            File.Move(temporary, _path, true);
+            Current = settings;
+            Changed?.Invoke(this, new SettingsChanged(settings));
+        }
+        finally
+        {
+            _saveGate.Release();
+        }
     }
+
+    public void Dispose() => _saveGate.Dispose();
 
     private static void Validate(AppSettings settings)
     {
