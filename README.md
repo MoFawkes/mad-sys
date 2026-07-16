@@ -2,7 +2,7 @@
 
 AQI Clock is a Windows desktop application (WPF, .NET 8) that shows staff the current time, the current lesson, time remaining, and the next lesson, driven by a centrally managed timetable. Administrators edit timetables and post announcements in Supabase-backed storage; every staff machine updates in near-real-time, works offline from a local SQLite cache, and raises native Windows notifications at lesson boundaries.
 
-**Status:** Phases 1–7 are complete and acceptance-green. Phase 8 packaging and release engineering is implemented locally; pilot publication remains blocked on the cloud Supabase project, public release repository credentials, and branding asset. See [`TASKS.md`](TASKS.md) for the phased plan and [`docs/MANUAL-TESTS.md`](docs/MANUAL-TESTS.md) for Windows integration acceptance.
+**Status:** Phases 1–7 are complete and acceptance-green. Phase 8 packaging and release engineering is implemented; the production Supabase project and public release channel are configured. The first tagged installer acceptance, branding asset, and pilot-machine rollout remain. See [`TASKS.md`](TASKS.md) for the phased plan and [`docs/MANUAL-TESTS.md`](docs/MANUAL-TESTS.md) for Windows integration acceptance.
 
 ## Key capabilities (planned MVP)
 
@@ -90,13 +90,15 @@ The installed app checks that public repository at startup and every six hours. 
 
 ## Cloud project bootstrap (owner)
 
-The pilot build must not be tagged until these steps are complete:
+The production project was bootstrapped on 2026-07-17 using this runbook:
 
 1. Run `npx supabase login`, create the Free-tier project, then `npx supabase link --project-ref <ref>`.
 2. Run `npx supabase db push` to apply the frozen migrations.
 3. In the dashboard SQL editor, insert the production organisation row (do not run the local fixture seed wholesale).
 4. Disable public signups, invite the first administrator under Authentication, then set the generated profile's role to `admin` in the SQL editor.
 5. Add the public project URL and anon key as repository variables `CLOUD_SUPABASE_URL` and `CLOUD_SUPABASE_ANON_KEY`. Never provide a service-role key.
+
+For the current Free-tier pilot, leaked-password protection remains unavailable and is tracked for the post-pilot Supabase Pro review. Global and email signup are disabled, the minimum password length is 10, and anonymous Data API access was verified to fail closed.
 
 The release workflow also requires a fine-grained Actions secret named `RELEASES_TOKEN`, limited to contents-write access on `MoFawkes/aqi-clock-releases`. GitHub's source-repository token cannot publish into a different repository. This CI credential is never bundled into the client.
 

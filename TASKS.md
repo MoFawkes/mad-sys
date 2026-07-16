@@ -29,14 +29,15 @@ Ordered by implementation dependency: each phase builds only on the phases above
 
 ## Phase 3 — Supabase backend (schema before any client code that uses it)
 
-- [ ] Create Supabase project; record URL + anon key in `.env.example` shape (B-6 region/tier).
+- [x] Create the Free-tier cloud Supabase project in `eu-west-1`; apply the frozen migrations and configure the public URL + anon key as release variables (B-6).
 - [x] `supabase/` folder with pinned CLI config; migrations under `supabase/migrations/`.
 - [x] Migration 1: tables per DATABASE.md §1 (organizations, profiles, timetables, periods, week_schedule, date_overrides, announcements, audit_log) + indexes + CHECK constraints + `set_updated_at()` trigger.
 - [x] Migration 2: hardened `current_org_id()` / `is_admin()` helpers + explicit Data API grants + RLS policies per SECURITY.md §3.
 - [x] Migration 3: audit triggers, `on_auth_user_created` profile trigger, profile column-guard trigger, last-admin guard trigger, and Realtime publication.
 - [x] `seed.sql`: one organization, 7 week_schedule rows, sample "Normal Day" timetable.
-- [ ] Cloud: disable public signups, enable leaked-password protection, and set minimum password length 10. (Local config already mirrors invite-only signup and minimum length.)
-- [ ] Bootstrap first admin user via dashboard; document the exact steps in README.
+- [x] Cloud: disable global/email public signups and set minimum password length 10. (Verified against the hosted Auth settings on 2026-07-17.)
+- [ ] Enable leaked-password protection after the post-pilot Supabase Pro review; the control is unavailable on the Free plan.
+- [x] Bootstrap the first admin via dashboard invitation and verify the generated active profile belongs to the production organisation with role `admin`; exact steps are documented in README.
 - [x] Integration test harness against `supabase start` (local stack) with per-role JWTs.
 - [x] RLS test matrix: each table × {anon, staff, admin, deactivated, cross-org} × {select, insert, update, delete} — release-blocking in CI.
 - [x] Audit trigger tests (before/after images, actor capture); last-admin guard test; RESTRICT delete tests.
@@ -100,7 +101,8 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] GitHub Actions CI: build + unit tests (windows-latest), Supabase RLS integration tests (ubuntu-latest, release-blocking); reusable from tagged releases.
 - [ ] Velopack packaging: per-user installer and Start-menu shortcut verified locally; branded app icon remains blocked on owner-supplied `assets/logo.png` (B-8).
 - [x] Auto-update: startup + 6 h check, apply-on-restart, About-screen status (J9); development builds disable it when no channel is configured.
-- [ ] Release pipeline to public GitHub Releases (B-7) implemented; first publish is blocked on cloud URL/anon variables, `RELEASES_TOKEN`, GitHub reauthentication, and creation of `MoFawkes/aqi-clock-releases`.
+- [x] Release pipeline to the public `MoFawkes/aqi-clock-releases` repository (B-7), with cloud URL/anon variables and repository-scoped `RELEASES_TOKEN` configured.
+- [ ] Publish and visually accept the first tagged `v0.9.x` installer/update/uninstall round-trip.
 - [ ] Run full manual test checklist on Win10 + Win11, incl. sleep/resume, offline day, DST-date simulation.
 - [ ] Pilot install on 3–5 staff machines; collect logs/feedback.
 - [ ] Confirm business inputs B-1 … B-8 with owner (defaults accepted; B-8 asset still outstanding).

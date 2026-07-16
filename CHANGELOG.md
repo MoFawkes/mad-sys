@@ -18,6 +18,8 @@ All notable changes to this project will be documented in this file.
 
 - Release publishing fails closed unless HTTPS cloud configuration and a release-repository-scoped CI credential are present; no service-role or release token enters the client.
 - Recorded ADR-017 for cross-repository publishing after confirming GitHub's built-in token cannot write to a separate repository.
+- Bootstrapped the Free-tier production Supabase project from the frozen migrations, disabled global/email signup, enforced a 10-character minimum password, verified anonymous Data API denial, and created the first active administrator without using a service-role credential in the client or CI.
+- Tracked leaked-password protection for the post-pilot Pro-plan review because Supabase does not expose it on the Free tier.
 
 ### Added (Phase 7 — admin editing)
 
