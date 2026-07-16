@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using System.IO;
 using AqiClock.App.ViewModels;
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Messages;
@@ -64,6 +65,8 @@ public sealed class TrayService : IRecipient<SessionChanged>, IDisposable
     internal static void ApplyNativeIcon(TaskbarIcon icon)
     {
         ArgumentNullException.ThrowIfNull(icon);
+        string installedIcon = Path.Combine(AppContext.BaseDirectory, "assets", "app.ico");
+        if (File.Exists(installedIcon)) { icon.Icon = new Icon(installedIcon); return; }
         icon.Icon = (Icon)SystemIcons.Information.Clone();
     }
 

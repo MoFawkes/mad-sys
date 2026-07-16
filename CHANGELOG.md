@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added (Phase 8 — packaging and pilot delivery)
+
+- Tag-derived MinVer assembly versions surfaced in Settings/About with live updater state.
+- Velopack-first WPF entry point, public GitHub release-source updater, six-hour checks, silent downloads, and apply-after-exit behaviour.
+- Stable Velopack-stub resolution for the HKCU startup value, plus packaged icon lookup with a safe placeholder fallback.
+- Reusable CI gates and a tagged release workflow that injects only public cloud configuration, builds self-contained `win-x64`, creates per-user full/delta packages, and targets the public releases-only repository.
+- Cancel-path tests for timetable and override deletion and user role/activation changes, plus version, update-text, and startup-path tests.
+- Pilot install/update/uninstall acceptance steps and the cloud/release-channel owner runbook.
+- Conditional application-icon packaging that embeds and publishes `assets/app.ico` when the owner-supplied branding is available while preserving the placeholder fallback.
+
+### Security (Phase 8)
+
+- Release publishing fails closed unless HTTPS cloud configuration and a release-repository-scoped CI credential are present; no service-role or release token enters the client.
+- Recorded ADR-017 for cross-repository publishing after confirming GitHub's built-in token cannot write to a separate repository.
+
 ### Added (Phase 7 — admin editing)
 
 - Online-only, role-gated admin workspace for timetables and ordered periods, weekly assignments, date overrides, announcement publishing, recent audit history, and profile role/activation management.

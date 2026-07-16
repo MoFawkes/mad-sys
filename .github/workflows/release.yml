@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v-prefixed tag to package
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    uses: ./.github/workflows/ci.yml
+    with:
+      checkout_ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+  package:
+    name: Package and publish pilot release
+    needs: gates
+    runs-on: windows-latest
+    env:
+      RELEASE_REPOSITORY: https://github.com/MoFawkes/aqi-clock-releases
+      RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+      CLOUD_SUPABASE_URL: ${{ vars.CLOUD_SUPABASE_URL }}
+      CLOUD_SUPABASE_ANON_KEY: ${{ vars.CLOUD_SUPABASE_ANON_KEY }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Validate pilot release inputs
+        shell: pwsh
+        run: |
+          if (-not $env:RELEASES_TOKEN) { throw "RELEASES_TOKEN must grant release-only write access to the public assets repository." }
+          if (-not $env:CLOUD_SUPABASE_URL) { throw "Repository variable CLOUD_SUPABASE_URL is required." }
+          if (-not $env:CLOUD_SUPABASE_ANON_KEY) { throw "Repository variable CLOUD_SUPABASE_ANON_KEY is required." }
+          if ($env:CLOUD_SUPABASE_URL -notmatch '^https://') { throw "The cloud Supabase URL must use HTTPS." }
+
+      - name: Resolve tag version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ inputs.tag }}' } else { '${{ github.ref_name }}' }
+          if ($tag -notmatch '^v(?<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$') { throw "Release tag must be valid SemVer prefixed by v." }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "value=$($Matches.version)" >> $env:GITHUB_OUTPUT
+
+      - name: Inject public pilot configuration
+        shell: pwsh
+        run: |
+          $path = 'src/AqiClock.App/appsettings.json'
+          $settings = Get-Content $path -Raw | ConvertFrom-Json
+          $settings.Supabase.Url = $env:CLOUD_SUPABASE_URL
+          $settings.Supabase.AnonKey = $env:CLOUD_SUPABASE_ANON_KEY
+          $settings.Updates.RepositoryUrl = $env:RELEASE_REPOSITORY
+          $settings | ConvertTo-Json -Depth 10 | Set-Content $path -Encoding utf8
+
+      - name: Publish self-contained Windows app
+        run: dotnet publish src/AqiClock.App/AqiClock.App.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/publish
+
+      - name: Install pinned Velopack CLI
+        run: dotnet tool install --tool-path artifacts/tools vpk --version 1.2.0
+
+      - name: Download previous release for delta generation
+        shell: pwsh
+        continue-on-error: true
+        run: artifacts/tools/vpk download github --repoUrl $env:RELEASE_REPOSITORY --token $env:RELEASES_TOKEN --channel stable --outputDir artifacts/releases
+
+      - name: Pack per-user installer
+        shell: pwsh
+        run: |
+          $arguments = @(
+            'pack', '--packId', 'AqiClock.App', '--packVersion', '${{ steps.version.outputs.value }}',
+            '--packDir', 'artifacts/publish', '--mainExe', 'AqiClock.App.exe', '--packTitle', 'AQI Clock',
+            '--packAuthors', 'AQI', '--channel', 'stable', '--runtime', 'win-x64', '--instLocation', 'PerUser',
+            '--shortcuts', 'StartMenuRoot', '--outputDir', 'artifacts/releases'
+          )
+          if (Test-Path 'assets/app.ico') { $arguments += @('--icon', 'assets/app.ico') }
+          & artifacts/tools/vpk @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqi-clock-${{ steps.version.outputs.value }}
+          path: artifacts/releases/*
+          if-no-files-found: error
+
+      - name: Publish public Velopack release
+        run: artifacts/tools/vpk upload github --repoUrl $env:RELEASE_REPOSITORY --token $env:RELEASES_TOKEN --channel stable --outputDir artifacts/releases --publish --releaseName "AQI Clock ${{ steps.version.outputs.value }}" --tag "${{ steps.version.outputs.tag }}"

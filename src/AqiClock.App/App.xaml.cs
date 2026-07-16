@@ -15,6 +15,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
+using Velopack;
+using AqiClock.Application.Configuration;
 
 namespace AqiClock.App;
 
@@ -28,6 +30,15 @@ public partial class App : System.Windows.Application, IDisposable
     private CancellationTokenSource? _lifetime;
     private bool _disposed;
     private bool _startMinimized;
+
+    [STAThread]
+    private static void Main(string[] args)
+    {
+        VelopackApp.Build().Run();
+        var app = new App();
+        app.InitializeComponent();
+        app.Run();
+    }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -57,8 +68,9 @@ public partial class App : System.Windows.Application, IDisposable
 #endif
         builder.Logging.ClearProviders(); builder.Logging.AddSerilog(Log.Logger, true);
         builder.Services.AddAqiClockInfrastructure(builder.Configuration);
+        builder.Services.AddOptions<AqiClockUpdateOptions>().Bind(builder.Configuration.GetSection(AqiClockUpdateOptions.SectionName));
         builder.Services.AddSingleton<ISettingsService, SettingsService>(); builder.Services.AddSingleton<IClockService, ClockService>(); builder.Services.AddSingleton<IWindowService, WindowService>(); builder.Services.AddSingleton<ThemeService>();
-        builder.Services.AddSingleton<INotificationPresenter, ToastPresenter>(); builder.Services.AddSingleton<INotificationScheduler, NotificationScheduler>(); builder.Services.AddSingleton<TrayService>(); builder.Services.AddSingleton<StartupService>();
+        builder.Services.AddSingleton<INotificationPresenter, ToastPresenter>(); builder.Services.AddSingleton<INotificationScheduler, NotificationScheduler>(); builder.Services.AddSingleton<TrayService>(); builder.Services.AddSingleton<StartupService>(); builder.Services.AddSingleton<IUpdateService, UpdateService>();
         builder.Services.AddSingleton<ClockViewModel>(); builder.Services.AddSingleton<AnnouncementsViewModel>(); builder.Services.AddSingleton<MainViewModel>(); builder.Services.AddTransient<SignInViewModel>(); builder.Services.AddTransient<SettingsViewModel>();
         builder.Services.AddSingleton<TimetableEditorViewModel>(); builder.Services.AddSingleton<WeekScheduleViewModel>(); builder.Services.AddSingleton<OverridesViewModel>(); builder.Services.AddSingleton<AnnouncementComposeViewModel>(); builder.Services.AddSingleton<AuditViewModel>(); builder.Services.AddSingleton<UsersViewModel>(); builder.Services.AddSingleton<AdminViewModel>();
         builder.Services.AddSingleton<MainWindow>(); builder.Services.AddTransient<SignInWindow>(); builder.Services.AddTransient<SettingsWindow>(); builder.Services.AddTransient<AdminWindow>();
@@ -73,6 +85,7 @@ public partial class App : System.Windows.Application, IDisposable
         ISessionService session = services.GetRequiredService<ISessionService>(); session.RestoreAsync().GetAwaiter().GetResult();
         if (session.Current.UserId is not null) services.GetRequiredService<MainViewModel>().InitializeAsync().GetAwaiter().GetResult();
         services.GetRequiredService<StartupService>().Start();
+        services.GetRequiredService<IUpdateService>().Start();
         services.GetRequiredService<TrayService>().Start();
         services.GetRequiredService<INotificationScheduler>().StartAsync().GetAwaiter().GetResult();
         services.GetRequiredService<IClockService>().Start();
@@ -104,6 +117,7 @@ public partial class App : System.Windows.Application, IDisposable
     protected override void OnExit(ExitEventArgs e)
     {
         _lifetime?.Cancel(); _activationEvent?.Set(); _host?.Services.GetService<IClockService>()?.StopClock();
+        _host?.Services.GetService<IUpdateService>()?.PrepareUpdateOnExit();
         if (_host is not null) { _host.StopAsync().GetAwaiter().GetResult(); _host.Dispose(); }
         _activationEvent?.Dispose(); _lifetime?.Dispose(); _mutex?.ReleaseMutex(); _mutex?.Dispose(); Log.CloseAndFlush(); _disposed = true; base.OnExit(e);
     }

@@ -29,6 +29,10 @@ The foundation is intentionally minimal. Supabase, Realtime, SQLite, notificatio
 **Accepted** 2026-07-16.
 `AqiClock.App` and its UI test project target `net8.0-windows10.0.17763.0`. This selects the desktop compatibility surface in `Microsoft.Toolkit.Uwp.Notifications` instead of its platform-neutral build, which does not expose unpackaged toast activation. Windows 10 1809 is within the product's Windows 10/11 scope; the Domain, Application, Infrastructure, and non-UI tests remain platform-neutral `net8.0`.
 
+## ADR-017: Public releases-only repository with release-scoped CI credential
+**Accepted** 2026-07-16.
+Velopack assets are hosted in the public `MoFawkes/aqi-clock-releases` repository so installed clients can update anonymously while the source repository remains private. GitHub's built-in `GITHUB_TOKEN` is scoped to the source repository and cannot publish cross-repository; therefore the release workflow requires a fine-grained `RELEASES_TOKEN` Actions secret with contents-write access to that repository only. The credential exists solely in CI and never enters source, artifacts, configuration, or the client. Rejected: embedding a token in the client, making `mad-sys` public, or silently claiming cross-repository publication works without credentials.
+
 ---
 
 ## ADR-002: Stay on .NET 8 for MVP; CommunityToolkit.Mvvm + Generic Host

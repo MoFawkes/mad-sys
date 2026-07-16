@@ -2,6 +2,11 @@ name: CI
 
 on:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        required: false
+        type: string
   push:
     branches: [main]
   pull_request:
@@ -17,6 +22,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.checkout_ref || github.ref }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
@@ -38,6 +46,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.checkout_ref || github.ref }}
 
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1

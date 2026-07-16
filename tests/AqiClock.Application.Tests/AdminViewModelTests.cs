@@ -146,6 +146,49 @@ public sealed class AdminViewModelTests
         Assert.Contains("role changed", admin.Banner, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task TimetableDeleteCancelDoesNotWrite()
+    {
+        var messenger = new WeakReferenceMessenger();
+        var timetable = new Timetable(Guid.NewGuid(), "Disposable", false, []);
+        var gateway = new Gateway();
+        var windows = new Windows(confirmResult: false);
+        var vm = new TimetableEditorViewModel(gateway, new Sync(), new Timetables(timetable), new Week(), new Overrides(), windows, messenger);
+        await vm.LoadAsync();
+
+        await vm.DeleteCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, gateway.DeleteCalls);
+    }
+
+    [Fact]
+    public async Task OverrideDeleteCancelDoesNotWrite()
+    {
+        DateOverride value = new(Guid.NewGuid(), DateOnly.FromDateTime(DateTime.Today), null, "test");
+        var gateway = new Gateway();
+        var vm = new OverridesViewModel(new Overrides(value), new Timetables(), gateway, new Sync(), new Windows(confirmResult: false));
+        await vm.LoadAsync();
+
+        await vm.DeleteCommand.ExecuteAsync(vm.Items[0]);
+
+        Assert.Equal(0, gateway.DeleteCalls);
+    }
+
+    [Fact]
+    public async Task UserRoleOrActivationCancelDoesNotWrite()
+    {
+        var gateway = new Gateway();
+        var users = new UsersViewModel(new Profiles(new Profile(Guid.NewGuid(), "Admin", UserRole.Admin, true)), gateway, new Sync(), new Session(), new Windows(confirmResult: false));
+        await users.LoadAsync();
+        UserEditorItem item = Assert.Single(users.Items);
+        item.Role = UserRole.Staff;
+        item.IsActive = false;
+
+        await users.SaveCommand.ExecuteAsync(item);
+
+        Assert.Equal(0, gateway.ProfileUpdateCalls);
+    }
+
     private static TimetableEditorViewModel Editor(IMessenger messenger, params Timetable[] rows) => new(new Gateway(), new Sync(), new Timetables(rows), new Week(), new Overrides(), new Windows(), messenger);
     private sealed class Timetables(params Timetable[] rows) : ITimetableRepository { public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Timetable>>(rows); }
     private sealed class Week : IWeekScheduleRepository { public Task<WeekSchedule> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(WeekSchedule.Empty); }
@@ -155,11 +198,13 @@ public sealed class AdminViewModelTests
     private sealed class Session(Guid? id = null) : ISessionService { public SessionState Current { get; } = new(id ?? Guid.NewGuid(), "admin@example.test", UserRole.Admin, true, false); public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; }
     private sealed class Sync : ISyncService { public ConnectivityState State { get; set; } = ConnectivityState.Online; public DateTimeOffset? LastSyncedAt => DateTimeOffset.UtcNow; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.CompletedTask; public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
     private sealed class EchoSync(IMessenger messenger) : ISyncService { public ConnectivityState State => ConnectivityState.Online; public DateTimeOffset? LastSyncedAt => DateTimeOffset.UtcNow; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) { messenger.Send(new DataChanged(table)); return Task.CompletedTask; } public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
-    private sealed class Windows : IWindowService { public bool AdminClosed { get; private set; } public string? CloseReason { get; private set; } public void ShowMainWindow() { } public void ShowSignInWindow() { } public void ShowSettingsWindow() { } public void ShowAdminWindow() { } public void CloseAdminWindow(string? reason = null) { AdminClosed = true; CloseReason = reason; } public bool Confirm(string message, string title) => true; public void ShowAnnouncements() { } public void HideMainWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } public void ExitApplication() { } }
+    private sealed class Windows(bool confirmResult = true) : IWindowService { public bool AdminClosed { get; private set; } public string? CloseReason { get; private set; } public void ShowMainWindow() { } public void ShowSignInWindow() { } public void ShowSettingsWindow() { } public void ShowAdminWindow() { } public void CloseAdminWindow(string? reason = null) { AdminClosed = true; CloseReason = reason; } public bool Confirm(string message, string title) => confirmResult; public void ShowAnnouncements() { } public void HideMainWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } public void ExitApplication() { } }
     private sealed class Gateway : ISupabaseGateway
     {
         public Exception? ProfileFailure { get; init; }
-        public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(Guid.NewGuid()); public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default) => ProfileFailure is null ? Task.CompletedTask : Task.FromException(ProfileFailure); public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AuditEntry>>([]); public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public int DeleteCalls { get; private set; }
+        public int ProfileUpdateCalls { get; private set; }
+        public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(Guid.NewGuid()); public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) { DeleteCalls++; return Task.CompletedTask; } public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default) { ProfileUpdateCalls++; return ProfileFailure is null ? Task.CompletedTask : Task.FromException(ProfileFailure); } public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AuditEntry>>([]); public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class CaptureListener(List<string> errors) : TraceListener

@@ -2,7 +2,7 @@
 
 AQI Clock is a Windows desktop application (WPF, .NET 8) that shows staff the current time, the current lesson, time remaining, and the next lesson, driven by a centrally managed timetable. Administrators edit timetables and post announcements in Supabase-backed storage; every staff machine updates in near-real-time, works offline from a local SQLite cache, and raises native Windows notifications at lesson boundaries.
 
-**Status:** Phases 1–6 are complete and CI-green. Phase 7 admin editing is implemented and awaiting CI plus visual acceptance before Phase 8 packaging begins. See [`TASKS.md`](TASKS.md) for the phased plan and [`docs/MANUAL-TESTS.md`](docs/MANUAL-TESTS.md) for Windows integration acceptance.
+**Status:** Phases 1–7 are complete and acceptance-green. Phase 8 packaging and release engineering is implemented locally; pilot publication remains blocked on the cloud Supabase project, public release repository credentials, and branding asset. See [`TASKS.md`](TASKS.md) for the phased plan and [`docs/MANUAL-TESTS.md`](docs/MANUAL-TESTS.md) for Windows integration acceptance.
 
 ## Key capabilities (planned MVP)
 
@@ -81,3 +81,32 @@ Without these overrides, the checked-in placeholder configuration intentionally 
 ## Configuration
 
 Copy `.env.example` values into your preferred local environment-variable mechanism. The application reads variables prefixed with `AQICLOCK_`; use a double underscore for nested configuration keys. Only the Supabase project URL and **anon** key belong in client configuration — never commit credentials, and never place the service-role key anywhere in this repository or the app (see `docs/SECURITY.md`).
+
+## Pilot installation and updates
+
+Pilot installers are published as unsigned Velopack assets in the public `MoFawkes/aqi-clock-releases` repository. Download `AqiClock.App-stable-Setup.exe`, run it as the staff user, and expect Windows SmartScreen to warn until code signing is added before wide rollout. Installation is per-user and creates a Start-menu shortcut without elevation.
+
+The installed app checks that public repository at startup and every six hours. It downloads updates silently and applies a prepared update after the app next exits; the following launch uses the new version. Settings → About shows the current tag-derived version and update state. `%LOCALAPPDATA%\AqiClock` remains outside Velopack's versioned application directory, so cache, session, settings, and logs survive updates.
+
+## Cloud project bootstrap (owner)
+
+The pilot build must not be tagged until these steps are complete:
+
+1. Run `npx supabase login`, create the Free-tier project, then `npx supabase link --project-ref <ref>`.
+2. Run `npx supabase db push` to apply the frozen migrations.
+3. In the dashboard SQL editor, insert the production organisation row (do not run the local fixture seed wholesale).
+4. Disable public signups, invite the first administrator under Authentication, then set the generated profile's role to `admin` in the SQL editor.
+5. Add the public project URL and anon key as repository variables `CLOUD_SUPABASE_URL` and `CLOUD_SUPABASE_ANON_KEY`. Never provide a service-role key.
+
+The release workflow also requires a fine-grained Actions secret named `RELEASES_TOKEN`, limited to contents-write access on `MoFawkes/aqi-clock-releases`. GitHub's source-repository token cannot publish into a different repository. This CI credential is never bundled into the client.
+
+## Creating a release
+
+Release versions come from `v`-prefixed SemVer tags through MinVer. The tag workflow reruns both release-blocking CI jobs, injects the public cloud configuration, publishes a self-contained `win-x64` build, creates full/delta Velopack packages, and uploads them to the public assets repository.
+
+```powershell
+git tag v0.9.0
+git push origin v0.9.0
+```
+
+Development builds keep updates disabled unless `AQICLOCK_Updates__RepositoryUrl` is explicitly set.

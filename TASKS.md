@@ -97,13 +97,13 @@ Ordered by implementation dependency: each phase builds only on the phases above
 
 ## Phase 8 — Packaging, CI/CD, rollout (depends on everything above)
 
-- [ ] GitHub Actions CI: build + unit tests (windows-latest), Supabase RLS integration tests (ubuntu-latest, release-blocking).
-- [ ] Velopack packaging: per-user installer, Start-menu shortcut, app icon (B-8).
-- [ ] Auto-update: startup + 6 h check, apply-on-restart, About-screen status (J9).
-- [ ] Release pipeline to GitHub Releases (B-7).
+- [x] GitHub Actions CI: build + unit tests (windows-latest), Supabase RLS integration tests (ubuntu-latest, release-blocking); reusable from tagged releases.
+- [ ] Velopack packaging: per-user installer and Start-menu shortcut verified locally; branded app icon remains blocked on owner-supplied `assets/logo.png` (B-8).
+- [x] Auto-update: startup + 6 h check, apply-on-restart, About-screen status (J9); development builds disable it when no channel is configured.
+- [ ] Release pipeline to public GitHub Releases (B-7) implemented; first publish is blocked on cloud URL/anon variables, `RELEASES_TOKEN`, GitHub reauthentication, and creation of `MoFawkes/aqi-clock-releases`.
 - [ ] Run full manual test checklist on Win10 + Win11, incl. sleep/resume, offline day, DST-date simulation.
 - [ ] Pilot install on 3–5 staff machines; collect logs/feedback.
-- [ ] Confirm business inputs B-1 … B-8 with owner.
+- [ ] Confirm business inputs B-1 … B-8 with owner (defaults accepted; B-8 asset still outstanding).
 - [ ] **Pre-wide-rollout gate:** code-signing certificate acquired and signing wired into the pipeline (ADR-010); Supabase tier reviewed for Realtime connection limits (B-6); .NET upgrade to current LTS scheduled (.NET 8 EOL Nov 2026, ADR-002).
 
 ## Post-MVP backlog (unordered — see SPECIFICATION.md §4)

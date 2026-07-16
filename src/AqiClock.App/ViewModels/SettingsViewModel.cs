@@ -4,16 +4,19 @@ using AqiClock.Application.Abstractions;
 using AqiClock.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using AqiClock.App.Services;
 
 namespace AqiClock.App.ViewModels;
 
-public partial class SettingsViewModel : ObservableObject
+public partial class SettingsViewModel : ObservableObject, IDisposable
 {
     private readonly ISettingsService _settings;
     private readonly ISessionService _session;
     private readonly ISyncService _sync;
     private readonly IWindowService _windows;
     private readonly INotificationPresenter _notifications;
+    private readonly IUpdateService _updates;
+    private bool _disposed;
     [ObservableProperty] private bool _startWithWindows;
     [ObservableProperty] private bool _startMinimized;
     [ObservableProperty] private bool _closeToTray;
@@ -24,14 +27,15 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _endWarningNotifications;
     [ObservableProperty] private int _endWarningMinutes;
     [ObservableProperty] private bool _announcementNotifications;
+    [ObservableProperty] private string _updateStatus = string.Empty;
     public string Email => _session.Current.Email ?? "Signed out";
     public string Role => _session.Current.Role == UserRole.Admin ? "Admin" : "Staff";
     public bool CanSync => _sync.State == Application.Sync.ConnectivityState.Online;
     public IReadOnlyList<AppTheme> Themes { get; } = Enum.GetValues<AppTheme>();
-    public string Version { get { _ = _settings.Current; return typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3) ?? "Development"; } }
+    public string Version { get { _ = _updates.Current; return AppVersion.Current; } }
 
-    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications)
-    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; Copy(settings.Current); }
+    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications, IUpdateService updates)
+    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; _updates = updates; UpdateStatus = updates.Current.DisplayText; updates.StateChanged += OnUpdateStateChanged; Copy(settings.Current); }
 
     [RelayCommand]
     private Task SaveAsync(CancellationToken token) => _settings.SaveAsync(new AppSettings
@@ -49,4 +53,18 @@ public partial class SettingsViewModel : ObservableObject
 
     private void Copy(AppSettings value)
     { StartWithWindows = value.StartWithWindows; StartMinimized = value.StartMinimized; CloseToTray = value.CloseToTray; Theme = value.Theme; AlwaysOnTop = value.AlwaysOnTop; CompactOnLaunch = value.CompactOnLaunch; LessonStartNotifications = value.LessonStartNotifications; EndWarningNotifications = value.EndWarningNotifications; EndWarningMinutes = value.EndWarningMinutes; AnnouncementNotifications = value.AnnouncementNotifications; }
+
+    private void OnUpdateStateChanged(object? sender, UpdateState state)
+    {
+        if (System.Windows.Application.Current.Dispatcher.CheckAccess()) UpdateStatus = state.DisplayText;
+        else _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() => UpdateStatus = state.DisplayText);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _updates.StateChanged -= OnUpdateStateChanged;
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
 }

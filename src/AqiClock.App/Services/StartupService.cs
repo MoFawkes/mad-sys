@@ -1,5 +1,6 @@
 using AqiClock.Application.Abstractions;
 using Microsoft.Win32;
+using Velopack.Locators;
 
 namespace AqiClock.App.Services;
 
@@ -19,7 +20,10 @@ public sealed class StartupService(ISettingsService settings) : IDisposable
     {
         using RegistryKey key = Registry.CurrentUser.CreateSubKey(RunKey, true);
         if (!enabled) { key.DeleteValue(ValueName, false); return; }
-        string executable = Environment.ProcessPath ?? throw new InvalidOperationException("The application executable path is unavailable.");
+        string processPath = Environment.ProcessPath ?? throw new InvalidOperationException("The application executable path is unavailable.");
+        string? root = VelopackLocator.IsCurrentSet ? VelopackLocator.Current.RootAppDir : null;
+        string? relativeExecutable = VelopackLocator.IsCurrentSet ? VelopackLocator.Current.ThisExeRelativePath : null;
+        string executable = StartupPathResolver.Resolve(processPath, root, relativeExecutable);
         key.SetValue(ValueName, $"\"{executable}\" --minimized", RegistryValueKind.String);
     }
 
