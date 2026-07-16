@@ -2,7 +2,7 @@
 
 AQI Clock is a Windows desktop application (WPF, .NET 8) that shows staff the current time, the current lesson, time remaining, and the next lesson, driven by a centrally managed timetable. Administrators edit timetables and post announcements in Supabase-backed storage; every staff machine updates in near-real-time, works offline from a local SQLite cache, and raises native Windows notifications at lesson boundaries.
 
-**Status:** Phase 1 (solution foundation) and Phase 2 (pure schedule engine + tests) complete. Next up: Phase 3, the Supabase schema and RLS. See [`TASKS.md`](TASKS.md) for the phased plan.
+**Status:** Phases 1–3 are complete. Phase 4 client infrastructure (SQLite cache, Supabase gateway, DPAPI sessions, and sync orchestration) is implemented and awaiting its final CI gate. See [`TASKS.md`](TASKS.md) for the phased plan.
 
 ## Key capabilities (planned MVP)
 
@@ -32,7 +32,7 @@ AQI Clock is a Windows desktop application (WPF, .NET 8) that shows staff the cu
 src/
   AqiClock.Domain/          Entities and the pure schedule engine
   AqiClock.Application/     Interfaces, options, use-case services
-  AqiClock.Infrastructure/  (Phase 4) SQLite cache, Supabase client, sync
+  AqiClock.Infrastructure/  SQLite cache, Supabase client, DPAPI sessions, sync
   AqiClock.App/             WPF application
 tests/                      Domain, Application, and integration test projects
 docs/                       Planning and architecture documentation
@@ -53,16 +53,20 @@ dotnet test AqiClock.sln --no-build
 
 ## Supabase integration tests
 
-The RLS and behavioural tests require Docker Desktop and a running local Supabase stack. They skip automatically when `SUPABASE_URL` is absent.
+The RLS, behavioural, and gateway smoke tests require Docker Desktop and a running local Supabase stack. They skip automatically when `SUPABASE_URL` is absent.
 
 ```powershell
 npx supabase start
 npx supabase db reset --local --yes
-npx supabase status -o env
-dotnet test tests/AqiClock.SupabaseTests/AqiClock.SupabaseTests.csproj
+$status = npx supabase status -o json | ConvertFrom-Json
+$env:SUPABASE_URL = $status.API_URL
+$env:SUPABASE_ANON_KEY = $status.ANON_KEY
+$env:SUPABASE_SERVICE_ROLE_KEY = $status.SERVICE_ROLE_KEY
+$env:SUPABASE_DB_URL = $status.DB_URL
+dotnet test tests/AqiClock.SupabaseTests/AqiClock.SupabaseTests.csproj --configuration Release
 ```
 
-Map local `API_URL`, `ANON_KEY`, `SERVICE_ROLE_KEY`, and `DB_URL` values to `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_DB_URL` in the current shell. These are disposable local-stack credentials only; never store a cloud service-role key in source or CI configuration.
+These are disposable local-stack credentials scoped to the current shell; never store a cloud service-role key in source or CI configuration.
 
 ## Configuration
 

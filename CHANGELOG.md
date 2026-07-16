@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added (Phase 4 — client infrastructure)
+
+- Application-layer cache, repository, Supabase, session, sync, and local-state contracts plus messenger events and pure debounce/backoff policies.
+- Disposable WAL-mode SQLite cache with embedded ordered migrations, integrity/migration recovery, atomic per-table snapshot replacement, typed repositories, notification dedup pruning, and announcement read state.
+- DPAPI CurrentUser session persistence and shared-machine sign-out cleanup.
+- Pinned Supabase C# gateway for password auth, token refresh, sign-out, all-table snapshot pulls, admin writes, Realtime change signals, and one-time clock-skew warnings.
+- Session and sync orchestration with offline cache-display behavior, organisation-change wipes, 500 ms Realtime debounce, 30-second heartbeat, five-minute capped backoff, and immediate network-change retry.
+- Unit, SQLite, DPAPI, and live gateway smoke coverage; the local Supabase suite now contains 174 passing tests and is repeatable without a database reset.
+- Updated the SQLite provider to the current .NET 8 servicing release after dependency audit identified a vulnerable older native SQLite bundle.
+
 ### Added (Phase 3 — server contract)
 
 - Pinned Supabase CLI project tooling and local-stack configuration with invite-only authentication defaults.

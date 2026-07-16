@@ -8,4 +8,6 @@ public sealed class AqiClockOptions
 
     [Range(1, 1440)]
     public int CacheFreshnessMinutes { get; init; } = 60;
+
+    public string? DataDirectory { get; init; }
 }

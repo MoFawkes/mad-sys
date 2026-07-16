@@ -79,6 +79,10 @@ Syncing read receipts and preferences adds tables, policies, and sync paths for 
 **Accepted** 2026-07-15.
 Soft deletes complicate every query and the cache. Instead: deleting a timetable referenced by the week schedule or an override is blocked (RESTRICT), forcing explicit reassignment; `is_archived` covers "hide but keep"; the audit log preserves deleted rows' content for history.
 
+## ADR-015: Permit plaintext Supabase transport only for loopback development
+**Accepted** 2026-07-16.
+Production Supabase endpoints must use HTTPS/WSS as required by SECURITY.md §5. The gateway permits `http://` only when `Uri.IsLoopback` is true so the official `supabase start` stack at `127.0.0.1` can support integration tests. Non-loopback plaintext endpoints fail during gateway construction. This is a narrow development exception, not a relaxation of production transport security.
+
 ---
 
 ## Open items awaiting owner input (not architectural blockers)

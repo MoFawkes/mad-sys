@@ -1,0 +1,226 @@
+using System.Globalization;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using AqiClock.Application.Abstractions;
+using AqiClock.Application.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Supabase.Postgrest.Attributes;
+using Supabase.Postgrest.Models;
+using Supabase.Realtime;
+using Supabase.Realtime.PostgresChanges;
+
+namespace AqiClock.Infrastructure.Supabase;
+
+public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
+{
+    private static readonly Action<ILogger, double, Exception?> LogClockSkew = LoggerMessage.Define<double>(LogLevel.Warning, new EventId(4101, nameof(LogClockSkew)), "System clock differs from Supabase by {ClockSkewMinutes:F1} minutes; authentication may fail");
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    private readonly global::Supabase.Client _client;
+    private readonly HttpClient _httpClient;
+    private readonly ILogger<SupabaseGateway> _logger;
+    private string? _accessToken;
+    private int _clockChecked;
+
+    public SupabaseGateway(IOptions<SupabaseOptions> options, ILogger<SupabaseGateway> logger)
+    {
+        SupabaseOptions value = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        var uri = new Uri(value.Url, UriKind.Absolute);
+        if (uri.Scheme != Uri.UriSchemeHttps && !(uri.IsLoopback && uri.Scheme == Uri.UriSchemeHttp))
+        {
+            throw new InvalidOperationException("Supabase must use HTTPS; plain HTTP is allowed only for a loopback local stack.");
+        }
+
+        _client = new global::Supabase.Client(value.Url, value.AnonKey, new global::Supabase.SupabaseOptions { AutoConnectRealtime = false, AutoRefreshToken = false });
+        _httpClient = new HttpClient { BaseAddress = uri, Timeout = TimeSpan.FromSeconds(30) };
+        _httpClient.DefaultRequestHeaders.Add("apikey", value.AnonKey);
+    }
+
+    public async Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await _httpClient.PostAsJsonAsync("auth/v1/token?grant_type=password", new { email, password }, JsonOptions, cancellationToken).ConfigureAwait(false);
+        AuthResponse auth = await ReadAuthResponseAsync(response, cancellationToken).ConfigureAwait(false);
+        await SetClientSessionAsync(auth).ConfigureAwait(false);
+        return MapSession(auth);
+    }
+
+    public async Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await _httpClient.PostAsJsonAsync("auth/v1/token?grant_type=refresh_token", new { refresh_token = session.RefreshToken }, JsonOptions, cancellationToken).ConfigureAwait(false);
+        AuthResponse auth = await ReadAuthResponseAsync(response, cancellationToken).ConfigureAwait(false);
+        await SetClientSessionAsync(auth).ConfigureAwait(false);
+        return MapSession(auth);
+    }
+
+    public async Task SignOutAsync(CancellationToken cancellationToken = default)
+    {
+        if (_accessToken is null) return;
+        using var request = CreateRequest(HttpMethod.Post, "auth/v1/logout");
+        using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        _accessToken = null;
+    }
+
+    public async Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default)
+    {
+        using JsonDocument document = await GetJsonAsync("rest/v1/profiles?select=org_id&id=eq." + GetCurrentUserId(), cancellationToken).ConfigureAwait(false);
+        JsonElement rows = document.RootElement;
+        if (rows.GetArrayLength() != 1) throw new InvalidOperationException("The signed-in profile is unavailable or inactive.");
+        return rows[0].GetProperty("org_id").GetGuid();
+    }
+
+    public async Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default)
+    {
+        string tableName = TableName(table);
+        using JsonDocument document = await GetJsonAsync($"rest/v1/{tableName}?select=*", cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<object> rows = table switch
+        {
+            CacheTable.Organizations => DeserializeRows<OrganizationRow>(document),
+            CacheTable.Profiles => DeserializeRows<ProfileRow>(document),
+            CacheTable.Timetables => DeserializeRows<TimetableRow>(document),
+            CacheTable.Periods => DeserializeRows<PeriodRow>(document),
+            CacheTable.WeekSchedule => DeserializeRows<WeekScheduleRow>(document),
+            CacheTable.DateOverrides => DeserializeRows<DateOverrideRow>(document),
+            CacheTable.Announcements => DeserializeRows<AnnouncementRow>(document),
+            _ => throw new ArgumentOutOfRangeException(nameof(table)),
+        };
+        return new CacheSnapshot(table, rows, DateTimeOffset.UtcNow);
+    }
+
+    public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) => SendWriteAsync(HttpMethod.Post, table, null, row, cancellationToken);
+
+    public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) => SendWriteAsync(HttpMethod.Patch, table, id, row, cancellationToken);
+
+    public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) => SendWriteAsync(HttpMethod.Delete, table, id, null, cancellationToken);
+
+    public async Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(onChange);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_accessToken is null) throw new InvalidOperationException("A session is required before subscribing to Realtime.");
+        _client.Realtime.SetAuth(_accessToken);
+        await _client.Realtime.ConnectAsync().ConfigureAwait(false);
+
+        var subscriptions = new List<RealtimeChannel>
+        {
+            await SubscribeTableAsync<RealtimeTimetable>(CacheTable.Timetables, onChange).ConfigureAwait(false),
+            await SubscribeTableAsync<RealtimePeriod>(CacheTable.Periods, onChange).ConfigureAwait(false),
+            await SubscribeTableAsync<RealtimeWeekSchedule>(CacheTable.WeekSchedule, onChange).ConfigureAwait(false),
+            await SubscribeTableAsync<RealtimeDateOverride>(CacheTable.DateOverrides, onChange).ConfigureAwait(false),
+            await SubscribeTableAsync<RealtimeAnnouncement>(CacheTable.Announcements, onChange).ConfigureAwait(false),
+            await SubscribeTableAsync<RealtimeProfile>(CacheTable.Profiles, onChange).ConfigureAwait(false),
+        };
+        return new RealtimeSubscription(subscriptions);
+    }
+
+    public void Dispose() => _httpClient.Dispose();
+
+    private async Task<RealtimeChannel> SubscribeTableAsync<T>(CacheTable table, Func<TableChangeSignal, CancellationToken, Task> onChange) where T : BaseModel, new()
+    {
+        return await _client.From<T>().On(PostgresChangesOptions.ListenType.All, (_, _) => _ = onChange(new TableChangeSignal(table), CancellationToken.None)).ConfigureAwait(false);
+    }
+
+    private async Task SendWriteAsync(HttpMethod method, CacheTable table, Guid? id, object? row, CancellationToken cancellationToken)
+    {
+        EnsureEditable(table);
+        string path = $"rest/v1/{TableName(table)}" + (id is null ? string.Empty : $"?id=eq.{id}");
+        using HttpRequestMessage request = CreateRequest(method, path);
+        request.Headers.Add("Prefer", "return=minimal");
+        if (row is not null) request.Content = JsonContent.Create(row, row.GetType(), options: JsonOptions);
+        using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        CheckClockSkew(response);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private async Task<JsonDocument> GetJsonAsync(string path, CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = CreateRequest(HttpMethod.Get, path);
+        using HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+        CheckClockSkew(response);
+        response.EnsureSuccessStatusCode();
+        await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    private HttpRequestMessage CreateRequest(HttpMethod method, string path)
+    {
+        var request = new HttpRequestMessage(method, path);
+        if (_accessToken is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+        return request;
+    }
+
+    private async Task<AuthResponse> ReadAuthResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        CheckClockSkew(response);
+        response.EnsureSuccessStatusCode();
+        AuthResponse? auth = await response.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions, cancellationToken).ConfigureAwait(false);
+        return auth ?? throw new InvalidOperationException("Supabase returned an empty authentication response.");
+    }
+
+    private async Task SetClientSessionAsync(AuthResponse response)
+    {
+        _accessToken = response.AccessToken;
+        await _client.Auth.SetSession(response.AccessToken, response.RefreshToken, false).ConfigureAwait(false);
+    }
+
+    private static AuthenticatedSession MapSession(AuthResponse response) => new(response.User.Id, response.User.Email, response.AccessToken, response.RefreshToken, DateTimeOffset.UtcNow.AddSeconds(response.ExpiresIn));
+
+    private Guid GetCurrentUserId()
+    {
+        string token = _accessToken ?? throw new InvalidOperationException("A session is required.");
+        string[] segments = token.Split('.');
+        if (segments.Length != 3) throw new InvalidOperationException("The access token is malformed.");
+        string payload = segments[1].Replace('-', '+').Replace('_', '/').PadRight((segments[1].Length + 3) / 4 * 4, '=');
+        using JsonDocument document = JsonDocument.Parse(Convert.FromBase64String(payload));
+        return Guid.Parse(document.RootElement.GetProperty("sub").GetString()!);
+    }
+
+    private void CheckClockSkew(HttpResponseMessage response)
+    {
+        if (Interlocked.Exchange(ref _clockChecked, 1) != 0 || response.Headers.Date is not { } serverTime) return;
+        TimeSpan skew = (DateTimeOffset.UtcNow - serverTime).Duration();
+        if (skew > TimeSpan.FromMinutes(3)) LogClockSkew(_logger, skew.TotalMinutes, null);
+    }
+
+    private static object[] DeserializeRows<T>(JsonDocument document) where T : notnull =>
+        document.RootElement.EnumerateArray().Select(element => (object)(element.Deserialize<T>(JsonOptions) ?? throw new InvalidOperationException($"Invalid {typeof(T).Name} response."))).ToArray();
+
+    private static void EnsureEditable(CacheTable table)
+    {
+        if (table is not (CacheTable.Timetables or CacheTable.Periods or CacheTable.WeekSchedule or CacheTable.DateOverrides or CacheTable.Announcements))
+            throw new InvalidOperationException($"{table} is not editable through the client gateway.");
+    }
+
+    private static string TableName(CacheTable table) => table switch
+    {
+        CacheTable.Organizations => "organizations", CacheTable.Profiles => "profiles", CacheTable.Timetables => "timetables", CacheTable.Periods => "periods", CacheTable.WeekSchedule => "week_schedule", CacheTable.DateOverrides => "date_overrides", CacheTable.Announcements => "announcements", _ => throw new ArgumentOutOfRangeException(nameof(table)),
+    };
+
+    private sealed record AuthResponse([property: JsonPropertyName("access_token")] string AccessToken, [property: JsonPropertyName("refresh_token")] string RefreshToken, [property: JsonPropertyName("expires_in")] int ExpiresIn, AuthUser User);
+    private sealed record AuthUser(Guid Id, string Email);
+
+    private sealed class RealtimeSubscription(IReadOnlyList<RealtimeChannel> channels) : IRealtimeSubscription
+    {
+        public async ValueTask DisposeAsync()
+        {
+            foreach (RealtimeChannel channel in channels) channel.Unsubscribe();
+            await Task.CompletedTask.ConfigureAwait(false);
+        }
+    }
+
+    [Table("timetables")] private sealed class RealtimeTimetable : BaseModel;
+    [Table("periods")] private sealed class RealtimePeriod : BaseModel;
+    [Table("week_schedule")] private sealed class RealtimeWeekSchedule : BaseModel;
+    [Table("date_overrides")] private sealed class RealtimeDateOverride : BaseModel;
+    [Table("announcements")] private sealed class RealtimeAnnouncement : BaseModel;
+    [Table("profiles")] private sealed class RealtimeProfile : BaseModel;
+}

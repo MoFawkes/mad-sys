@@ -211,6 +211,12 @@ public sealed class SupabaseFixture : IAsyncLifetime, IDisposable
     private async Task DeletePersonaUsersAsync()
     {
         string[] emails = [Email("admin1"), Email("admin2"), Email("staff1"), Email("deact1"), Email("crossorg1")];
+        await SqlAsync("delete from public.periods where name like 'Matrix period %' or name like 'Disposable %'");
+        await SqlAsync("delete from public.date_overrides where note like 'Matrix override %' or note = 'disposable'");
+        await SqlAsync("delete from public.timetables where name like 'Matrix timetable %' or name like 'Disposable %' or name like 'Gateway %'");
+        await SqlAsync(
+            "delete from public.announcements where created_by in (select id from auth.users where email = any($1))",
+            (object)emails);
         foreach (string email in emails)
         {
             Guid? userId = await SqlScalarAsync<Guid?>(

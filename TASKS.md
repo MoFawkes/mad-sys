@@ -46,13 +46,15 @@ Ordered by implementation dependency: each phase builds only on the phases above
 
 ## Phase 4 — Infrastructure: cache, auth, sync (depends on Phases 2–3)
 
-- [ ] SQLite cache per DATABASE.md §3: migration runner, mirror tables, `meta`/`sync_state`/`notification_log`/`announcement_read`, WAL mode, corruption recovery (delete + re-pull).
-- [ ] Repositories over SQLite implementing the Application interfaces.
-- [ ] Supabase client wrapper (`Supabase` NuGet): auth (sign-in, refresh, sign-out), table pulls, admin writes.
-- [ ] DPAPI-encrypted session persistence; wipe-on-sign-out (cache + session + local state).
-- [ ] `SyncService`: connectivity state machine, snapshot pull per table, Realtime subscription with 500 ms debounce, `Sync now`, clock-skew check (ARCHITECTURE.md §6, §8).
-- [ ] `SessionService` exposing auth state + role from cached profile.
-- [ ] SQLite tests: snapshot-replace transactionality, migrations, notification_log pruning, org-mismatch cache wipe.
+- [x] SQLite cache per DATABASE.md §3: migration runner, mirror tables, `meta`/`sync_state`/`notification_log`/`announcement_read`, WAL mode, corruption recovery (delete + re-pull).
+- [x] Repositories over SQLite implementing the Application interfaces.
+- [x] Supabase client wrapper (`Supabase` NuGet): auth (sign-in, refresh, sign-out), table pulls, admin writes, and Realtime table-change signals.
+- [x] DPAPI-encrypted session persistence; wipe-on-sign-out (cache + session + local state).
+- [x] `SyncService`: connectivity state machine, snapshot pull per table, Realtime subscription with 500 ms debounce, `Sync now`, heartbeat/backoff, network-change retry, and clock-skew check (ARCHITECTURE.md §6, §8).
+- [x] `SessionService` exposing auth state + role from cached profile and preserving cache-display mode when refresh expires.
+- [x] SQLite/application tests: snapshot-replace transactionality, migrations/corruption recovery, notification-log pruning, org-mismatch cache wipe, DPAPI, debounce, backoff, and session restore paths.
+
+**Engineering gate:** locally green on 2026-07-16 (0 build warnings; 69 non-Supabase tests; 174 live Supabase tests twice consecutively). Phase 5 remains blocked until the pushed CI run is green.
 
 ## Phase 5 — App: main UI (depends on Phase 4)
 
