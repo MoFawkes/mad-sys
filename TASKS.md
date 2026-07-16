@@ -79,7 +79,7 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] "Send test notification" in Settings.
 - [x] Unit tests for scheduler rules with fake clock; manual test checklist doc for toasts/tray/sleep-resume (`docs/MANUAL-TESTS.md`).
 
-**Engineering gate:** implementation complete; 0 build warnings, 91 non-Supabase tests and 175 live Supabase tests pass locally. Pending CI and Phase 6 visual/manual acceptance before Phase 7 begins.
+**Engineering gate:** implementation complete; 0 build warnings, 92 non-Supabase tests and 175 live Supabase tests pass locally. Pending CI and Phase 6 visual/manual acceptance before Phase 7 begins.
 
 ## Phase 7 — App: admin editing (depends on Phases 5–6; server already enforces roles)
 

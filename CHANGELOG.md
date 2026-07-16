@@ -11,11 +11,16 @@ All notable changes to this project will be documented in this file.
 - Signed-in-only tray residence with live schedule tooltip and the S11 Open, compact, pin, announcements, sync, Settings, sign-out, and Exit menu.
 - Idempotent per-user Windows startup registration with `--minimized`, plus tray-only restored-session startup.
 - ADR-011 manual Windows checklist covering tray lifecycle, toast activation, auto-start/reboot, sleep/resume grace, and DST-date checks.
-- Scheduler and SQLite notification-log regressions; the local suite now contains 91 non-Supabase tests and all 175 live Supabase tests remain green.
+- Scheduler, SQLite notification-log, and native tray-icon regressions; the local suite now contains 92 non-Supabase tests and all 175 live Supabase tests remain green.
 
 ### Changed (Phase 6 — platform contract)
 
 - Targeted the WPF app and UI tests at Windows 10 build 17763 or later so unpackaged native toast activation is available; recorded as ADR-016.
+
+### Fixed (Phase 6 — visual acceptance)
+
+- Configured H.NotifyIcon through its native `System.Drawing.Icon` property, avoiding the unsupported `InteropBitmap` conversion that left the tray icon blank and raised a global error dialog.
+- Documented Windows Do Not Disturb/Focus Assist routing successful notifications into Notification Center instead of showing banners.
 
 ### Added (Phase 5 — staff UI)
 

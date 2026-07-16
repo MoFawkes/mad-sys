@@ -2,8 +2,6 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Interop;
-using System.Windows.Media.Imaging;
 using AqiClock.App.ViewModels;
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Messages;
@@ -46,11 +44,17 @@ public sealed class TrayService : IRecipient<SessionChanged>, IDisposable
         _icon = new TaskbarIcon
         {
             ToolTipText = BuildTooltip(),
-            IconSource = Imaging.CreateBitmapSourceFromHIcon(SystemIcons.Information.Handle, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions()),
             ContextMenu = menu,
         };
+        ApplyNativeIcon(_icon);
         _icon.TrayMouseDoubleClick += (_, _) => _windows.ShowMainWindow();
         _icon.ForceCreate(false);
+    }
+
+    internal static void ApplyNativeIcon(TaskbarIcon icon)
+    {
+        ArgumentNullException.ThrowIfNull(icon);
+        icon.Icon = (Icon)SystemIcons.Information.Clone();
     }
 
     private void BuildMenu(ContextMenu menu)

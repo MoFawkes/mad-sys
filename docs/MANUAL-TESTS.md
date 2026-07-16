@@ -16,6 +16,7 @@ This checklist is the ADR-011 acceptance script for Windows surfaces that are no
 1. Configure `AQICLOCK_Supabase__Url` and `AQICLOCK_Supabase__AnonKey`; never use a service-role key in the client environment.
 2. Sign in, complete one sync, and verify the main clock is rendering cached timetable data.
 3. Permit AQI Clock notifications in Windows Settings. An unpackaged development build may have limited activation identity; repeat toast activation after the Phase 8 Velopack Start-menu shortcut is installed.
+4. Disable Do Not Disturb/Focus Assist when validating banner presentation. With it enabled, Windows may suppress banners while still placing successful notifications in Notification Center.
 
 ## Tray and lifecycle
 
