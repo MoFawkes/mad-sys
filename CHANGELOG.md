@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Read-only announcements panel with poster names, relative times, unread counts, expiry filtering, and local read state.
 - Typed JSON settings, light/dark/system themes, notification preferences, account controls, and log-folder access.
 - ViewModel and settings tests plus a live Supabase password-recovery smoke test; local totals are 74 non-Supabase and 175 live Supabase tests.
+- Verified the Phase 5 automated gate in CI: Windows build/ViewModel tests and Ubuntu clean resets plus all 175 Supabase tests passed.
 
 ### Added (Phase 4 — client infrastructure)
 

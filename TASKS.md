@@ -68,7 +68,7 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] Theme support (light/dark/system).
 - [x] ViewModel unit tests: formatting, state transitions, offline command gating.
 
-**Engineering gate:** implementation and automated verification are green locally (0 build warnings; 74 non-Supabase tests; 175 live Supabase tests). Windows visual J1 smoke and CI-head verification remain required before Phase 6 begins.
+**Engineering gate:** implementation and automated verification are green locally and in CI on 2026-07-16 (0 build warnings; 74 non-Supabase tests; 175 live Supabase tests; repeatable clean resets). Windows visual J1 sign-in smoke remains required before Phase 6 begins.
 
 ## Phase 6 — App: tray, startup, notifications (depends on Phase 5)
 
