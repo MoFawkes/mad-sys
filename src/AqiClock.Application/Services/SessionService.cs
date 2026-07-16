@@ -27,6 +27,7 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>
 
     public async Task RestoreAsync(CancellationToken cancellationToken = default)
     {
+        await _cache.InitializeAsync(cancellationToken).ConfigureAwait(false);
         StoredSession? stored = await _sessionStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         if (stored is null)
         {
@@ -49,6 +50,7 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
         ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        await _cache.InitializeAsync(cancellationToken).ConfigureAwait(false);
         AuthenticatedSession session = await _gateway.SignInAsync(email.Trim(), password, cancellationToken).ConfigureAwait(false);
         await SaveAndSetStateAsync(session, cancellationToken).ConfigureAwait(false);
     }

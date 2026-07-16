@@ -15,6 +15,13 @@ All notable changes to this project will be documented in this file.
 - ViewModel and settings tests plus a live Supabase password-recovery smoke test; local totals are 74 non-Supabase and 175 live Supabase tests.
 - Verified the Phase 5 automated gate in CI: Windows build/ViewModel tests and Ubuntu clean resets plus all 175 Supabase tests passed.
 
+### Fixed (Phase 5 — J1 acceptance)
+
+- Prevented initial sign-in command evaluation from throwing on empty or whitespace email input.
+- Initialized the disposable SQLite cache before session restore/sign-in can query a cached profile, allowing the role to arrive later with the Profiles snapshot on a true first run.
+- Kept unexpected local persistence failures inside the sign-in error state instead of escalating them to the global crash dialog.
+- Added seam-level regressions for blank-email command gating, unexpected persistence errors, and real fresh-file cache initialization during sign-in.
+
 ### Added (Phase 4 — client infrastructure)
 
 - Application-layer cache, repository, Supabase, session, sync, and local-state contracts plus messenger events and pure debounce/backoff policies.

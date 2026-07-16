@@ -14,6 +14,28 @@ namespace AqiClock.Application.Tests;
 
 public sealed class Phase5ViewModelTests
 {
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void SignInIsDisabledForBlankEmailWithoutThrowing(string email)
+    {
+        var vm = new SignInViewModel(new SessionStub(), new SyncStub(), new GatewayStub(), new WindowStub())
+        { Email = email, Password = "not-empty" };
+
+        Assert.False(vm.SignInCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task UnexpectedLocalPersistenceFailureIsShownInWindow()
+    {
+        var vm = new SignInViewModel(new SessionStub(new IOException("disk unavailable")), new SyncStub(), new GatewayStub(), new WindowStub())
+        { Email = "staff@example.test", Password = "not-empty" };
+
+        await vm.SignInCommand.ExecuteAsync(null);
+
+        Assert.Contains("local data", vm.ErrorMessage, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void DurationFormattingHandlesMinutesAndHours()
     {
@@ -84,7 +106,20 @@ public sealed class Phase5ViewModelTests
     private sealed class ProfileRepository(params Profile[] rows) : IProfileRepository { public Task<IReadOnlyList<Profile>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Profile>>(rows); public Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(rows.FirstOrDefault(x => x.Id == id)); }
     private sealed class ReadStore : IAnnouncementReadStore { private readonly HashSet<Guid> _read = []; public Task<bool> IsReadAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(_read.Contains(id)); public Task MarkReadAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default) { _read.Add(id); return Task.CompletedTask; } }
     private sealed class SyncStub : ISyncService { public ConnectivityState State { get; private set; } = ConnectivityState.Offline; public DateTimeOffset? LastSyncedAt => null; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.CompletedTask; public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
-    private sealed class SessionStub : ISessionService { public SessionState Current => SessionState.SignedOut; public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; }
+    private sealed class SessionStub(Exception? signInFailure = null) : ISessionService { public SessionState Current => SessionState.SignedOut; public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => signInFailure is null ? Task.CompletedTask : Task.FromException(signInFailure); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; }
+    private sealed class GatewayStub : ISupabaseGateway
+    {
+        public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
     private sealed class SettingsStub : ISettingsService { public AppSettings Current => new(); public event EventHandler<SettingsChanged>? Changed { add { } remove { } } public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask; }
     private sealed class WindowStub : IWindowService { public void ShowMainWindow() { } public void ShowSignInWindow() { } public void ShowSettingsWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } }
 }

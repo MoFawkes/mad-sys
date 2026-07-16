@@ -32,6 +32,9 @@ public partial class SignInViewModel(ISessionService session, ISyncService sync,
         catch (HttpRequestException) { ErrorMessage = "No connection — sign-in requires internet"; }
         catch (Exception exception) when (exception is UnauthorizedAccessException or InvalidOperationException)
         { ErrorMessage = "Incorrect email or password"; }
+#pragma warning disable CA1031 // The sign-in command is a UI exception boundary; unexpected persistence failures must remain in-window.
+        catch (Exception exception) when (exception is not OperationCanceledException) { ErrorMessage = "Sign-in succeeded, but AQI Clock could not save or load local data. Please try again."; }
+#pragma warning restore CA1031
         finally { IsBusy = false; ProgressMessage = null; }
     }
 
@@ -45,6 +48,7 @@ public partial class SignInViewModel(ISessionService session, ISyncService sync,
 
     private static bool IsValidEmail(string value)
     {
-        try { _ = new MailAddress(value); return true; } catch (FormatException) { return false; }
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        return MailAddress.TryCreate(value, out _);
     }
 }
