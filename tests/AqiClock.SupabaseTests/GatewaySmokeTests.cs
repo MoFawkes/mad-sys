@@ -10,6 +10,13 @@ namespace AqiClock.SupabaseTests;
 public sealed class GatewaySmokeTests(SupabaseFixture fixture)
 {
     [SupabaseFact]
+    public async Task PasswordResetRequestUsesTheRealAuthEndpoint()
+    {
+        using SupabaseGateway gateway = CreateGateway();
+        await gateway.SendPasswordResetAsync(SupabaseFixture.Email("staff1"));
+    }
+
+    [SupabaseFact]
     public async Task SignInPullWriteAndRepullUseTheRealDataApi()
     {
         using SupabaseGateway gateway = CreateGateway();

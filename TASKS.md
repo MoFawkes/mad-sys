@@ -58,15 +58,17 @@ Ordered by implementation dependency: each phase builds only on the phases above
 
 ## Phase 5 — App: main UI (depends on Phase 4)
 
-- [ ] Generic Host composition root in `App.xaml.cs`; single-instance mutex; global exception handler.
-- [ ] `ClockService` (1 s tick, `TimeJumped` detection).
-- [ ] Sign-in window + initial-sync flow (UI-FLOWS.md S1/J1), incl. cache-present fast path and first-run-offline empty state.
-- [ ] Main window Normal mode (S2): clock, current lesson card, next lesson, today's list, status strip.
-- [ ] Compact mode (S3) + always-on-top + window state persistence (positions validated against screen bounds).
-- [ ] Announcements panel (S4) view side: list, unread badge, local read-state.
-- [ ] Settings window (S5) + JSON `SettingsService`.
-- [ ] Theme support (light/dark/system).
-- [ ] ViewModel unit tests: formatting, state transitions, offline command gating.
+- [x] Generic Host composition root in `App.xaml.cs`; single-instance mutex; global exception handler.
+- [x] `ClockService` (1 s tick, `TimeJumped` detection).
+- [x] Sign-in window + initial-sync flow (UI-FLOWS.md S1/J1), incl. cache-present fast path and first-run-offline empty state.
+- [x] Main window Normal mode (S2): clock, current lesson card, next lesson, today's list, status strip.
+- [x] Compact mode (S3) + always-on-top + window state persistence (positions validated against screen bounds).
+- [x] Announcements panel (S4) view side: list, unread badge, local read-state.
+- [x] Settings window (S5) + JSON `SettingsService`.
+- [x] Theme support (light/dark/system).
+- [x] ViewModel unit tests: formatting, state transitions, offline command gating.
+
+**Engineering gate:** implementation and automated verification are green locally (0 build warnings; 74 non-Supabase tests; 175 live Supabase tests). Windows visual J1 smoke and CI-head verification remain required before Phase 6 begins.
 
 ## Phase 6 — App: tray, startup, notifications (depends on Phase 5)
 

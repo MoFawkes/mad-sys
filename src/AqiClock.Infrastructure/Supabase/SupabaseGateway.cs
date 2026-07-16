@@ -53,6 +53,18 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         return MapSession(auth);
     }
 
+    public async Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(email);
+        using HttpResponseMessage response = await _httpClient.PostAsJsonAsync(
+            "auth/v1/recover",
+            new { email = email.Trim() },
+            JsonOptions,
+            cancellationToken).ConfigureAwait(false);
+        CheckClockSkew(response);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default)
     {
         using HttpResponseMessage response = await _httpClient.PostAsJsonAsync("auth/v1/token?grant_type=refresh_token", new { refresh_token = session.RefreshToken }, JsonOptions, cancellationToken).ConfigureAwait(false);

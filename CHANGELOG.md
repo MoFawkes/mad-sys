@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added (Phase 5 — staff UI)
+
+- Generic Host WPF composition root with single-instance activation, application lifetime wiring, structured global exception handling, and window navigation behind `IWindowService`.
+- One-second dispatcher clock publishing `ClockTick` and resume/clock-change `TimeJumped` messages.
+- Invite-only sign-in and password-reset UI, initial-sync progress, authenticated startup routing, and shared-machine sign-out routing.
+- Normal and compact clock layouts using the Domain schedule engine over SQLite-backed repositories, including current/next lesson, countdown, progress, day list, connectivity status, admin placeholder, pinning, and per-mode placement.
+- Read-only announcements panel with poster names, relative times, unread counts, expiry filtering, and local read state.
+- Typed JSON settings, light/dark/system themes, notification preferences, account controls, and log-folder access.
+- ViewModel and settings tests plus a live Supabase password-recovery smoke test; local totals are 74 non-Supabase and 175 live Supabase tests.
+
 ### Added (Phase 4 — client infrastructure)
 
 - Application-layer cache, repository, Supabase, session, sync, and local-state contracts plus messenger events and pure debounce/backoff policies.

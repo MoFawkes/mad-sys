@@ -1,11 +1,29 @@
+using System.ComponentModel;
 using System.Windows;
+using System.Windows.Input;
+using AqiClock.App.ViewModels;
+using AqiClock.Application.Abstractions;
 
 namespace AqiClock.App;
 
 public partial class MainWindow : Window
 {
-    public MainWindow()
+    private readonly MainViewModel _viewModel;
+    private readonly ISettingsService _settings;
+    private bool _allowClose;
+
+    public MainWindow(MainViewModel viewModel, ISettingsService settings)
     {
-        InitializeComponent();
+        InitializeComponent(); _viewModel = viewModel; _settings = settings; DataContext = viewModel;
+        viewModel.PropertyChanged += OnViewModelChanged; Loaded += OnLoaded;
     }
+
+    public void AllowClose() => _allowClose = true;
+    private async void OnLoaded(object sender, RoutedEventArgs e) { ApplyMode(); await _viewModel.InitializeAsync(); }
+    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e) { if (e.PropertyName is nameof(MainViewModel.DisplayMode) or nameof(MainViewModel.IsAnnouncementsOpen) or nameof(MainViewModel.AlwaysOnTop)) ApplyMode(); }
+    private void ApplyMode() { bool compact = _viewModel.DisplayMode == DisplayMode.Compact; NormalLayout.Visibility = compact ? Visibility.Collapsed : Visibility.Visible; CompactLayout.Visibility = compact ? Visibility.Visible : Visibility.Collapsed; AnnouncementPanel.Visibility = _viewModel.IsAnnouncementsOpen && !compact ? Visibility.Visible : Visibility.Collapsed; Topmost = _viewModel.AlwaysOnTop; RestorePlacement(compact ? _settings.Current.CompactPlacement : _settings.Current.NormalPlacement); }
+    private void RestorePlacement(WindowPlacement? placement) { if (placement is null) return; Rect work = SystemParameters.WorkArea; if (placement.Left < work.Right && placement.Top < work.Bottom && placement.Left + placement.Width > work.Left && placement.Top + placement.Height > work.Top) { Left = placement.Left; Top = placement.Top; } else { WindowStartupLocation = WindowStartupLocation.CenterScreen; } }
+    private void OnClosing(object? sender, CancelEventArgs e) { if (!_allowClose && _settings.Current.CloseToTray) { e.Cancel = true; WindowState = WindowState.Minimized; Hide(); } }
+    private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e) { if (_viewModel.DisplayMode == DisplayMode.Compact) { if (e.ClickCount == 2) _viewModel.ToggleDisplayModeCommand.Execute(null); else DragMove(); } }
+    private async void OnPlacementChanged(object sender, EventArgs e) { if (!IsLoaded || WindowState == WindowState.Minimized) return; WindowPlacement value = new(Left, Top, ActualWidth, ActualHeight, WindowState == WindowState.Maximized); AppSettings current = _settings.Current; await _settings.SaveAsync(_viewModel.DisplayMode == DisplayMode.Compact ? current with { CompactPlacement = value } : current with { NormalPlacement = value }); }
 }

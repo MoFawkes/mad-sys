@@ -2,7 +2,7 @@
 
 AQI Clock is a Windows desktop application (WPF, .NET 8) that shows staff the current time, the current lesson, time remaining, and the next lesson, driven by a centrally managed timetable. Administrators edit timetables and post announcements in Supabase-backed storage; every staff machine updates in near-real-time, works offline from a local SQLite cache, and raises native Windows notifications at lesson boundaries.
 
-**Status:** Phases 1–4 are complete and CI-green. The server contract and client infrastructure are ready for Phase 5 UI integration. See [`TASKS.md`](TASKS.md) for the phased plan.
+**Status:** Phases 1–4 are complete and CI-green. Phase 5's staff-facing WPF UI is implemented and locally verified; its final Windows visual smoke and CI-head checks are in progress. See [`TASKS.md`](TASKS.md) for the phased plan.
 
 ## Key capabilities (planned MVP)
 
@@ -33,7 +33,7 @@ src/
   AqiClock.Domain/          Entities and the pure schedule engine
   AqiClock.Application/     Interfaces, options, use-case services
   AqiClock.Infrastructure/  SQLite cache, Supabase client, DPAPI sessions, sync
-  AqiClock.App/             WPF application
+  AqiClock.App/             WPF composition root, views, ViewModels, settings and themes
 tests/                      Domain, Application, and integration test projects
 docs/                       Planning and architecture documentation
 supabase/                   (Phase 3) SQL migrations and seed — source of truth for the server schema

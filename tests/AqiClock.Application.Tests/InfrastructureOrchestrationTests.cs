@@ -109,6 +109,7 @@ public sealed class InfrastructureOrchestrationTests
         public AuthenticatedSession RefreshedSession { get; init; } = new(Guid.NewGuid(), "staff@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1));
         public Dictionary<CacheTable, int> PullCounts { get; } = [];
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.FromResult(RefreshedSession);
+        public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => RefreshException is null ? Task.FromResult(RefreshedSession) : Task.FromException<AuthenticatedSession>(RefreshException);
         public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(OrganizationId);
