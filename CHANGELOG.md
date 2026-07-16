@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Typed Supabase write failures for denied, referenced, duplicate, and last-admin outcomes, plus online audit retrieval and administrator profile updates.
 - Targeted cache refreshes after successful writes, live demotion closure, and an admin compose/manage entry point in the announcements panel.
 - Admin ViewModel and cache-identity regression tests plus live gateway coverage for profile, week-schedule, and audit operations; current totals are 100 non-Supabase tests and 177 live Supabase tests.
+- Verified the Phase 7 automated gate in CI: the Windows build/test job and repeatable-reset Supabase RLS/gateway job both passed.
 
 ### Fixed (Phase 7 runtime smoke)
 
