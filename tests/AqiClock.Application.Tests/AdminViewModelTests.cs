@@ -1,9 +1,14 @@
 using AqiClock.App.ViewModels;
+using AqiClock.App.Views;
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Messages;
 using AqiClock.Application.Sync;
 using AqiClock.Domain.Entities;
 using CommunityToolkit.Mvvm.Messaging;
+using System.Diagnostics;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace AqiClock.Application.Tests;
 
@@ -34,6 +39,83 @@ public sealed class AdminViewModelTests
         await vm.LoadAsync(); vm.Selected = timetable; vm.Name = "Changed locally";
         messenger.Send(new DataChanged(CacheTable.Timetables));
         Assert.True(vm.HasConflict);
+    }
+
+    [Fact]
+    public async Task ReloadClearsLatchedConflictAndOwnSaveEchoDoesNotCreateOne()
+    {
+        var messenger = new WeakReferenceMessenger();
+        var timetable = new Timetable(Guid.NewGuid(), "Normal", false, []);
+        var sync = new EchoSync(messenger);
+        var vm = new TimetableEditorViewModel(new Gateway(), sync, new Timetables(timetable), new Week(), new Overrides(), new Windows(), messenger);
+        await vm.LoadAsync();
+        vm.Name = "Dirty";
+        messenger.Send(new DataChanged(CacheTable.Timetables));
+        Assert.True(vm.HasConflict);
+
+        await vm.ReloadCommand.ExecuteAsync(null);
+        Assert.False(vm.HasConflict);
+        Assert.False(vm.IsDirty);
+
+        vm.Name = "Saved";
+        await vm.SaveCommand.ExecuteAsync(null);
+        Assert.False(vm.HasConflict);
+        Assert.False(vm.IsDirty);
+    }
+
+    [Fact]
+    public void AdminWindowBindingsRenderAndCommitEditableSelectionsWithoutErrors()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            var errors = new List<string>();
+            var listener = new CaptureListener(errors);
+            try
+            {
+                PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
+                PresentationTraceSources.DataBindingSource.Listeners.Add(listener);
+                Guid timetableId = Guid.NewGuid();
+                Guid currentId = Guid.NewGuid();
+                var timetable = new Timetable(timetableId, "Normal Day", false, []);
+                var profiles = new Profiles(new Profile(currentId, "Current Admin", UserRole.Admin, true), new Profile(Guid.NewGuid(), "Staff Member", UserRole.Staff, true));
+                var session = new Session(currentId);
+                var messenger = new WeakReferenceMessenger();
+                var gateway = new Gateway(); var sync = new Sync(); var windows = new Windows(); var timetables = new Timetables(timetable); var week = new Week();
+                var overrides = new Overrides(new DateOverride(Guid.NewGuid(), DateOnly.FromDateTime(DateTime.Today), null, null));
+                var admin = new AdminViewModel(new(gateway, sync, timetables, week, overrides, windows, messenger), new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, session, new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, session, windows), sync, windows, messenger);
+                var window = new AdminWindow(admin);
+                window.Show();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                var tabs = FindVisualChild<TabControl>(window) ?? throw new InvalidOperationException("Admin tabs did not render.");
+
+                tabs.SelectedIndex = 1; window.UpdateLayout();
+                ComboBox weekCombo = FindVisualChild<ComboBox>((DependencyObject)tabs.SelectedContent) ?? throw new InvalidOperationException("Week selector did not render.");
+                weekCombo.SelectedIndex = 0; window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.DataBind);
+                Assert.Equal(timetableId, admin.WeekSchedule.Rows[0].TimetableId);
+
+                tabs.SelectedIndex = 2; window.UpdateLayout();
+                ComboBox overrideCombo = FindVisualChild<ComboBox>((DependencyObject)tabs.SelectedContent) ?? throw new InvalidOperationException("Override selector did not render.");
+                overrideCombo.SelectedIndex = 0; window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.DataBind);
+                Assert.Equal(timetableId, admin.Overrides.Items[0].TimetableId);
+
+                tabs.SelectedIndex = 5; window.UpdateLayout();
+                DataGrid users = FindVisualChild<DataGrid>((DependencyObject)tabs.SelectedContent) ?? throw new InvalidOperationException("Users grid did not render.");
+                UserEditorItem current = admin.Users.Items[0]; users.ScrollIntoView(current); window.UpdateLayout();
+                Assert.Equal("Current Admin", ((TextBlock?)users.Columns[0].GetCellContent(current))?.Text);
+                Assert.Equal("admin@example.test", ((TextBlock?)users.Columns[1].GetCellContent(current))?.Text);
+                Assert.Equal(UserRole.Admin, current.Role);
+                Assert.Equal(UserRole.Admin, FindVisualChild<ComboBox>(users)?.SelectedItem);
+                window.Close();
+                Assert.Empty(errors);
+            }
+            catch (Exception exception) { failure = exception; }
+            finally { PresentationTraceSources.DataBindingSource.Listeners.Remove(listener); }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
     }
 
     [Fact]
@@ -70,12 +152,30 @@ public sealed class AdminViewModelTests
     private sealed class Overrides(params DateOverride[] rows) : IDateOverrideRepository { public Task<IReadOnlyList<DateOverride>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<DateOverride>>(rows); }
     private sealed class Announcements(params Announcement[] rows) : IAnnouncementRepository { public Task<IReadOnlyList<Announcement>> GetCurrentAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Announcement>>(rows); }
     private sealed class Profiles(params Profile[] rows) : IProfileRepository { public Task<IReadOnlyList<Profile>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Profile>>(rows); public Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(rows.FirstOrDefault(x => x.Id == id)); }
-    private sealed class Session : ISessionService { public SessionState Current { get; } = new(Guid.NewGuid(), "admin@example.test", UserRole.Admin, true, false); public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; }
+    private sealed class Session(Guid? id = null) : ISessionService { public SessionState Current { get; } = new(id ?? Guid.NewGuid(), "admin@example.test", UserRole.Admin, true, false); public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; }
     private sealed class Sync : ISyncService { public ConnectivityState State { get; set; } = ConnectivityState.Online; public DateTimeOffset? LastSyncedAt => DateTimeOffset.UtcNow; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.CompletedTask; public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
+    private sealed class EchoSync(IMessenger messenger) : ISyncService { public ConnectivityState State => ConnectivityState.Online; public DateTimeOffset? LastSyncedAt => DateTimeOffset.UtcNow; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) { messenger.Send(new DataChanged(table)); return Task.CompletedTask; } public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
     private sealed class Windows : IWindowService { public bool AdminClosed { get; private set; } public void ShowMainWindow() { } public void ShowSignInWindow() { } public void ShowSettingsWindow() { } public void ShowAdminWindow() { } public void CloseAdminWindow() => AdminClosed = true; public void ShowAnnouncements() { } public void HideMainWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } public void ExitApplication() { } }
     private sealed class Gateway : ISupabaseGateway
     {
         public Exception? ProfileFailure { get; init; }
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(Guid.NewGuid()); public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default) => ProfileFailure is null ? Task.CompletedTask : Task.FromException(ProfileFailure); public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AuditEntry>>([]); public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
+    private sealed class CaptureListener(List<string> errors) : TraceListener
+    {
+        public override void Write(string? message) { if (!string.IsNullOrWhiteSpace(message)) errors.Add(message); }
+        public override void WriteLine(string? message) => Write(message);
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        if (parent is T match) return match;
+        for (int index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            T? child = FindVisualChild<T>(VisualTreeHelper.GetChild(parent, index));
+            if (child is not null) return child;
+        }
+        return null;
     }
 }

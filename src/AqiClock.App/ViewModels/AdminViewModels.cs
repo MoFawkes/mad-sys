@@ -50,7 +50,7 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
     private static void RunOnUiThread(Action action)
     {
         System.Windows.Threading.Dispatcher? dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess()) action();
+        if (dispatcher is null || !dispatcher.Thread.IsAlive || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished || dispatcher.CheckAccess()) action();
         else _ = dispatcher.BeginInvoke(action);
     }
 }
@@ -70,6 +70,7 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
     private readonly ISupabaseGateway _gateway; private readonly ISyncService _sync; private readonly ITimetableRepository _repository; private readonly IWeekScheduleRepository _week; private readonly IDateOverrideRepository _overrides; private readonly IWindowService _windows;
     private HashSet<Guid> _originalPeriodIds = [];
     private bool _loading;
+    private int _ownWriteDepth;
     [ObservableProperty] private Timetable? _selected;
     [ObservableProperty] private string _name = string.Empty;
     [ObservableProperty] private bool _isArchived;
@@ -84,7 +85,17 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
     { _gateway = gateway; _sync = sync; _repository = repository; _week = week; _overrides = overrides; _windows = windows; Periods.CollectionChanged += OnPeriodsChanged; messenger.Register(this); }
 
     public async Task LoadAsync(CancellationToken token = default)
-    { IReadOnlyList<Timetable> rows = await _repository.GetAllAsync(token); Items.Clear(); foreach (Timetable row in rows.OrderBy(x => x.Name)) Items.Add(row); if (Selected is null && Items.Count > 0) Select(Items[0]); }
+    {
+        Guid? selectedId = Selected?.Id;
+        IReadOnlyList<Timetable> rows = await _repository.GetAllAsync(token);
+        _loading = true;
+        Items.Clear();
+        foreach (Timetable row in rows.OrderBy(x => x.Name)) Items.Add(row);
+        _loading = false;
+        Timetable? target = selectedId is { } id ? Items.FirstOrDefault(x => x.Id == id) : Items.FirstOrDefault();
+        Selected = target;
+        if (target is not null) Select(target);
+    }
 
     partial void OnSelectedChanged(Timetable? value) { if (value is not null) Select(value); }
     private void Select(Timetable value) { _loading = true; Name = value.Name; IsArchived = value.IsArchived; Periods.Clear(); foreach (Period p in value.Periods.OrderBy(x => x.SortOrder)) Periods.Add(new() { Id = p.Id, Name = p.Name, Start = p.StartTime.ToTimeSpan(), End = p.EndTime.ToTimeSpan(), IsLesson = p.IsLesson, SortOrder = p.SortOrder }); _originalPeriodIds = value.Periods.Select(x => x.Id).ToHashSet(); IsDirty = false; HasConflict = false; ValidationMessage = null; _loading = false; }
@@ -100,13 +111,21 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
     [RelayCommand] private void MoveDown(PeriodEditorItem item) { int index = Periods.IndexOf(item); if (index >= 0 && index < Periods.Count - 1) { Periods.Move(index, index + 1); IsDirty = true; } }
     [RelayCommand] private void MarkDirty() => IsDirty = true;
     [RelayCommand] private void Cancel() { if (Selected is not null) Select(Selected); }
-    [RelayCommand] private void Reload() { if (Selected is not null) Select(Items.FirstOrDefault(x => x.Id == Selected.Id) ?? Selected); }
+    [RelayCommand]
+    private async Task ReloadAsync(CancellationToken token)
+    {
+        HasConflict = false;
+        IsDirty = false;
+        await LoadAsync(token);
+    }
     [RelayCommand] private void Overwrite() => HasConflict = false;
 
     [RelayCommand]
     private async Task SaveAsync(CancellationToken token)
     {
-        if (Selected is null || !Validate()) return;
+        if (Selected is null) { ValidationMessage = "Select or create a timetable before saving."; return; }
+        if (!Validate()) return;
+        _ownWriteDepth++;
         try
         {
             Guid org = await _gateway.GetCurrentOrganizationIdAsync(token); bool exists = Items.Any(x => x.Id == Selected.Id);
@@ -118,11 +137,12 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
                 if (_originalPeriodIds.Contains(p.Id)) await _gateway.UpdateAsync(CacheTable.Periods, p.Id, period, token); else await _gateway.InsertAsync(CacheTable.Periods, period, token);
             }
             foreach (Guid deleted in _originalPeriodIds.Except(Periods.Select(x => x.Id))) await _gateway.DeleteAsync(CacheTable.Periods, deleted, token);
-            await _sync.SyncTableAsync(CacheTable.Timetables, token); await _sync.SyncTableAsync(CacheTable.Periods, token); await LoadAsync(token); Selected = Items.FirstOrDefault(x => x.Id == row.Id); IsDirty = false;
+            await _sync.SyncTableAsync(CacheTable.Timetables, token); await _sync.SyncTableAsync(CacheTable.Periods, token); await LoadAsync(token); Timetable? saved = Items.FirstOrDefault(x => x.Id == row.Id); Selected = saved; if (saved is not null) Select(saved); IsDirty = false; HasConflict = false;
         }
         catch (DuplicateRowException) { ValidationMessage = "A timetable or period name is already used."; }
         catch (ServerDeniedException) { ValidationMessage = "Your role changed."; _windows.CloseAdminWindow(); }
         catch (ServerWriteException ex) { ValidationMessage = ex.Message; }
+        finally { _ownWriteDepth--; }
     }
 
     [RelayCommand]
@@ -153,7 +173,7 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
     }
     public void Receive(DataChanged message)
     {
-        if (message.Table is not (CacheTable.Timetables or CacheTable.Periods)) return;
+        if (message.Table is not (CacheTable.Timetables or CacheTable.Periods) || _ownWriteDepth > 0) return;
         void ApplyChange()
         {
             if (IsDirty) HasConflict = true;
@@ -161,7 +181,7 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
         }
 
         System.Windows.Threading.Dispatcher? dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess()) ApplyChange();
+        if (dispatcher is null || !dispatcher.Thread.IsAlive || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished || dispatcher.CheckAccess()) ApplyChange();
         else _ = dispatcher.BeginInvoke(ApplyChange);
     }
 }
@@ -204,7 +224,14 @@ public partial class AuditViewModel(ISupabaseGateway gateway, IProfileRepository
     [ObservableProperty] private string? _message; public ObservableCollection<AuditDisplay> Items { get; } = [];
     [RelayCommand]
     public async Task LoadAsync(CancellationToken token = default) { Items.Clear(); if (sync.State != ConnectivityState.Online) { Message = "Connect to view history"; return; } Dictionary<Guid, string> names = (await profiles.GetAllAsync(token)).ToDictionary(x => x.Id, x => x.DisplayName); foreach (AuditEntry x in await gateway.GetAuditEntriesAsync(100, token)) Items.Add(new(x.CreatedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture), x.ActorId is { } id ? names.GetValueOrDefault(id, "system") : "system", x.Action, Humanize(x))); Message = null; }
-    private static string Humanize(AuditEntry entry) { JsonObject? image = entry.After ?? entry.Before; string name = image?["name"]?.GetValue<string>() ?? entry.EntityId.ToString(); return $"{entry.EntityType.Replace('_', ' ')} '{name}'"; }
+    private static string Humanize(AuditEntry entry)
+    {
+        JsonObject? image = entry.After ?? entry.Before;
+        string name = image?["name"]?.GetValue<string>() ?? image?["title"]?.GetValue<string>() ?? image?["display_name"]?.GetValue<string>() ?? image?["date"]?.GetValue<string>() ?? entry.EntityId.ToString();
+        if (entry.EntityType == "week_schedule" && image?["weekday"]?.GetValue<int>() is int weekday)
+            name = ((DayOfWeek)((weekday + 1) % 7)).ToString();
+        return $"{entry.EntityType.Replace('_', ' ')} '{name}'";
+    }
 }
 
 public partial class UserEditorItem : ObservableObject { public Guid Id { get; init; } public string DisplayName { get; init; } = string.Empty; [ObservableProperty] private UserRole _role; [ObservableProperty] private bool _isActive; [ObservableProperty] private string? _error; public string Email { get; init; } = "Not available"; }
@@ -212,6 +239,6 @@ public partial class UsersViewModel(IProfileRepository profiles, ISupabaseGatewa
 {
     public ObservableCollection<UserEditorItem> Items { get; } = [];
     public IReadOnlyList<UserRole> Roles { get; } = Enum.GetValues<UserRole>();
-    public async Task LoadAsync(CancellationToken token = default) { Items.Clear(); foreach (Profile p in await profiles.GetAllAsync(token)) Items.Add(new() { Id = p.Id, DisplayName = p.DisplayName, Role = p.Role, IsActive = p.IsActive, Email = p.Id == session.Current.UserId ? session.Current.Email ?? "Not available" : "Not available" }); }
+    public async Task LoadAsync(CancellationToken token = default) { Items.Clear(); foreach (Profile p in (await profiles.GetAllAsync(token)).OrderByDescending(x => x.Id == session.Current.UserId).ThenByDescending(x => x.Role == UserRole.Admin).ThenBy(x => x.DisplayName)) Items.Add(new() { Id = p.Id, DisplayName = p.DisplayName, Role = p.Role, IsActive = p.IsActive, Email = p.Id == session.Current.UserId ? session.Current.Email ?? "Not available" : "Not stored (MVP)" }); }
     [RelayCommand] private async Task SaveAsync(UserEditorItem item, CancellationToken token) { try { await gateway.UpdateProfileAsync(item.Id, item.Role == UserRole.Admin ? "admin" : "staff", item.IsActive, token); await sync.SyncTableAsync(CacheTable.Profiles, token); item.Error = null; } catch (LastAdminException) { item.Error = "You cannot demote or deactivate the last active admin. Promote someone else first."; } catch (ServerDeniedException) { item.Error = "Your role changed."; windows.CloseAdminWindow(); } }
 }

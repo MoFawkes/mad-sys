@@ -121,13 +121,13 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         var row = new Dictionary<string, object>();
         if (role is not null) row["role"] = role;
         if (isActive is not null) row["is_active"] = isActive.Value;
-        return SendRequestAsync(HttpMethod.Patch, $"rest/v1/profiles?id=eq.{id}", row, cancellationToken);
+        return SendRequestExpectingOneAsync(HttpMethod.Patch, $"rest/v1/profiles?id=eq.{id}", row, cancellationToken);
     }
 
     public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default)
     {
         if (weekday is < 0 or > 6) throw new ArgumentOutOfRangeException(nameof(weekday));
-        return SendRequestAsync(HttpMethod.Patch, $"rest/v1/week_schedule?weekday=eq.{weekday}",
+        return SendRequestExpectingOneAsync(HttpMethod.Patch, $"rest/v1/week_schedule?weekday=eq.{weekday}",
             new Dictionary<string, object?> { ["timetable_id"] = timetableId }, cancellationToken);
     }
 
@@ -193,6 +193,19 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         CheckClockSkew(response);
         await EnsureWriteSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task SendRequestExpectingOneAsync(HttpMethod method, string path, object row, CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = CreateRequest(method, path);
+        request.Headers.Add("Prefer", "return=representation");
+        request.Content = JsonContent.Create(row, row.GetType(), options: JsonOptions);
+        using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        CheckClockSkew(response);
+        await EnsureWriteSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+        using JsonDocument result = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false), cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (result.RootElement.ValueKind != JsonValueKind.Array || result.RootElement.GetArrayLength() != 1)
+            throw new ServerWriteException("The server did not update the expected row.", null);
     }
 
     private static async Task EnsureWriteSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)

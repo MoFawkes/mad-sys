@@ -70,7 +70,7 @@ public partial class MainViewModel : ObservableObject, IRecipient<ConnectivityCh
     private static void RunOnUiThread(Action action)
     {
         System.Windows.Threading.Dispatcher? dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess()) action();
+        if (dispatcher is null || !dispatcher.Thread.IsAlive || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished || dispatcher.CheckAccess()) action();
         else _ = dispatcher.BeginInvoke(action);
     }
 

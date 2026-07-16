@@ -17,6 +17,11 @@ All notable changes to this project will be documented in this file.
 
 - Marshalled connectivity, session, and Realtime-driven editor updates onto the WPF dispatcher so heartbeat or socket callbacks cannot update bound commands and collections from a worker thread.
 - Bound cached profile identifiers consistently as GUIDs so a freshly synced administrator is recognized immediately instead of being presented as Staff.
+- Prevented timetable conflict prompts from latching on the editor's own Realtime echo; Reload and successful Save now deterministically clear dirty/conflict state and retain the edited selection.
+- Made week-schedule and override selectors explicitly update their row ViewModels on selection, and made critical profile/schedule PATCH calls fail loudly when the server updates zero rows.
+- Ordered the Users view with the signed-in user and administrators first, preserved the signed-in email, labelled unavailable MVP email data accurately, and made role/active bindings explicitly two-way.
+- Added a debug WPF binding-error listener routed through structured logging plus an STA rendered-window regression that exercises all admin tabs, both timetable selectors, and Users cell/role rendering with zero binding failures.
+- Humanized announcement, profile, override-date, and weekday audit entries instead of falling back to raw identifiers where descriptive fields exist.
 
 ### Added (Phase 6 — ambient Windows integration)
 

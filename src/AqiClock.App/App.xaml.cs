@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
+using System.Diagnostics;
 using AqiClock.App.Services;
 using AqiClock.App.ViewModels;
 using AqiClock.App.Views;
@@ -50,6 +51,10 @@ public partial class App : System.Windows.Application, IDisposable
         builder.Configuration.AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json"), false).AddEnvironmentVariables("AQICLOCK_");
         string logs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AqiClock", "logs");
         Log.Logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.File(Path.Combine(logs, "aqiclock-.log"), formatProvider: CultureInfo.InvariantCulture, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7).CreateLogger();
+#if DEBUG
+        PresentationTraceSources.DataBindingSource.Switch.Level = System.Diagnostics.SourceLevels.Error;
+        PresentationTraceSources.DataBindingSource.Listeners.Add(new BindingErrorTraceListener());
+#endif
         builder.Logging.ClearProviders(); builder.Logging.AddSerilog(Log.Logger, true);
         builder.Services.AddAqiClockInfrastructure(builder.Configuration);
         builder.Services.AddSingleton<ISettingsService, SettingsService>(); builder.Services.AddSingleton<IClockService, ClockService>(); builder.Services.AddSingleton<IWindowService, WindowService>(); builder.Services.AddSingleton<ThemeService>();
