@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - Ordered the Users view with the signed-in user and administrators first, preserved the signed-in email, labelled unavailable MVP email data accurately, and made role/active bindings explicitly two-way.
 - Added a debug WPF binding-error listener routed through structured logging plus an STA rendered-window regression that exercises all admin tabs, both timetable selectors, and Users cell/role rendering with zero binding failures.
 - Humanized announcement, profile, override-date, and weekday audit entries instead of falling back to raw identifiers where descriptive fields exist.
+- Verified the P7-1–P7-3 regression package in both release-blocking CI jobs, including the rendered WPF binding test and all 177 live Supabase tests.
 
 ### Added (Phase 6 — ambient Windows integration)
 
