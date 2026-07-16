@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using AqiClock.App.ViewModels;
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Messages;
@@ -16,12 +17,14 @@ public sealed class TrayService : IRecipient<SessionChanged>, IDisposable
     private readonly ISessionService _session;
     private readonly ISyncService _sync;
     private readonly IWindowService _windows;
+    private readonly Dispatcher _dispatcher;
     private TaskbarIcon? _icon;
     private bool _disposed;
 
     public TrayService(MainViewModel main, ISessionService session, ISyncService sync, IWindowService windows, IMessenger messenger)
     {
         _main = main; _session = session; _sync = sync; _windows = windows;
+        _dispatcher = System.Windows.Application.Current.Dispatcher;
         messenger.Register(this);
         main.Clock.PropertyChanged += OnClockChanged;
     }
@@ -33,7 +36,14 @@ public sealed class TrayService : IRecipient<SessionChanged>, IDisposable
 
     public void Receive(SessionChanged message)
     {
-        if (message.State.UserId is null) Hide(); else Show();
+        Dispatch(_dispatcher, message.State.UserId is null ? Hide : Show);
+    }
+
+    internal static void Dispatch(Dispatcher dispatcher, Action action)
+    {
+        ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(action);
+        if (dispatcher.CheckAccess()) action(); else _ = dispatcher.BeginInvoke(action);
     }
 
     private void Show()

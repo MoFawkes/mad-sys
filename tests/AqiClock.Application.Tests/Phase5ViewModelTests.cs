@@ -8,6 +8,7 @@ using AqiClock.Domain.Entities;
 using AqiClock.Domain.Time;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.IO;
 
 namespace AqiClock.Application.Tests;
@@ -48,8 +49,8 @@ public sealed class Phase5ViewModelTests
     [InlineData("   ")]
     public void SignInIsDisabledForBlankEmailWithoutThrowing(string email)
     {
-        var vm = new SignInViewModel(new SessionStub(), new SyncStub(), new GatewayStub(), new WindowStub())
-        { Email = email, Password = "not-empty" };
+        var vm = CreateSignInViewModel(new SessionStub(), new SyncStub());
+        vm.Email = email; vm.Password = "not-empty";
 
         Assert.False(vm.SignInCommand.CanExecute(null));
     }
@@ -57,12 +58,24 @@ public sealed class Phase5ViewModelTests
     [Fact]
     public async Task UnexpectedLocalPersistenceFailureIsShownInWindow()
     {
-        var vm = new SignInViewModel(new SessionStub(new IOException("disk unavailable")), new SyncStub(), new GatewayStub(), new WindowStub())
-        { Email = "staff@example.test", Password = "not-empty" };
+        var vm = CreateSignInViewModel(new SessionStub(new IOException("disk unavailable")), new SyncStub());
+        vm.Email = "staff@example.test"; vm.Password = "not-empty";
 
         await vm.SignInCommand.ExecuteAsync(null);
 
         Assert.Contains("local data", vm.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PostAuthenticationSyncFailureIsNotReportedAsBadCredentials()
+    {
+        var vm = CreateSignInViewModel(new SessionStub(), new SyncStub(new InvalidOperationException("realtime unavailable")));
+        vm.Email = "staff@example.test"; vm.Password = "correct-password";
+
+        await vm.SignInCommand.ExecuteAsync(null);
+
+        Assert.Contains("initial timetable download", vm.ErrorMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("password", vm.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -154,7 +167,8 @@ public sealed class Phase5ViewModelTests
     private sealed class AnnouncementRepository(params Announcement[] rows) : IAnnouncementRepository { public Task<IReadOnlyList<Announcement>> GetCurrentAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Announcement>>(rows); }
     private sealed class ProfileRepository(params Profile[] rows) : IProfileRepository { public Task<IReadOnlyList<Profile>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Profile>>(rows); public Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(rows.FirstOrDefault(x => x.Id == id)); }
     private sealed class ReadStore : IAnnouncementReadStore { private readonly HashSet<Guid> _read = []; public Task<bool> IsReadAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(_read.Contains(id)); public Task MarkReadAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default) { _read.Add(id); return Task.CompletedTask; } }
-    private sealed class SyncStub : ISyncService { public ConnectivityState State { get; private set; } = ConnectivityState.Offline; public DateTimeOffset? LastSyncedAt => null; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.CompletedTask; public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
+    private static SignInViewModel CreateSignInViewModel(ISessionService session, ISyncService sync) => new(session, sync, new GatewayStub(), new WindowStub(), NullLogger<SignInViewModel>.Instance);
+    private sealed class SyncStub(Exception? startFailure = null) : ISyncService { public ConnectivityState State { get; private set; } = ConnectivityState.Offline; public DateTimeOffset? LastSyncedAt => null; public Task StartAsync(CancellationToken cancellationToken = default) => startFailure is null ? Task.CompletedTask : Task.FromException(startFailure); public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.CompletedTask; public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
     private sealed class SessionStub(Exception? signInFailure = null) : ISessionService { public SessionState Current => SessionState.SignedOut; public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => signInFailure is null ? Task.CompletedTask : Task.FromException(signInFailure); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; }
     private sealed class GatewayStub : ISupabaseGateway
     {

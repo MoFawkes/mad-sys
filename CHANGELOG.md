@@ -21,6 +21,10 @@ All notable changes to this project will be documented in this file.
 
 - Configured H.NotifyIcon through its native `System.Drawing.Icon` property, avoiding the unsupported `InteropBitmap` conversion that left the tray icon blank and raised a global error dialog.
 - Documented Windows Do Not Disturb/Focus Assist routing successful notifications into Notification Center instead of showing banners.
+- Marshalled tray creation/removal triggered by `SessionChanged` onto WPF's STA dispatcher, so successful interactive authentication no longer fails while constructing the tray menu on a continuation thread.
+- Split sign-in authentication, initial-sync, and window-activation error boundaries; every handled failure is now structured-logged and only an HTTP 400/401 from the authentication stage is labelled as incorrect credentials.
+- Observed and logged restored-session, heartbeat, and network-change background sync faults instead of leaving fire-and-forget tasks silent.
+- Added regressions for worker-thread tray transitions and post-auth sync error messaging, plus a Windows-targeted live smoke covering password sign-in, Realtime subscription/change delivery, and the resulting SQLite cache refresh.
 
 ### Added (Phase 5 — staff UI)
 

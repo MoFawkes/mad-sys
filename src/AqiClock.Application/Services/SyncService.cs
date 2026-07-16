@@ -4,15 +4,17 @@ using AqiClock.Application.Abstractions;
 using AqiClock.Application.Messages;
 using AqiClock.Application.Sync;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.Logging;
 
 namespace AqiClock.Application.Services;
 
-public sealed class SyncService(
+public sealed partial class SyncService(
     ISupabaseGateway gateway,
     ILocalCache cache,
     IMessenger messenger,
     DebouncePolicy debouncePolicy,
-    TimeProvider timeProvider) : ISyncService
+    TimeProvider timeProvider,
+    ILogger<SyncService> logger) : ISyncService
 {
     private static readonly CacheTable[] Tables = Enum.GetValues<CacheTable>();
     private readonly ConcurrentDictionary<CacheTable, CancellationTokenSource> _debounces = new();
@@ -31,7 +33,7 @@ public sealed class SyncService(
         await cache.InitializeAsync(cancellationToken).ConfigureAwait(false);
         NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
         _subscription = await gateway.SubscribeAsync(OnRealtimeChangeAsync, _lifetime.Token).ConfigureAwait(false);
-        _ = RunHeartbeatAsync(_lifetime.Token);
+        _ = ObserveBackgroundAsync(RunHeartbeatAsync(_lifetime.Token), "heartbeat");
         await SyncAllAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -151,7 +153,17 @@ public sealed class SyncService(
         return Task.CompletedTask;
     }
 
-    private void OnNetworkAddressChanged(object? sender, EventArgs e) => _ = SyncAllAsync(_lifetime?.Token ?? CancellationToken.None);
+    private void OnNetworkAddressChanged(object? sender, EventArgs e) => _ = ObserveBackgroundAsync(SyncAllAsync(_lifetime?.Token ?? CancellationToken.None), "network-change retry");
+
+    private async Task ObserveBackgroundAsync(Task operation, string operationName)
+    {
+        try { await operation.ConfigureAwait(false); }
+        catch (OperationCanceledException) { }
+        catch (Exception exception) { LogBackgroundSyncFailed(logger, operationName, exception); }
+    }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Sync background operation {OperationName} failed")]
+    private static partial void LogBackgroundSyncFailed(ILogger logger, string operationName, Exception exception);
 
     private void SetState(ConnectivityState state)
     {

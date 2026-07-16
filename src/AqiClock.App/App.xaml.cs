@@ -71,9 +71,23 @@ public partial class App : System.Windows.Application, IDisposable
         services.GetRequiredService<INotificationScheduler>().StartAsync().GetAwaiter().GetResult();
         services.GetRequiredService<IClockService>().Start();
         IWindowService windows = services.GetRequiredService<IWindowService>();
-        if (session.Current.UserId is not null) { if (!_startMinimized && !settings.Current.StartMinimized) windows.ShowMainWindow(); _ = services.GetRequiredService<ISyncService>().StartAsync(); }
+        if (session.Current.UserId is not null)
+        {
+            if (!_startMinimized && !settings.Current.StartMinimized) windows.ShowMainWindow();
+            _ = ObserveStartupSyncAsync(services.GetRequiredService<ISyncService>().StartAsync(), services.GetRequiredService<ILogger<App>>());
+        }
         else windows.ShowSignInWindow();
     }
+
+    private static async Task ObserveStartupSyncAsync(Task syncTask, ILogger<App> logger)
+    {
+        try { await syncTask.ConfigureAwait(false); }
+        catch (OperationCanceledException) { }
+        catch (Exception exception) { LogStartupSyncFailed(logger, exception); }
+    }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Background sync startup failed after session restore")]
+    private static partial void LogStartupSyncFailed(Microsoft.Extensions.Logging.ILogger logger, Exception exception);
 
     private void StartActivationListener(CancellationToken token)
     {

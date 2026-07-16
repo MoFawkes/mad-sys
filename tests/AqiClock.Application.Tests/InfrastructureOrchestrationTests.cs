@@ -51,7 +51,7 @@ public sealed class InfrastructureOrchestrationTests
         var cache = new FakeCache();
         cache.Meta["org_id"] = Guid.NewGuid().ToString();
         var gateway = new FakeGateway { OrganizationId = Guid.NewGuid() };
-        await using var service = new SyncService(gateway, cache, new WeakReferenceMessenger(), new DebouncePolicy(TimeSpan.Zero), TimeProvider.System);
+        await using var service = new SyncService(gateway, cache, new WeakReferenceMessenger(), new DebouncePolicy(TimeSpan.Zero), TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance);
 
         await service.SyncAllAsync();
 
@@ -65,7 +65,7 @@ public sealed class InfrastructureOrchestrationTests
     {
         var cache = new FakeCache();
         var gateway = new FakeGateway();
-        await using var service = new SyncService(gateway, cache, new WeakReferenceMessenger(), new DebouncePolicy(TimeSpan.FromMilliseconds(40)), TimeProvider.System);
+        await using var service = new SyncService(gateway, cache, new WeakReferenceMessenger(), new DebouncePolicy(TimeSpan.FromMilliseconds(40)), TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance);
         service.SignalTableChanged(CacheTable.Timetables);
         service.SignalTableChanged(CacheTable.Timetables);
         service.SignalTableChanged(CacheTable.Timetables);
