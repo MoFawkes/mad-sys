@@ -37,7 +37,8 @@ public interface IWindowService
     void ShowSignInWindow();
     void ShowSettingsWindow();
     void ShowAdminWindow();
-    void CloseAdminWindow();
+    void CloseAdminWindow(string? reason = null);
+    bool Confirm(string message, string title);
     void ShowAnnouncements();
     void HideMainWindow();
     void ActivateMainWindow();

@@ -24,6 +24,10 @@ All notable changes to this project will be documented in this file.
 - Humanized announcement, profile, override-date, and weekday audit entries instead of falling back to raw identifiers where descriptive fields exist.
 - Verified the P7-1–P7-3 regression package in both release-blocking CI jobs, including the rendered WPF binding test and all 177 live Supabase tests.
 
+- Made live administrator demotion atomically close the open editor and show its role-change explanation, avoiding messenger-recipient ordering races.
+- Added confirmation prompts before deleting timetables (and their periods), overrides, or announcements, and before changing a user's role or activation state.
+- Completed focused Phase 7 visual acceptance: user-role round-trip, duplicate-date replacement, referenced-delete handling, J7 live demotion, and staff-only gating all passed against the local stack.
+
 ### Added (Phase 6 — ambient Windows integration)
 
 - In-process notification scheduler implementing the 120-second grace window, persistent fired/skipped dedup, schedule rebuilds, moved-boundary re-fire, end-warning suppression, announcement first-sighting, and per-category settings.

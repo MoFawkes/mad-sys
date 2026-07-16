@@ -93,7 +93,7 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] Users tab (S10): role toggle + deactivate (server guards last admin).
 - [x] ViewModel tests: validation, role gating, conflict prompt.
 
-**Engineering gate:** P7-1–P7-3 acceptance fixes are automated-gate green on 2026-07-16 at `aec017e` (0 build warnings, 102 non-Supabase tests, 177 live Supabase tests, both CI jobs green). Pending focused visual re-verification before Phase 8 begins.
+**Engineering gate:** green on 2026-07-16 after focused visual acceptance of `aec017e` plus the J7 courtesy-dialog and destructive-action hardening (0 build warnings; 102 non-Supabase tests; 177 live Supabase tests). P7-1–P7-3, role round-trip, duplicate-date replacement, referenced-delete messaging, live demotion, and staff gating all passed. Phase 8 may begin once this final package is green in both CI jobs.
 
 ## Phase 8 — Packaging, CI/CD, rollout (depends on everything above)
 

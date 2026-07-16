@@ -64,7 +64,6 @@ public partial class MainViewModel : ObservableObject, IRecipient<ConnectivityCh
         EditTimetablesCommand.NotifyCanExecuteChanged();
         ManageAnnouncementsCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanEdit));
-        if (!IsAdmin) _windows.CloseAdminWindow();
     });
 
     private static void RunOnUiThread(Action action)

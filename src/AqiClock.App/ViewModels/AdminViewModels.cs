@@ -36,8 +36,8 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
     {
         if (message.State.Role != UserRole.Admin)
         {
-            Banner = "Your role changed. The admin editor has been closed.";
-            _windows.CloseAdminWindow();
+            const string reason = "Your role changed. The admin editor has been closed.";
+            Banner = reason;
         }
     });
 
@@ -153,6 +153,7 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
         WeekSchedule week = await _week.GetAsync(token); foreach (DayOfWeek day in Enum.GetValues<DayOfWeek>()) if (week.TimetableIdFor(day) == Selected.Id) used.Add(day.ToString());
         foreach (DateOverride item in await _overrides.GetAllAsync(token)) if (item.TimetableId == Selected.Id) used.Add(item.Date.ToString("d MMM", CultureInfo.CurrentCulture));
         if (used.Count > 0) { ValidationMessage = $"Used by: {string.Join(", ", used)} — reassign first"; return; }
+        if (!_windows.Confirm($"Delete '{Selected.Name}' and all of its periods? This cannot be undone.", "Delete timetable")) return;
         try { await _gateway.DeleteAsync(CacheTable.Timetables, Selected.Id, token); await _sync.SyncTableAsync(CacheTable.Timetables, token); await _sync.SyncTableAsync(CacheTable.Periods, token); Selected = null; await LoadAsync(token); }
         catch (ReferencedRowException) { ValidationMessage = "This timetable became referenced remotely — reassign it first."; }
         catch (ServerDeniedException) { ValidationMessage = "Your role changed."; _windows.CloseAdminWindow(); }
@@ -204,7 +205,7 @@ public partial class OverridesViewModel(IDateOverrideRepository repository, ITim
     [RelayCommand] private void Add() => Items.Add(new() { Id = Guid.NewGuid() });
     [RelayCommand] private static void SetClosed(OverrideEditorItem item) => item.TimetableId = null;
     [RelayCommand] private async Task SaveAsync(OverrideEditorItem item, CancellationToken token) { try { Guid org = await gateway.GetCurrentOrganizationIdAsync(token); DateOnly date = DateOnly.FromDateTime(item.Date); DateOverride? existing = (await repository.GetAllAsync(token)).FirstOrDefault(x => x.Date == date); if (existing is not null && existing.Id != item.Id && _confirmedReplaceDate != date) { _confirmedReplaceDate = date; Error = "An override already exists for this date. Click Save again to confirm replacement."; return; } Guid id = existing?.Id ?? item.Id; var row = new DateOverrideRow(id, org, date, item.TimetableId, item.Note); if (existing is null) await gateway.InsertAsync(CacheTable.DateOverrides, row, token); else await gateway.UpdateAsync(CacheTable.DateOverrides, id, row, token); _confirmedReplaceDate = null; Error = null; await sync.SyncTableAsync(CacheTable.DateOverrides, token); await LoadAsync(token); } catch (ServerDeniedException) { Error = "Your role changed."; windows.CloseAdminWindow(); } catch (DuplicateRowException) { Error = "An override already exists for this date. Reload and replace it."; } }
-    [RelayCommand] private async Task DeleteAsync(OverrideEditorItem item, CancellationToken token) { await gateway.DeleteAsync(CacheTable.DateOverrides, item.Id, token); await sync.SyncTableAsync(CacheTable.DateOverrides, token); await LoadAsync(token); }
+    [RelayCommand] private async Task DeleteAsync(OverrideEditorItem item, CancellationToken token) { if (!windows.Confirm($"Delete the override for {item.Date:d}?", "Delete override")) return; await gateway.DeleteAsync(CacheTable.DateOverrides, item.Id, token); await sync.SyncTableAsync(CacheTable.DateOverrides, token); await LoadAsync(token); }
 }
 
 public enum ExpiryPreset { EndOfDay, EndOfWeek, Custom, Never }
@@ -214,7 +215,7 @@ public partial class AnnouncementComposeViewModel(ISupabaseGateway gateway, ISyn
     public ObservableCollection<Announcement> Items { get; } = []; public IReadOnlyList<ExpiryPreset> Presets { get; } = Enum.GetValues<ExpiryPreset>();
     public async Task LoadAsync(CancellationToken token = default) { Items.Clear(); foreach (Announcement x in await repository.GetCurrentAsync(DateTimeOffset.Now, token)) Items.Add(x); }
     [RelayCommand] private async Task PublishAsync(CancellationToken token) { if (Title.Length is 0 or > 200 || Body.Length is 0 or > 2000) { Error = "Title and body are required and must fit the limits."; return; } try { Guid org = await gateway.GetCurrentOrganizationIdAsync(token); Guid actor = session.Current.UserId ?? throw new InvalidOperationException("Sign in required."); DateTimeOffset? expires = ResolveExpiry(Expiry, CustomExpiry, DateTimeOffset.Now); await gateway.InsertAsync(CacheTable.Announcements, new AnnouncementRow(Guid.NewGuid(), org, Title.Trim(), Body.Trim(), expires, actor, DateTimeOffset.Now), token); await sync.SyncTableAsync(CacheTable.Announcements, token); Title = Body = string.Empty; await LoadAsync(token); } catch (ServerDeniedException) { Error = "Your role changed."; windows.CloseAdminWindow(); } }
-    [RelayCommand] private async Task DeleteAsync(Announcement item, CancellationToken token) { await gateway.DeleteAsync(CacheTable.Announcements, item.Id, token); await sync.SyncTableAsync(CacheTable.Announcements, token); await LoadAsync(token); }
+    [RelayCommand] private async Task DeleteAsync(Announcement item, CancellationToken token) { if (!windows.Confirm($"Delete the announcement '{item.Title}'?", "Delete announcement")) return; await gateway.DeleteAsync(CacheTable.Announcements, item.Id, token); await sync.SyncTableAsync(CacheTable.Announcements, token); await LoadAsync(token); }
     public static DateTimeOffset? ResolveExpiry(ExpiryPreset preset, DateTime? custom, DateTimeOffset now) => preset switch { ExpiryPreset.EndOfDay => new DateTimeOffset(now.Date.AddDays(1).AddTicks(-1), now.Offset), ExpiryPreset.EndOfWeek => new DateTimeOffset(now.Date.AddDays(((int)DayOfWeek.Sunday - (int)now.DayOfWeek + 7) % 7 + 1).AddTicks(-1), now.Offset), ExpiryPreset.Custom => custom is null ? null : new DateTimeOffset(custom.Value), _ => null };
 }
 
@@ -234,11 +235,11 @@ public partial class AuditViewModel(ISupabaseGateway gateway, IProfileRepository
     }
 }
 
-public partial class UserEditorItem : ObservableObject { public Guid Id { get; init; } public string DisplayName { get; init; } = string.Empty; [ObservableProperty] private UserRole _role; [ObservableProperty] private bool _isActive; [ObservableProperty] private string? _error; public string Email { get; init; } = "Not available"; }
+public partial class UserEditorItem : ObservableObject { public Guid Id { get; init; } public string DisplayName { get; init; } = string.Empty; public UserRole OriginalRole { get; set; } public bool OriginalIsActive { get; set; } [ObservableProperty] private UserRole _role; [ObservableProperty] private bool _isActive; [ObservableProperty] private string? _error; public string Email { get; init; } = "Not available"; }
 public partial class UsersViewModel(IProfileRepository profiles, ISupabaseGateway gateway, ISyncService sync, ISessionService session, IWindowService windows) : ObservableObject
 {
     public ObservableCollection<UserEditorItem> Items { get; } = [];
     public IReadOnlyList<UserRole> Roles { get; } = Enum.GetValues<UserRole>();
-    public async Task LoadAsync(CancellationToken token = default) { Items.Clear(); foreach (Profile p in (await profiles.GetAllAsync(token)).OrderByDescending(x => x.Id == session.Current.UserId).ThenByDescending(x => x.Role == UserRole.Admin).ThenBy(x => x.DisplayName)) Items.Add(new() { Id = p.Id, DisplayName = p.DisplayName, Role = p.Role, IsActive = p.IsActive, Email = p.Id == session.Current.UserId ? session.Current.Email ?? "Not available" : "Not stored (MVP)" }); }
-    [RelayCommand] private async Task SaveAsync(UserEditorItem item, CancellationToken token) { try { await gateway.UpdateProfileAsync(item.Id, item.Role == UserRole.Admin ? "admin" : "staff", item.IsActive, token); await sync.SyncTableAsync(CacheTable.Profiles, token); item.Error = null; } catch (LastAdminException) { item.Error = "You cannot demote or deactivate the last active admin. Promote someone else first."; } catch (ServerDeniedException) { item.Error = "Your role changed."; windows.CloseAdminWindow(); } }
+    public async Task LoadAsync(CancellationToken token = default) { Items.Clear(); foreach (Profile p in (await profiles.GetAllAsync(token)).OrderByDescending(x => x.Id == session.Current.UserId).ThenByDescending(x => x.Role == UserRole.Admin).ThenBy(x => x.DisplayName)) Items.Add(new() { Id = p.Id, DisplayName = p.DisplayName, Role = p.Role, OriginalRole = p.Role, IsActive = p.IsActive, OriginalIsActive = p.IsActive, Email = p.Id == session.Current.UserId ? session.Current.Email ?? "Not available" : "Not stored (MVP)" }); }
+    [RelayCommand] private async Task SaveAsync(UserEditorItem item, CancellationToken token) { bool changed = item.Role != item.OriginalRole || item.IsActive != item.OriginalIsActive; if (!changed) return; if (!windows.Confirm($"Apply the role and account-status changes for {item.DisplayName}?", "Update user")) return; try { await gateway.UpdateProfileAsync(item.Id, item.Role == UserRole.Admin ? "admin" : "staff", item.IsActive, token); await sync.SyncTableAsync(CacheTable.Profiles, token); item.OriginalRole = item.Role; item.OriginalIsActive = item.IsActive; item.Error = null; } catch (LastAdminException) { item.Error = "You cannot demote or deactivate the last active admin. Promote someone else first."; } catch (ServerDeniedException) { item.Error = "Your role changed."; windows.CloseAdminWindow("Your role changed. The admin editor has been closed."); } }
 }
