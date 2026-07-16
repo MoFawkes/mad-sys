@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added (Phase 7 — admin editing)
+
+- Online-only, role-gated admin workspace for timetables and ordered periods, weekly assignments, date overrides, announcement publishing, recent audit history, and profile role/activation management.
+- Client validation for period bounds and duplicate names, non-blocking overlap warnings, referenced-timetable explanations, duplicate-date replacement, and courtesy Reload/Overwrite conflict handling.
+- Typed Supabase write failures for denied, referenced, duplicate, and last-admin outcomes, plus online audit retrieval and administrator profile updates.
+- Targeted cache refreshes after successful writes, live demotion closure, and an admin compose/manage entry point in the announcements panel.
+- Admin ViewModel and cache-identity regression tests plus live gateway coverage for profile, week-schedule, and audit operations; current totals are 100 non-Supabase tests and 177 live Supabase tests.
+
+### Fixed (Phase 7 runtime smoke)
+
+- Marshalled connectivity, session, and Realtime-driven editor updates onto the WPF dispatcher so heartbeat or socket callbacks cannot update bound commands and collections from a worker thread.
+- Bound cached profile identifiers consistently as GUIDs so a freshly synced administrator is recognized immediately instead of being presented as Staff.
+
 ### Added (Phase 6 — ambient Windows integration)
 
 - In-process notification scheduler implementing the 120-second grace window, persistent fired/skipped dedup, schedule rebuilds, moved-boundary re-fire, end-warning suppression, announcement first-sighting, and per-category settings.

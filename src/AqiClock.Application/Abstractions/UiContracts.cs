@@ -36,6 +36,8 @@ public interface IWindowService
     void ShowMainWindow();
     void ShowSignInWindow();
     void ShowSettingsWindow();
+    void ShowAdminWindow();
+    void CloseAdminWindow();
     void ShowAnnouncements();
     void HideMainWindow();
     void ActivateMainWindow();

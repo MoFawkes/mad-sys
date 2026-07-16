@@ -81,6 +81,7 @@ public sealed class SqliteWeekScheduleRepository(SqliteCacheDatabase database) :
 
         return new WeekSchedule(assignments);
     }
+
 }
 
 public sealed class SqliteDateOverrideRepository(SqliteCacheDatabase database) : IDateOverrideRepository
@@ -119,7 +120,7 @@ public sealed class SqliteProfileRepository(SqliteCacheDatabase database) : IPro
         await using SqliteConnection connection = await database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "SELECT id,display_name,role,is_active FROM profiles WHERE id=$id;";
-        command.Parameters.AddWithValue("$id", id.ToString());
+        command.Parameters.AddWithValue("$id", id);
         await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? Map(reader) : null;
     }

@@ -11,10 +11,12 @@ public sealed class WindowService(IServiceProvider services, ISessionService ses
     private MainWindow? _main;
     private SignInWindow? _signIn;
     private SettingsWindow? _settings;
+    private AdminWindow? _admin;
     public void ShowMainWindow() { _main ??= services.GetRequiredService<MainWindow>(); System.Windows.Application.Current.MainWindow = _main; _main.Show(); _main.Activate(); }
     public void ShowSignInWindow()
     {
         _settings?.Close();
+        CloseAdminWindow();
         if (_main?.IsVisible == true) _main.Hide();
         if (_signIn is null)
         {
@@ -24,6 +26,8 @@ public sealed class WindowService(IServiceProvider services, ISessionService ses
         System.Windows.Application.Current.MainWindow = _signIn; _signIn.Show(); _signIn.Activate();
     }
     public void ShowSettingsWindow() { _settings = services.GetRequiredService<SettingsWindow>(); _settings.Owner = System.Windows.Application.Current.MainWindow; _settings.ShowDialog(); _settings = null; }
+    public void ShowAdminWindow() { if (session.Current.Role != AqiClock.Domain.Entities.UserRole.Admin) return; _admin ??= services.GetRequiredService<AdminWindow>(); _admin.Closed += (_, _) => _admin = null; _admin.Owner = _main; _admin.Show(); _admin.Activate(); }
+    public void CloseAdminWindow() { _admin?.Close(); _admin = null; }
     public void ShowAnnouncements() { ShowMainWindow(); services.GetRequiredService<MainViewModel>().IsAnnouncementsOpen = true; }
     public void HideMainWindow() => _main?.Hide();
     public void ActivateMainWindow() => ShowMainWindow();

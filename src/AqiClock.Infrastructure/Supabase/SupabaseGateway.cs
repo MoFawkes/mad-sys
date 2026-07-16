@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Configuration;
 using Microsoft.Extensions.Logging;
@@ -114,6 +115,37 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
 
     public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) => SendWriteAsync(HttpMethod.Delete, table, id, null, cancellationToken);
 
+    public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default)
+    {
+        if (role is null && isActive is null) throw new ArgumentException("At least one profile field must be supplied.");
+        var row = new Dictionary<string, object>();
+        if (role is not null) row["role"] = role;
+        if (isActive is not null) row["is_active"] = isActive.Value;
+        return SendRequestAsync(HttpMethod.Patch, $"rest/v1/profiles?id=eq.{id}", row, cancellationToken);
+    }
+
+    public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default)
+    {
+        if (weekday is < 0 or > 6) throw new ArgumentOutOfRangeException(nameof(weekday));
+        return SendRequestAsync(HttpMethod.Patch, $"rest/v1/week_schedule?weekday=eq.{weekday}",
+            new Dictionary<string, object?> { ["timetable_id"] = timetableId }, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        using JsonDocument document = await GetJsonAsync($"rest/v1/audit_log?select=id,actor_id,action,entity_type,entity_id,before,after,created_at&order=created_at.desc&limit={Math.Min(limit, 100)}", cancellationToken).ConfigureAwait(false);
+        return document.RootElement.EnumerateArray().Select(row => new AuditEntry(
+            row.GetProperty("id").GetInt64(),
+            row.GetProperty("actor_id").ValueKind == JsonValueKind.Null ? null : row.GetProperty("actor_id").GetGuid(),
+            row.GetProperty("action").GetString() ?? string.Empty,
+            row.GetProperty("entity_type").GetString() ?? string.Empty,
+            row.GetProperty("entity_id").GetGuid(),
+            JsonNode.Parse(row.GetProperty("before").GetRawText()) as JsonObject,
+            JsonNode.Parse(row.GetProperty("after").GetRawText()) as JsonObject,
+            row.GetProperty("created_at").GetDateTimeOffset())).ToArray();
+    }
+
     public async Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(onChange);
@@ -150,7 +182,35 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         if (row is not null) request.Content = JsonContent.Create(row, row.GetType(), options: JsonOptions);
         using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         CheckClockSkew(response);
-        response.EnsureSuccessStatusCode();
+        await EnsureWriteSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task SendRequestAsync(HttpMethod method, string path, object row, CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = CreateRequest(method, path);
+        request.Headers.Add("Prefer", "return=minimal");
+        request.Content = JsonContent.Create(row, row.GetType(), options: JsonOptions);
+        using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        CheckClockSkew(response);
+        await EnsureWriteSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task EnsureWriteSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode) return;
+        string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        PostgrestError? error = null;
+        try { error = JsonSerializer.Deserialize<PostgrestError>(body, JsonOptions); } catch (JsonException) { }
+        string message = error?.Message ?? $"The server rejected the change ({(int)response.StatusCode}).";
+        throw error?.Code switch
+        {
+            "23503" => new ReferencedRowException(message),
+            "23505" => new DuplicateRowException(message),
+            "23514" => new LastAdminException(message),
+            "42501" => new ServerDeniedException(message, error.Code),
+            _ when response.StatusCode is System.Net.HttpStatusCode.Forbidden or System.Net.HttpStatusCode.Unauthorized => new ServerDeniedException(message, error?.Code),
+            _ => new ServerWriteException(message, error?.Code),
+        };
     }
 
     private async Task<JsonDocument> GetJsonAsync(string path, CancellationToken cancellationToken)
@@ -219,6 +279,7 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
 
     private sealed record AuthResponse([property: JsonPropertyName("access_token")] string AccessToken, [property: JsonPropertyName("refresh_token")] string RefreshToken, [property: JsonPropertyName("expires_in")] int ExpiresIn, AuthUser User);
     private sealed record AuthUser(Guid Id, string Email);
+    private sealed record PostgrestError(string? Code, string? Message);
 
     private sealed class RealtimeSubscription(IReadOnlyList<RealtimeChannel> channels) : IRealtimeSubscription
     {

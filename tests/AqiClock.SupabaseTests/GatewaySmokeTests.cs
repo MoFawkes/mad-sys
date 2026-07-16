@@ -51,6 +51,34 @@ public sealed class GatewaySmokeTests(SupabaseFixture fixture)
         Assert.DoesNotContain(afterDelete.Rows.Cast<TimetableRow>(), item => item.Id == id);
     }
 
+    [SupabaseFact]
+    public async Task AdminCanUpdateProfileAndReadAuditThroughGateway()
+    {
+        using SupabaseGateway gateway = CreateGateway();
+        await gateway.SignInAsync(SupabaseFixture.Email("admin1"), SupabaseFixture.Password);
+
+        await gateway.UpdateProfileAsync(fixture.StaffUserId, "admin", true);
+        CacheSnapshot promoted = await gateway.PullAsync(CacheTable.Profiles);
+        Assert.Contains(promoted.Rows.Cast<ProfileRow>(), item => item.Id == fixture.StaffUserId && item.Role == "admin");
+
+        await gateway.UpdateProfileAsync(fixture.StaffUserId, "staff", true);
+        IReadOnlyList<AuditEntry> audit = await gateway.GetAuditEntriesAsync();
+        Assert.Contains(audit, item => item.EntityType == "profiles" && item.EntityId == fixture.StaffUserId && item.Action == "update");
+    }
+
+    [SupabaseFact]
+    public async Task AdminCanUpdateWeekScheduleByWeekdayWithoutCachedServerId()
+    {
+        using SupabaseGateway gateway = CreateGateway();
+        await gateway.SignInAsync(SupabaseFixture.Email("admin1"), SupabaseFixture.Password);
+        WeekScheduleRow monday = (await gateway.PullAsync(CacheTable.WeekSchedule)).Rows.Cast<WeekScheduleRow>().Single(x => x.Weekday == 0);
+
+        await gateway.UpdateWeekScheduleAsync(0, null);
+        Assert.Null((await gateway.PullAsync(CacheTable.WeekSchedule)).Rows.Cast<WeekScheduleRow>().Single(x => x.Weekday == 0).TimetableId);
+
+        await gateway.UpdateWeekScheduleAsync(0, monday.TimetableId);
+    }
+
     private static SupabaseGateway CreateGateway()
     {
         var options = Options.Create(new SupabaseOptions

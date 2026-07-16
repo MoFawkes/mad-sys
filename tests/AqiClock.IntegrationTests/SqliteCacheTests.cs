@@ -56,6 +56,22 @@ public sealed class SqliteCacheTests : IDisposable
     }
 
     [Fact]
+    public async Task ProfileLookupUsesTheSameGuidRepresentationAsSnapshotStorage()
+    {
+        using var database = CreateDatabase();
+        await database.InitializeAsync();
+        Guid id = Guid.NewGuid();
+        Guid organizationId = Guid.NewGuid();
+        await database.ReplaceSnapshotAsync(Snapshot(CacheTable.Profiles,
+            new[] { new ProfileRow(id, organizationId, "Administrator", "admin", true) }));
+
+        var repository = new SqliteProfileRepository(database);
+        AqiClock.Domain.Entities.Profile profile = Assert.IsType<AqiClock.Domain.Entities.Profile>(await repository.GetByIdAsync(id));
+
+        Assert.Equal(AqiClock.Domain.Entities.UserRole.Admin, profile.Role);
+    }
+
+    [Fact]
     public async Task NotificationLogPrunesEntriesOlderThanCutoff()
     {
         using var database = CreateDatabase();

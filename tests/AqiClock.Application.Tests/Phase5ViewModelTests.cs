@@ -181,8 +181,11 @@ public sealed class Phase5ViewModelTests
         public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
     private sealed class SettingsStub : ISettingsService { public AppSettings Current => new(); public event EventHandler<SettingsChanged>? Changed { add { } remove { } } public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask; }
-    private sealed class WindowStub : IWindowService { public void ShowMainWindow() { } public void ShowSignInWindow() { } public void ShowSettingsWindow() { } public void ShowAnnouncements() { } public void HideMainWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } public void ExitApplication() { } }
+    private sealed class WindowStub : IWindowService { public void ShowMainWindow() { } public void ShowSignInWindow() { } public void ShowSettingsWindow() { } public void ShowAdminWindow() { } public void CloseAdminWindow() { } public void ShowAnnouncements() { } public void HideMainWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } public void ExitApplication() { } }
 }

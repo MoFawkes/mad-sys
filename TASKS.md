@@ -79,19 +79,21 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] "Send test notification" in Settings.
 - [x] Unit tests for scheduler rules with fake clock; manual test checklist doc for toasts/tray/sleep-resume (`docs/MANUAL-TESTS.md`).
 
-**Engineering gate:** implementation complete; 0 build warnings, 94 non-Supabase tests, 175 cross-platform live Supabase tests, and the Windows-TFM auth/Realtime/cache smoke pass locally. Pending CI and final Phase 6 sign-in/Realtime visual acceptance before Phase 7 begins.
+**Engineering gate:** green on 2026-07-16 at `a6f865a` after visual acceptance of tray, startup, toasts, interactive sign-in, and live Realtime refresh (94 non-Supabase tests; 175 live Supabase tests; both CI jobs green). Phase 7 may begin.
 
 ## Phase 7 — App: admin editing (depends on Phases 5–6; server already enforces roles)
 
-- [ ] Admin window shell, reachable only when role=admin; live role-change handling (J7).
-- [ ] Timetables tab (S6): CRUD, reorder, duplicate, archive; validation (block end≤start & duplicate names, warn overlaps); delete-blocked explanations.
-- [ ] Week schedule tab (S7).
-- [ ] Date overrides tab (S8) incl. duplicate-date replace flow.
-- [ ] Concurrent-edit courtesy prompt ("changed by <name> — reload?").
-- [ ] Announcement compose/delete (admin side of S4) with expiry presets.
-- [ ] Recent changes tab (S9): online-only audit list (last 100).
-- [ ] Users tab (S10): role toggle + deactivate (server guards last admin).
-- [ ] ViewModel tests: validation, role gating, conflict prompt.
+- [x] Admin window shell, reachable only when role=admin; live role-change handling (J7).
+- [x] Timetables tab (S6): CRUD, reorder, duplicate, archive; validation (block end≤start & duplicate names, warn overlaps); delete-blocked explanations.
+- [x] Week schedule tab (S7).
+- [x] Date overrides tab (S8) incl. duplicate-date replace flow.
+- [x] Concurrent-edit courtesy prompt ("changed remotely just now — Reload / Overwrite").
+- [x] Announcement compose/delete (admin side of S4) with expiry presets.
+- [x] Recent changes tab (S9): online-only audit list (last 100).
+- [x] Users tab (S10): role toggle + deactivate (server guards last admin).
+- [x] ViewModel tests: validation, role gating, conflict prompt.
+
+**Engineering gate:** implementation complete on 2026-07-16; 0 build warnings, 100 non-Supabase tests and 177 live Supabase tests pass locally. Pending CI and Phase 7 admin visual acceptance before Phase 8 begins.
 
 ## Phase 8 — Packaging, CI/CD, rollout (depends on everything above)
 

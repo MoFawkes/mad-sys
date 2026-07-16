@@ -55,7 +55,8 @@ public partial class App : System.Windows.Application, IDisposable
         builder.Services.AddSingleton<ISettingsService, SettingsService>(); builder.Services.AddSingleton<IClockService, ClockService>(); builder.Services.AddSingleton<IWindowService, WindowService>(); builder.Services.AddSingleton<ThemeService>();
         builder.Services.AddSingleton<INotificationPresenter, ToastPresenter>(); builder.Services.AddSingleton<INotificationScheduler, NotificationScheduler>(); builder.Services.AddSingleton<TrayService>(); builder.Services.AddSingleton<StartupService>();
         builder.Services.AddSingleton<ClockViewModel>(); builder.Services.AddSingleton<AnnouncementsViewModel>(); builder.Services.AddSingleton<MainViewModel>(); builder.Services.AddTransient<SignInViewModel>(); builder.Services.AddTransient<SettingsViewModel>();
-        builder.Services.AddSingleton<MainWindow>(); builder.Services.AddTransient<SignInWindow>(); builder.Services.AddTransient<SettingsWindow>();
+        builder.Services.AddSingleton<TimetableEditorViewModel>(); builder.Services.AddSingleton<WeekScheduleViewModel>(); builder.Services.AddSingleton<OverridesViewModel>(); builder.Services.AddSingleton<AnnouncementComposeViewModel>(); builder.Services.AddSingleton<AuditViewModel>(); builder.Services.AddSingleton<UsersViewModel>(); builder.Services.AddSingleton<AdminViewModel>();
+        builder.Services.AddSingleton<MainWindow>(); builder.Services.AddTransient<SignInWindow>(); builder.Services.AddTransient<SettingsWindow>(); builder.Services.AddTransient<AdminWindow>();
         return builder.Build();
     }
 

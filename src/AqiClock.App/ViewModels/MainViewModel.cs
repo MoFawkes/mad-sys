@@ -23,6 +23,7 @@ public partial class MainViewModel : ObservableObject, IRecipient<ConnectivityCh
 
     public ClockViewModel Clock { get; }
     public AnnouncementsViewModel Announcements { get; }
+    public bool CanEdit => IsAdmin && IsOnline;
 
     public MainViewModel(ClockViewModel clock, AnnouncementsViewModel announcements, ISyncService sync, ISessionService session, ISettingsService settings, IWindowService windows, IMessenger messenger)
     {
@@ -45,10 +46,33 @@ public partial class MainViewModel : ObservableObject, IRecipient<ConnectivityCh
     [RelayCommand] private async Task ToggleAnnouncementsAsync() { IsAnnouncementsOpen = !IsAnnouncementsOpen; if (IsAnnouncementsOpen) await Announcements.LoadAsync(true); }
     [RelayCommand] private void OpenSettings() => _windows.ShowSettingsWindow();
     [RelayCommand(CanExecute = nameof(IsOnline))] private Task SyncNowAsync(CancellationToken token) => _sync.SyncAllAsync(token);
-    [RelayCommand] private void EditTimetables() => _ = _settings.Current;
+    [RelayCommand(CanExecute = nameof(CanEdit))] private void EditTimetables() => _windows.ShowAdminWindow();
+    [RelayCommand(CanExecute = nameof(CanEdit))] private void ManageAnnouncements() => _windows.ShowAdminWindow();
 
-    public void Receive(ConnectivityChanged message) { ApplyConnectivity(message.State, message.LastSyncedAt); SyncNowCommand.NotifyCanExecuteChanged(); }
-    public void Receive(SessionChanged message) => ApplySession(message.State);
+    public void Receive(ConnectivityChanged message) => RunOnUiThread(() =>
+    {
+        ApplyConnectivity(message.State, message.LastSyncedAt);
+        SyncNowCommand.NotifyCanExecuteChanged();
+        EditTimetablesCommand.NotifyCanExecuteChanged();
+        ManageAnnouncementsCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanEdit));
+    });
+
+    public void Receive(SessionChanged message) => RunOnUiThread(() =>
+    {
+        ApplySession(message.State);
+        EditTimetablesCommand.NotifyCanExecuteChanged();
+        ManageAnnouncementsCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanEdit));
+        if (!IsAdmin) _windows.CloseAdminWindow();
+    });
+
+    private static void RunOnUiThread(Action action)
+    {
+        System.Windows.Threading.Dispatcher? dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess()) action();
+        else _ = dispatcher.BeginInvoke(action);
+    }
 
     private void ApplySession(SessionState state) { IsAdmin = state.Role == UserRole.Admin; if (state.RequiresSignIn) SyncStatus = "Sign in again to sync"; }
     private void ApplyConnectivity(ConnectivityState state, DateTimeOffset? synced)
