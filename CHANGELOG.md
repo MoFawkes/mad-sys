@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 - Normal and compact clock layouts using the Domain schedule engine over SQLite-backed repositories, including current/next lesson, countdown, progress, day list, connectivity status, admin placeholder, pinning, and per-mode placement.
 - Read-only announcements panel with poster names, relative times, unread counts, expiry filtering, and local read state.
 - Typed JSON settings, light/dark/system themes, notification preferences, account controls, and log-folder access.
-- ViewModel and settings tests plus a live Supabase password-recovery smoke test; local totals are 74 non-Supabase and 175 live Supabase tests.
+- ViewModel and settings tests plus a live Supabase password-recovery smoke test; final Phase 5 totals are 82 non-Supabase and 175 live Supabase tests.
 - Verified the Phase 5 automated gate in CI: Windows build/ViewModel tests and Ubuntu clean resets plus all 175 Supabase tests passed.
 
 ### Fixed (Phase 5 — J1 acceptance)
@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file.
 - Applied compact mode as an explicit fixed 320×80 frameless window presentation, avoiding WPF local-value precedence over style triggers.
 - Stopped sign-in routing from constructing a hidden main window; closing sign-in while signed out now exits cleanly, and signing out closes Settings before returning to sign-in.
 - Serialized atomic settings writes and debounced placement persistence so rapid resize/drag/mode events cannot race over `settings.json.tmp`.
+- Completed Phase 5 visual acceptance on `fe7e526`: cold-start J1, Realtime refresh, announcements/read state, Settings/sign-out, compact/normal persistence, dragging, and signed-out process exit all passed without new log errors or crash dialogs.
 - Suppressed intermediate geometry during mode transitions, normalized compact placement to 320×80, and moved compact dragging to mouse-move so double-click restore is reliable.
 
 ### Added (Phase 4 — client infrastructure)

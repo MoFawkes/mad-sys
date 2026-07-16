@@ -68,7 +68,7 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] Theme support (light/dark/system).
 - [x] ViewModel unit tests: formatting, state transitions, offline command gating.
 
-**Engineering gate:** reopened by visual acceptance. All reported cold-start, compact/lifecycle, and settings-placement race defects now have regression coverage and are green locally (0 build warnings; 82 non-Supabase tests; 175 live Supabase tests). CI and the focused repeated-toggle/drag persistence recheck remain required before Phase 6 begins.
+**Engineering gate:** green on 2026-07-16 after full visual acceptance on `fe7e526` and V1–V4 regression fixes (0 build warnings; 82 non-Supabase tests; 175 live Supabase tests; both CI jobs green). Phase 6 may begin.
 
 ## Phase 6 — App: tray, startup, notifications (depends on Phase 5)
 
