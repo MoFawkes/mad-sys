@@ -54,7 +54,7 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] `SessionService` exposing auth state + role from cached profile and preserving cache-display mode when refresh expires.
 - [x] SQLite/application tests: snapshot-replace transactionality, migrations/corruption recovery, notification-log pruning, org-mismatch cache wipe, DPAPI, debounce, backoff, and session restore paths.
 
-**Engineering gate:** locally green on 2026-07-16 (0 build warnings; 69 non-Supabase tests; 174 live Supabase tests twice consecutively). Phase 5 remains blocked until the pushed CI run is green.
+**Engineering gate:** green locally and in CI on 2026-07-16 (0 build warnings; 69 non-Supabase tests; 174 live Supabase tests; repeatable clean resets and local reruns). Phase 5 may begin.
 
 ## Phase 5 — App: main UI (depends on Phase 4)
 
