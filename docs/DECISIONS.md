@@ -25,6 +25,10 @@ The foundation is intentionally minimal. Supabase, Realtime, SQLite, notificatio
 
 *Phase 2 note (2026-07-15): the architecture documents now exist (docs/). The Phase 1 layering is confirmed and kept. The `Microsoft.AspNetCore.App` framework reference is to be replaced with `Microsoft.Extensions.Hosting` NuGet packages plus Serilog when Phase 2 begins — a desktop app should not carry the ASP.NET Core shared framework.*
 
+## ADR-016: Target Windows 10 build 17763 or later for native toast activation
+**Accepted** 2026-07-16.
+`AqiClock.App` and its UI test project target `net8.0-windows10.0.17763.0`. This selects the desktop compatibility surface in `Microsoft.Toolkit.Uwp.Notifications` instead of its platform-neutral build, which does not expose unpackaged toast activation. Windows 10 1809 is within the product's Windows 10/11 scope; the Domain, Application, Infrastructure, and non-UI tests remain platform-neutral `net8.0`.
+
 ---
 
 ## ADR-002: Stay on .NET 8 for MVP; CommunityToolkit.Mvvm + Generic Host

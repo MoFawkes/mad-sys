@@ -13,6 +13,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly ISessionService _session;
     private readonly ISyncService _sync;
     private readonly IWindowService _windows;
+    private readonly INotificationPresenter _notifications;
     [ObservableProperty] private bool _startWithWindows;
     [ObservableProperty] private bool _startMinimized;
     [ObservableProperty] private bool _closeToTray;
@@ -29,14 +30,15 @@ public partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<AppTheme> Themes { get; } = Enum.GetValues<AppTheme>();
     public string Version { get { _ = _settings.Current; return typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3) ?? "Development"; } }
 
-    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows)
-    { _settings = settings; _session = session; _sync = sync; _windows = windows; Copy(settings.Current); }
+    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications)
+    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; Copy(settings.Current); }
 
     [RelayCommand]
     private Task SaveAsync(CancellationToken token) => _settings.SaveAsync(new AppSettings
     { StartWithWindows = StartWithWindows, StartMinimized = StartMinimized, CloseToTray = CloseToTray, Theme = Theme, AlwaysOnTop = AlwaysOnTop, CompactOnLaunch = CompactOnLaunch, LessonStartNotifications = LessonStartNotifications, EndWarningNotifications = EndWarningNotifications, EndWarningMinutes = EndWarningMinutes, AnnouncementNotifications = AnnouncementNotifications, NormalPlacement = _settings.Current.NormalPlacement, CompactPlacement = _settings.Current.CompactPlacement }, token);
 
     [RelayCommand(CanExecute = nameof(CanSync))] private Task SyncNowAsync(CancellationToken token) => _sync.SyncAllAsync(token);
+    [RelayCommand] private Task SendTestNotificationAsync(CancellationToken token) => _notifications.ShowTestAsync(token);
     [RelayCommand] private async Task SignOutAsync(CancellationToken token) { await _session.SignOutAsync(token); _windows.ShowSignInWindow(); }
     [RelayCommand] private static void ViewLogs()
     {

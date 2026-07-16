@@ -72,6 +72,23 @@ public sealed class SqliteCacheTests : IDisposable
     }
 
     [Fact]
+    public async Task NotificationLogReturnsTimestampAndCanRemoveStableKey()
+    {
+        using var database = CreateDatabase();
+        await database.InitializeAsync();
+        var store = new SqliteNotificationLogStore(database);
+        DateTimeOffset firedAt = DateTimeOffset.UtcNow;
+        await store.RecordAsync("start:period:date", firedAt, false);
+
+        NotificationLogEntry entry = Assert.IsType<NotificationLogEntry>(await store.GetAsync("start:period:date"));
+        Assert.Equal(firedAt, entry.FiredAt);
+        Assert.False(entry.Skipped);
+
+        await store.RemoveAsync(entry.EventKey);
+        Assert.Null(await store.GetAsync(entry.EventKey));
+    }
+
+    [Fact]
     public async Task RepositoriesMapIsoValuesAndWeekdayConvention()
     {
         using var database = CreateDatabase();

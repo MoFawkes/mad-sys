@@ -31,9 +31,13 @@ public interface IProfileRepository
 public interface INotificationLogStore
 {
     Task<bool> ContainsAsync(string eventKey, CancellationToken cancellationToken = default);
+    Task<NotificationLogEntry?> GetAsync(string eventKey, CancellationToken cancellationToken = default);
     Task RecordAsync(string eventKey, DateTimeOffset? firedAt, bool skipped, CancellationToken cancellationToken = default);
+    Task RemoveAsync(string eventKey, CancellationToken cancellationToken = default);
     Task PruneAsync(DateTimeOffset olderThan, CancellationToken cancellationToken = default);
 }
+
+public sealed record NotificationLogEntry(string EventKey, DateTimeOffset? FiredAt, bool Skipped);
 
 public interface IAnnouncementReadStore
 {

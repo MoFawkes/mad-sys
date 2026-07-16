@@ -170,5 +170,5 @@ public sealed class Phase5ViewModelTests
         public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
     private sealed class SettingsStub : ISettingsService { public AppSettings Current => new(); public event EventHandler<SettingsChanged>? Changed { add { } remove { } } public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask; }
-    private sealed class WindowStub : IWindowService { public void ShowMainWindow() { } public void ShowSignInWindow() { } public void ShowSettingsWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } }
+    private sealed class WindowStub : IWindowService { public void ShowMainWindow() { } public void ShowSignInWindow() { } public void ShowSettingsWindow() { } public void ShowAnnouncements() { } public void HideMainWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } public void ExitApplication() { } }
 }

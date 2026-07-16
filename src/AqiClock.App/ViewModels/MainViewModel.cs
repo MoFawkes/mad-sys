@@ -37,7 +37,11 @@ public partial class MainViewModel : ObservableObject, IRecipient<ConnectivityCh
     { await Clock.LoadAsync(cancellationToken); await Announcements.LoadAsync(false, cancellationToken); }
 
     [RelayCommand] private void ToggleDisplayMode() => DisplayMode = DisplayMode == DisplayMode.Normal ? DisplayMode.Compact : DisplayMode.Normal;
-    [RelayCommand] private void TogglePin() => AlwaysOnTop = !AlwaysOnTop;
+    [RelayCommand] private async Task TogglePinAsync()
+    {
+        AlwaysOnTop = !AlwaysOnTop;
+        await _settings.SaveAsync(_settings.Current with { AlwaysOnTop = AlwaysOnTop });
+    }
     [RelayCommand] private async Task ToggleAnnouncementsAsync() { IsAnnouncementsOpen = !IsAnnouncementsOpen; if (IsAnnouncementsOpen) await Announcements.LoadAsync(true); }
     [RelayCommand] private void OpenSettings() => _windows.ShowSettingsWindow();
     [RelayCommand(CanExecute = nameof(IsOnline))] private Task SyncNowAsync(CancellationToken token) => _sync.SyncAllAsync(token);

@@ -7,6 +7,7 @@ using AqiClock.App.Services;
 using AqiClock.App.ViewModels;
 using AqiClock.App.Views;
 using AqiClock.Application.Abstractions;
+using AqiClock.Application.Services;
 using AqiClock.Infrastructure.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
@@ -25,12 +26,14 @@ public partial class App : System.Windows.Application, IDisposable
     private EventWaitHandle? _activationEvent;
     private CancellationTokenSource? _lifetime;
     private bool _disposed;
+    private bool _startMinimized;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         _mutex = new Mutex(true, InstanceName, out bool ownsMutex);
         if (!ownsMutex) { try { EventWaitHandle.OpenExisting(ActivateName).Set(); } catch (WaitHandleCannotBeOpenedException) { } Shutdown(); return; }
         base.OnStartup(e);
+        _startMinimized = e.Args.Any(argument => string.Equals(argument, "--minimized", StringComparison.OrdinalIgnoreCase));
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         _host = BuildHost();
@@ -50,6 +53,7 @@ public partial class App : System.Windows.Application, IDisposable
         builder.Logging.ClearProviders(); builder.Logging.AddSerilog(Log.Logger, true);
         builder.Services.AddAqiClockInfrastructure(builder.Configuration);
         builder.Services.AddSingleton<ISettingsService, SettingsService>(); builder.Services.AddSingleton<IClockService, ClockService>(); builder.Services.AddSingleton<IWindowService, WindowService>(); builder.Services.AddSingleton<ThemeService>();
+        builder.Services.AddSingleton<INotificationPresenter, ToastPresenter>(); builder.Services.AddSingleton<INotificationScheduler, NotificationScheduler>(); builder.Services.AddSingleton<TrayService>(); builder.Services.AddSingleton<StartupService>();
         builder.Services.AddSingleton<ClockViewModel>(); builder.Services.AddSingleton<AnnouncementsViewModel>(); builder.Services.AddSingleton<MainViewModel>(); builder.Services.AddTransient<SignInViewModel>(); builder.Services.AddTransient<SettingsViewModel>();
         builder.Services.AddSingleton<MainWindow>(); builder.Services.AddTransient<SignInWindow>(); builder.Services.AddTransient<SettingsWindow>();
         return builder.Build();
@@ -60,10 +64,14 @@ public partial class App : System.Windows.Application, IDisposable
         IServiceProvider services = _host!.Services;
         ISettingsService settings = services.GetRequiredService<ISettingsService>(); settings.LoadAsync().GetAwaiter().GetResult();
         ThemeService theme = services.GetRequiredService<ThemeService>(); theme.Apply(settings.Current.Theme); settings.Changed += (_, changed) => Dispatcher.Invoke(() => theme.Apply(changed.Settings.Theme));
-        services.GetRequiredService<IClockService>().Start();
         ISessionService session = services.GetRequiredService<ISessionService>(); session.RestoreAsync().GetAwaiter().GetResult();
+        if (session.Current.UserId is not null) services.GetRequiredService<MainViewModel>().InitializeAsync().GetAwaiter().GetResult();
+        services.GetRequiredService<StartupService>().Start();
+        services.GetRequiredService<TrayService>().Start();
+        services.GetRequiredService<INotificationScheduler>().StartAsync().GetAwaiter().GetResult();
+        services.GetRequiredService<IClockService>().Start();
         IWindowService windows = services.GetRequiredService<IWindowService>();
-        if (session.Current.UserId is not null) { windows.ShowMainWindow(); _ = services.GetRequiredService<ISyncService>().StartAsync(); }
+        if (session.Current.UserId is not null) { if (!_startMinimized && !settings.Current.StartMinimized) windows.ShowMainWindow(); _ = services.GetRequiredService<ISyncService>().StartAsync(); }
         else windows.ShowSignInWindow();
     }
 

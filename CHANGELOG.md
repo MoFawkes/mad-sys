@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added (Phase 6 — ambient Windows integration)
+
+- In-process notification scheduler implementing the 120-second grace window, persistent fired/skipped dedup, schedule rebuilds, moved-boundary re-fire, end-warning suppression, announcement first-sighting, and per-category settings.
+- Native Windows lesson, end-warning, announcement, and test toasts with activation routing to the main window or announcements panel.
+- Signed-in-only tray residence with live schedule tooltip and the S11 Open, compact, pin, announcements, sync, Settings, sign-out, and Exit menu.
+- Idempotent per-user Windows startup registration with `--minimized`, plus tray-only restored-session startup.
+- ADR-011 manual Windows checklist covering tray lifecycle, toast activation, auto-start/reboot, sleep/resume grace, and DST-date checks.
+- Scheduler and SQLite notification-log regressions; the local suite now contains 91 non-Supabase tests and all 175 live Supabase tests remain green.
+
+### Changed (Phase 6 — platform contract)
+
+- Targeted the WPF app and UI tests at Windows 10 build 17763 or later so unpackaged native toast activation is available; recorded as ADR-016.
+
 ### Added (Phase 5 — staff UI)
 
 - Generic Host WPF composition root with single-instance activation, application lifetime wiring, structured global exception handling, and window navigation behind `IWindowService`.

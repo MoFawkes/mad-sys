@@ -36,9 +36,12 @@ public interface IWindowService
     void ShowMainWindow();
     void ShowSignInWindow();
     void ShowSettingsWindow();
+    void ShowAnnouncements();
+    void HideMainWindow();
     void ActivateMainWindow();
     void CloseSignInWindow();
     void ShutdownApplication();
+    void ExitApplication();
 }
 
 public interface IClockService

@@ -136,11 +136,28 @@ public sealed class SqliteNotificationLogStore(SqliteCacheDatabase database) : I
         return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not null;
     }
 
+    public async Task<NotificationLogEntry?> GetAsync(string eventKey, CancellationToken cancellationToken = default)
+    {
+        await using SqliteConnection connection = await database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand(); command.CommandText = "SELECT fired_at,skipped FROM notification_log WHERE event_key=$key;"; command.Parameters.AddWithValue("$key", eventKey);
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) return null;
+        DateTimeOffset? firedAt = reader.IsDBNull(0) ? null : DateTimeOffset.Parse(reader.GetString(0), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+        return new NotificationLogEntry(eventKey, firedAt, reader.GetInt64(1) != 0);
+    }
+
     public async Task RecordAsync(string eventKey, DateTimeOffset? firedAt, bool skipped, CancellationToken cancellationToken = default)
     {
         await using SqliteConnection connection = await database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using SqliteCommand command = connection.CreateCommand(); command.CommandText = "INSERT OR REPLACE INTO notification_log(event_key,fired_at,skipped) VALUES($key,$at,$skipped);";
         command.Parameters.AddWithValue("$key", eventKey); command.Parameters.AddWithValue("$at", firedAt is null ? DBNull.Value : firedAt.Value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)); command.Parameters.AddWithValue("$skipped", skipped ? 1 : 0);
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task RemoveAsync(string eventKey, CancellationToken cancellationToken = default)
+    {
+        await using SqliteConnection connection = await database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand(); command.CommandText = "DELETE FROM notification_log WHERE event_key=$key;"; command.Parameters.AddWithValue("$key", eventKey);
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 

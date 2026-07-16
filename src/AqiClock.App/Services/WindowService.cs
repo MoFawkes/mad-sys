@@ -1,6 +1,7 @@
 using System.Windows;
 using AqiClock.Application.Abstractions;
 using AqiClock.App.Views;
+using AqiClock.App.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AqiClock.App.Services;
@@ -23,9 +24,12 @@ public sealed class WindowService(IServiceProvider services, ISessionService ses
         System.Windows.Application.Current.MainWindow = _signIn; _signIn.Show(); _signIn.Activate();
     }
     public void ShowSettingsWindow() { _settings = services.GetRequiredService<SettingsWindow>(); _settings.Owner = System.Windows.Application.Current.MainWindow; _settings.ShowDialog(); _settings = null; }
+    public void ShowAnnouncements() { ShowMainWindow(); services.GetRequiredService<MainViewModel>().IsAnnouncementsOpen = true; }
+    public void HideMainWindow() => _main?.Hide();
     public void ActivateMainWindow() => ShowMainWindow();
     public void CloseSignInWindow() => _signIn?.Close();
     public void ShutdownApplication() => System.Windows.Application.Current.Shutdown();
+    public void ExitApplication() { _main?.AllowClose(); System.Windows.Application.Current.Shutdown(); }
 
     private void OnSignInClosed(object? sender, EventArgs e)
     {

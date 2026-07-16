@@ -72,12 +72,14 @@ Ordered by implementation dependency: each phase builds only on the phases above
 
 ## Phase 6 — App: tray, startup, notifications (depends on Phase 5)
 
-- [ ] Tray icon + menu + live tooltip (H.NotifyIcon); close-to-tray behaviour; Exit vs Open semantics (S11).
-- [ ] `StartupService`: HKCU Run key, start-minimised handling.
-- [ ] Toast infrastructure (`ToastNotificationManagerCompat`, AUMID, activation → window/panel).
-- [ ] `NotificationScheduler`: firing rules 1–7 of ARCHITECTURE.md §7 (grace window, dedup log, rebuild on `DataChanged`/`TimeJumped`, announcement sighting rule).
-- [ ] "Send test notification" in Settings.
-- [ ] Unit tests for scheduler rules with fake clock; manual test checklist doc for toasts/tray/sleep-resume (`docs/MANUAL-TESTS.md`).
+- [x] Tray icon + menu + live tooltip (H.NotifyIcon); close-to-tray behaviour; Exit vs Open semantics (S11).
+- [x] `StartupService`: HKCU Run key, start-minimised handling.
+- [x] Toast infrastructure (`ToastNotificationManagerCompat`, AUMID, activation → window/panel).
+- [x] `NotificationScheduler`: firing rules 1–7 of ARCHITECTURE.md §7 (grace window, dedup log, rebuild on `DataChanged`/`TimeJumped`, announcement sighting rule).
+- [x] "Send test notification" in Settings.
+- [x] Unit tests for scheduler rules with fake clock; manual test checklist doc for toasts/tray/sleep-resume (`docs/MANUAL-TESTS.md`).
+
+**Engineering gate:** implementation complete; 0 build warnings, 91 non-Supabase tests and 175 live Supabase tests pass locally. Pending CI and Phase 6 visual/manual acceptance before Phase 7 begins.
 
 ## Phase 7 — App: admin editing (depends on Phases 5–6; server already enforces roles)
 
