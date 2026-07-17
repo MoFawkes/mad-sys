@@ -80,7 +80,7 @@ public sealed class Phase5ViewModelTests
                 Assert.Equal(ResizeMode.CanResizeWithGrip, window.ResizeMode);
                 Assert.True(window.MinWidth > 0);
                 Assert.True(window.MinHeight > 0);
-                var scroller = Assert.IsType<ScrollViewer>(window.Content);
+                var scroller = Assert.IsType<ScrollViewer>(window.FindName("AuthScroller"));
                 Assert.Equal(ScrollBarVisibility.Auto, scroller.VerticalScrollBarVisibility);
                 window.Close();
             }

@@ -1,10 +1,11 @@
-using System.Windows;
 using AqiClock.App.ViewModels;
 using AqiClock.Application.Abstractions;
+using System.Windows;
+using Wpf.Ui.Controls;
 
 namespace AqiClock.App.Views;
 
-public partial class PasswordRecoveryWindow : Window
+public partial class PasswordRecoveryWindow : FluentWindow
 {
     private readonly PasswordRecoveryViewModel _viewModel;
 
