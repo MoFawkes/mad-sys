@@ -37,6 +37,10 @@ Velopack assets are hosted in the public `MoFawkes/aqi-clock-releases` repositor
 **Accepted** 2026-07-17.
 Supabase invitation/recovery links must return to a password-setting surface; the hosted project initially redirected to the unusable default `localhost:3000`. Packaged AQI Clock registers `aqiclock://reset-password` under the current user's URL protocols through Velopack install/update hooks and removes it on uninstall. Supabase redirects the short-lived recovery session to that URI; the app validates the exact scheme, host, and `type=recovery`, updates the password through the Auth API, revokes the temporary session, and never persists or logs the token. A current-user-only named pipe forwards recovery activation to an already-running single instance. Rejected: a public web recovery page (additional hosting/security surface), direct edits to `auth.users`, and passing a service-role key to the client.
 
+## ADR-019: WPF-UI Fluent presentation with a compact-window exemption
+**Accepted** 2026-07-17.
+Adopt WPF-UI 4.3.0 for the desktop presentation layer, Fluent controls, theme resources, navy application accent, and Mica-capable window chrome. Sign-in, password recovery, Settings, and Admin use `FluentWindow`; MainWindow intentionally remains a plain WPF `Window` because its accepted 320×80 compact mode changes `WindowStyle` at runtime and must stay frameless, draggable, and independently persisted. Existing dynamic brush keys remain compatibility aliases while app-owned light/dark dictionaries are swapped without clearing WPF-UI's merged dictionaries. Any Fluent-window or control conversion that affects a rendered-window test must update that strict binding test in the same commit; framework template binding errors are fixed rather than filtered. PerMonitorV2 is declared in the application manifest and is manually validated at 100% and 150% scale before release. Rejected: retaining default WPF styling, replacing the approved MVVM/window architecture, or applying Fluent chrome to MainWindow at the cost of compact-mode stability.
+
 ---
 
 ## ADR-002: Stay on .NET 8 for MVP; CommunityToolkit.Mvvm + Generic Host
