@@ -140,7 +140,7 @@ These do not block architecture; defaults are chosen so implementation can start
 | B-5 | Audit retention period | Keep forever in MVP (data volume is trivial) |
 | B-6 | Supabase tier | Free tier for pilot; Pro before whole-staff rollout (Realtime connection limits) |
 | B-7 | Update channel hosting | GitHub Releases (repo may need to be public or use a token); alternative: Supabase Storage |
-| B-8 | App display name / icon / branding | "AQI Clock", placeholder icon |
+| B-8 | App display name / icon / branding | "AQI Clock", supplied navy quill-and-inkwell icon |
 
 ---
 

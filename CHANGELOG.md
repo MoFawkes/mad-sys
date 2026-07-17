@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
 
 - Made the sign-in window larger, resizable, and vertically scrollable so Windows DPI/text scaling cannot hide the credential controls in an unrecoverable fixed-size window.
 - Replaced the unusable default `localhost:3000` password-recovery destination with a Velopack-managed `aqiclock://reset-password` activation, a dedicated password-update window, secure forwarding to an existing single instance, and in-memory-only recovery-token handling.
+- Packaged the supplied quill-and-inkwell branding for the executable, installer, tray, and Windows notifications; exposed the selected end-warning minutes beside its slider; and made the main-window action buttons consistently sized.
 
 ### Added (Phase 7 — admin editing)
 

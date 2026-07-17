@@ -66,7 +66,7 @@ This checklist is the ADR-011 acceptance script for Windows surfaces that are no
 - [ ] Send a test toast from the packaged install; confirm banner/Notification Center attribution and click-through both say AQI Clock.
 - [ ] Publish the next patch version, allow the client to download it, and confirm About says `Update downloaded — restarts into vX.Y.Z`.
 - [ ] Exit and relaunch; confirm the new version is active while SQLite cache, session, settings, notification dedup state, and window placement survive.
-- [ ] Confirm the tray and window use `assets/app.ico` when supplied; before branding lands, confirm the documented placeholder renders without error.
+- [ ] Confirm the executable, installer, Start-menu shortcut, window, tray, and Windows notifications use the quill-and-inkwell `assets/app.ico`.
 - [ ] Uninstall through Windows Installed apps; confirm app files, Start-menu shortcut, and AQI Clock Run value are removed.
 - [ ] Confirm only `%LOCALAPPDATA%\AqiClock\logs` remains when retaining diagnostic logs; manually remove other residue if the uninstall policy requests it.
 - [ ] Record the expected unsigned-pilot SmartScreen warning. Repeat after signing is introduced before wide rollout.
