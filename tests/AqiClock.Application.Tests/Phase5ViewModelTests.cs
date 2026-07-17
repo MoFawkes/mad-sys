@@ -1,5 +1,6 @@
 using AqiClock.App.Services;
 using AqiClock.App.ViewModels;
+using AqiClock.App.Views;
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Configuration;
 using AqiClock.Application.Messages;
@@ -10,6 +11,8 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.IO;
+using System.Windows;
+using System.Windows.Controls;
 
 namespace AqiClock.Application.Tests;
 
@@ -53,6 +56,30 @@ public sealed class Phase5ViewModelTests
         vm.Email = email; vm.Password = "not-empty";
 
         Assert.False(vm.SignInCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void SignInWindowIsResizableAndScrollableAtLargeTextScaling()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new SignInWindow(CreateSignInViewModel(new SessionStub(), new SyncStub()));
+                Assert.Equal(ResizeMode.CanResizeWithGrip, window.ResizeMode);
+                Assert.True(window.MinWidth > 0);
+                Assert.True(window.MinHeight > 0);
+                var scroller = Assert.IsType<ScrollViewer>(window.Content);
+                Assert.Equal(ScrollBarVisibility.Auto, scroller.VerticalScrollBarVisibility);
+                window.Close();
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        Assert.True(thread.Join(TimeSpan.FromSeconds(10)), "Sign-in window render timed out.");
+        Assert.Null(failure);
     }
 
     [Fact]

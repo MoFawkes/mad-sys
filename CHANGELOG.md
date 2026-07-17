@@ -21,6 +21,10 @@ All notable changes to this project will be documented in this file.
 - Bootstrapped the Free-tier production Supabase project from the frozen migrations, disabled global/email signup, enforced a 10-character minimum password, verified anonymous Data API denial, and created the first active administrator without using a service-role credential in the client or CI.
 - Tracked leaked-password protection for the post-pilot Pro-plan review because Supabase does not expose it on the Free tier.
 
+### Fixed (Phase 8 packaging acceptance)
+
+- Made the sign-in window larger, resizable, and vertically scrollable so Windows DPI/text scaling cannot hide the credential controls in an unrecoverable fixed-size window.
+
 ### Added (Phase 7 — admin editing)
 
 - Online-only, role-gated admin workspace for timetables and ordered periods, weekly assignments, date overrides, announcement publishing, recent audit history, and profile role/activation management.
