@@ -1,5 +1,18 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <SolidColorBrush x:Key="WindowBrush" Color="#111827"/><SolidColorBrush x:Key="CardBrush" Color="#1F2937"/><SolidColorBrush x:Key="TextBrush" Color="#F3F4F6"/><SolidColorBrush x:Key="MutedBrush" Color="#A7B0C0"/><SolidColorBrush x:Key="AccentBrush" Color="#60A5FA"/>
-  <Style TargetType="Window"><Setter Property="Background" Value="{StaticResource WindowBrush}"/><Setter Property="Foreground" Value="{StaticResource TextBrush}"/><Setter Property="FontFamily" Value="Segoe UI"/></Style>
-  <Style TargetType="Button"><Setter Property="Padding" Value="12,6"/><Setter Property="Margin" Value="3"/></Style>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:system="clr-namespace:System;assembly=System.Runtime">
+  <SolidColorBrush x:Key="WindowBrush" Color="#202020"/>
+  <SolidColorBrush x:Key="CardBrush" Color="#2B2B2B"/>
+  <SolidColorBrush x:Key="TextBrush" Color="#F5F5F5"/>
+  <SolidColorBrush x:Key="MutedBrush" Color="#C4C4C4"/>
+  <SolidColorBrush x:Key="AccentBrush" Color="#8BA9D8"/>
+  <SolidColorBrush x:Key="ErrorBrush" Color="#FF99A4"/>
+  <SolidColorBrush x:Key="WarningBrush" Color="#FCE100"/>
+  <SolidColorBrush x:Key="WarningBackgroundBrush" Color="#433519"/>
+  <system:Double x:Key="DisplayFontSize">64</system:Double>
+  <system:Double x:Key="TitleFontSize">28</system:Double>
+  <system:Double x:Key="SubtitleFontSize">20</system:Double>
+  <system:Double x:Key="BodyFontSize">14</system:Double>
+  <system:Double x:Key="CaptionFontSize">12</system:Double>
 </ResourceDictionary>

@@ -85,6 +85,7 @@ public sealed class AdminViewModelTests
                 var overrides = new Overrides(new DateOverride(Guid.NewGuid(), DateOnly.FromDateTime(DateTime.Today), null, null));
                 var admin = new AdminViewModel(new(gateway, sync, timetables, week, overrides, windows, messenger), new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, session, new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, session, windows), sync, windows, messenger);
                 var window = new AdminWindow(admin);
+                WpfUiTestResources.Attach(window);
                 window.Show();
                 window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
                 var tabs = FindVisualChild<TabControl>(window) ?? throw new InvalidOperationException("Admin tabs did not render.");

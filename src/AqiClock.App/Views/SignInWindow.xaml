@@ -27,7 +27,7 @@
                              Padding="8" />
                 <TextBlock Text="{Binding ErrorMessage}"
                            TextWrapping="Wrap"
-                           Foreground="#D14343"
+                           Foreground="{DynamicResource ErrorBrush}"
                            Margin="0,0,0,8" />
                 <TextBlock Text="{Binding ProgressMessage}" TextWrapping="Wrap" />
                 <Button Content="Sign in"

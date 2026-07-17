@@ -76,6 +76,7 @@ public sealed class Phase5ViewModelTests
             try
             {
                 var window = new SignInWindow(CreateSignInViewModel(new SessionStub(), new SyncStub()));
+                WpfUiTestResources.Attach(window);
                 Assert.Equal(ResizeMode.CanResizeWithGrip, window.ResizeMode);
                 Assert.True(window.MinWidth > 0);
                 Assert.True(window.MinHeight > 0);
