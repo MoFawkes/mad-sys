@@ -35,6 +35,8 @@ public interface IWindowService
 {
     void ShowMainWindow();
     void ShowSignInWindow();
+    void ShowPasswordRecoveryWindow(PasswordRecoveryRequest request);
+    void ClosePasswordRecoveryWindow();
     void ShowSettingsWindow();
     void ShowAdminWindow();
     void CloseAdminWindow(string? reason = null);

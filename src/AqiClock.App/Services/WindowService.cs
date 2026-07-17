@@ -15,6 +15,7 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
     private readonly ISessionService _session;
     private MainWindow? _main;
     private SignInWindow? _signIn;
+    private PasswordRecoveryWindow? _passwordRecovery;
     private SettingsWindow? _settings;
     private AdminWindow? _admin;
     public WindowService(IServiceProvider services, ISessionService session, IMessenger messenger)
@@ -37,6 +38,24 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
         }
         System.Windows.Application.Current.MainWindow = _signIn; _signIn.Show(); _signIn.Activate();
     }
+    public void ShowPasswordRecoveryWindow(PasswordRecoveryRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        _settings?.Close();
+        CloseAdminWindow();
+        if (_main?.IsVisible == true) _main.Hide();
+        if (_signIn?.IsVisible == true) _signIn.Hide();
+        if (_passwordRecovery is null)
+        {
+            _passwordRecovery = _services.GetRequiredService<PasswordRecoveryWindow>();
+            _passwordRecovery.Closed += OnPasswordRecoveryClosed;
+        }
+        _passwordRecovery.Initialize(request);
+        System.Windows.Application.Current.MainWindow = _passwordRecovery;
+        _passwordRecovery.Show();
+        _passwordRecovery.Activate();
+    }
+    public void ClosePasswordRecoveryWindow() => _passwordRecovery?.Close();
     public void ShowSettingsWindow() { _settings = _services.GetRequiredService<SettingsWindow>(); _settings.Owner = System.Windows.Application.Current.MainWindow; _settings.ShowDialog(); _settings = null; }
     public void ShowAdminWindow() { if (_session.Current.Role != UserRole.Admin) return; _admin ??= _services.GetRequiredService<AdminWindow>(); _admin.Closed += (_, _) => _admin = null; _admin.Owner = _main; _admin.Show(); _admin.Activate(); }
     public void CloseAdminWindow(string? reason = null)
@@ -51,7 +70,24 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
     }
     public void ShowAnnouncements() { ShowMainWindow(); _services.GetRequiredService<MainViewModel>().IsAnnouncementsOpen = true; }
     public void HideMainWindow() => _main?.Hide();
-    public void ActivateMainWindow() => ShowMainWindow();
+    public void ActivateMainWindow()
+    {
+        switch (WindowLifecycle.TargetForActivation(
+            _session.Current, _passwordRecovery?.IsVisible == true))
+        {
+            case ActivationTarget.PasswordRecovery:
+                _passwordRecovery!.Activate();
+                break;
+            case ActivationTarget.SignIn:
+                ShowSignInWindow();
+                break;
+            case ActivationTarget.Main:
+                ShowMainWindow();
+                break;
+            default:
+                throw new InvalidOperationException("Unknown activation target.");
+        }
+    }
     public void CloseSignInWindow() => _signIn?.Close();
     public void ShutdownApplication() => System.Windows.Application.Current.Shutdown();
     public void ExitApplication() { _main?.AllowClose(); System.Windows.Application.Current.Shutdown(); }
@@ -68,5 +104,13 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
     {
         _signIn = null;
         if (WindowLifecycle.ShouldExitAfterSignInClose(_session.Current)) System.Windows.Application.Current.Shutdown();
+    }
+
+    private void OnPasswordRecoveryClosed(object? sender, EventArgs e)
+    {
+        _passwordRecovery = null;
+        if (System.Windows.Application.Current.Dispatcher.HasShutdownStarted) return;
+        if (_session.Current.UserId is null) ShowSignInWindow();
+        else ShowMainWindow();
     }
 }

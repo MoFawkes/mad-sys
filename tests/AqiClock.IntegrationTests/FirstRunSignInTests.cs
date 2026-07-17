@@ -42,6 +42,7 @@ public sealed class FirstRunSignInTests
 
     private sealed class GatewayStub(AuthenticatedSession session) : ISupabaseGateway
     {
+        public Task CompletePasswordRecoveryAsync(string accessToken, string newPassword, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.FromResult(session);
         public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession stored, CancellationToken cancellationToken = default) => Task.FromResult(session);

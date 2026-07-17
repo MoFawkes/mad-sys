@@ -10,7 +10,7 @@ Threat model: a small-school internal tool. Primary risks are (1) staff modifyin
 
 - Supabase Auth, **email + password** only in MVP (no OAuth — school staff may not have Google/Microsoft org accounts; revisit post-MVP).
 - Invite-only: global signups are disabled in Supabase Auth settings; the email provider remains enabled so invited/admin-created users can sign in. Admins create users in the Supabase dashboard (MVP), which fires the invite/confirmation email.
-- Password policy: Supabase minimum length set to 10; leaked-password protection enabled.
+- Password policy: Supabase minimum length set to 10. Leaked-password protection is required after the post-pilot Pro-plan review; Supabase does not expose it on the Free pilot tier.
 - Password reset: standard Supabase email flow, initiated from the sign-in screen.
 - The app ships only the **anon key** + project URL (safe to embed by design — all authority comes from RLS + the user's JWT). The **service-role key is never** in the client, the repo, or CI variables accessible to the build; it is used only by humans/migration tooling.
 
@@ -53,6 +53,7 @@ Hardening details implemented by the migrations:
 | Data | Location | Protection |
 |---|---|---|
 | Supabase session (access + refresh token) | `%LOCALAPPDATA%\AqiClock\session.bin` | Encrypted with **DPAPI, CurrentUser scope** — unreadable by other Windows accounts |
+| Password-recovery access token | Process memory only | Accepted only from the exact `aqiclock://reset-password` recovery URI; never logged or persisted; the temporary refresh session is revoked after the password update and the short-lived access JWT expires normally |
 | SQLite cache | `cache.db` | Not encrypted (timetables/announcements are low-sensitivity); contains no credentials. Accepted risk, revisit if sensitive data is ever cached |
 | Settings | `settings.json` | Plain JSON, nothing sensitive permitted in it |
 | Logs | `logs\` | Serilog scrubbing rule: never log tokens, passwords, or full JWTs; 7-day rolling retention |

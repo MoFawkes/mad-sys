@@ -18,6 +18,7 @@ namespace AqiClock.Infrastructure.Supabase;
 public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
 {
     private static readonly Action<ILogger, double, Exception?> LogClockSkew = LoggerMessage.Define<double>(LogLevel.Warning, new EventId(4101, nameof(LogClockSkew)), "System clock differs from Supabase by {ClockSkewMinutes:F1} minutes; authentication may fail");
+    private static readonly Action<ILogger, int, Exception?> LogRecoveryLogoutFailed = LoggerMessage.Define<int>(LogLevel.Warning, new EventId(4102, nameof(LogRecoveryLogoutFailed)), "Password was updated, but the temporary recovery session could not be revoked (HTTP {StatusCode})");
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -57,13 +58,49 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
     public async Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
+        string redirect = Uri.EscapeDataString(PasswordRecoveryLink.RedirectUrl);
         using HttpResponseMessage response = await _httpClient.PostAsJsonAsync(
-            "auth/v1/recover",
+            $"auth/v1/recover?redirect_to={redirect}",
             new { email = email.Trim() },
             JsonOptions,
             cancellationToken).ConfigureAwait(false);
         CheckClockSkew(response);
         response.EnsureSuccessStatusCode();
+    }
+
+    public async Task CompletePasswordRecoveryAsync(
+        string accessToken,
+        string newPassword,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(accessToken);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newPassword);
+
+        using var update = new HttpRequestMessage(HttpMethod.Put, "auth/v1/user")
+        {
+            Content = JsonContent.Create(new { password = newPassword }, options: JsonOptions),
+        };
+        update.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using HttpResponseMessage response = await _httpClient.SendAsync(update, cancellationToken).ConfigureAwait(false);
+        CheckClockSkew(response);
+        response.EnsureSuccessStatusCode();
+
+        using var logout = new HttpRequestMessage(HttpMethod.Post, "auth/v1/logout?scope=local");
+        logout.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        try
+        {
+            using HttpResponseMessage logoutResponse = await _httpClient.SendAsync(logout, cancellationToken).ConfigureAwait(false);
+            if (!logoutResponse.IsSuccessStatusCode)
+                LogRecoveryLogoutFailed(_logger, (int)logoutResponse.StatusCode, null);
+        }
+        catch (HttpRequestException exception)
+        {
+            LogRecoveryLogoutFailed(_logger, 0, exception);
+        }
+        catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested)
+        {
+            LogRecoveryLogoutFailed(_logger, 0, exception);
+        }
     }
 
     public async Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default)

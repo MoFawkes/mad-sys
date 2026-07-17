@@ -17,7 +17,13 @@ public static class WindowLayouts
 public static class WindowLifecycle
 {
     public static bool ShouldExitAfterSignInClose(SessionState session) => session.UserId is null;
+    public static ActivationTarget TargetForActivation(SessionState session, bool recoveryVisible) =>
+        recoveryVisible ? ActivationTarget.PasswordRecovery :
+        session.UserId is null ? ActivationTarget.SignIn :
+        ActivationTarget.Main;
 }
+
+public enum ActivationTarget { SignIn, PasswordRecovery, Main }
 
 public static class WindowPlacements
 {

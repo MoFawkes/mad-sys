@@ -97,6 +97,7 @@ The production project was bootstrapped on 2026-07-17 using this runbook:
 3. In the dashboard SQL editor, insert the production organisation row (do not run the local fixture seed wholesale).
 4. Disable public signups, invite the first administrator under Authentication, then set the generated profile's role to `admin` in the SQL editor.
 5. Add the public project URL and anon key as repository variables `CLOUD_SUPABASE_URL` and `CLOUD_SUPABASE_ANON_KEY`. Never provide a service-role key.
+6. Under Authentication → URL Configuration, add the exact redirect URL `aqiclock://reset-password`. Keep the Email provider enabled while global self-signup remains disabled.
 
 For the current Free-tier pilot, leaked-password protection remains unavailable and is tracked for the post-pilot Supabase Pro review. Global and email signup are disabled, the minimum password length is 10, and anonymous Data API access was verified to fail closed.
 
@@ -112,3 +113,5 @@ git push origin v0.9.0
 ```
 
 Development builds keep updates disabled unless `AQICLOCK_Updates__RepositoryUrl` is explicitly set.
+
+Password-recovery emails return to the installed app through `aqiclock://reset-password`. Velopack registers that current-user protocol during install/update and removes it during uninstall. Recovery tokens are used only in memory to update the password and are never stored in AQI Clock's session, cache, settings, or logs.

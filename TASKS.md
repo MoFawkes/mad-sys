@@ -101,6 +101,7 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] GitHub Actions CI: build + unit tests (windows-latest), Supabase RLS integration tests (ubuntu-latest, release-blocking); reusable from tagged releases.
 - [ ] Velopack packaging: per-user installer and Start-menu shortcut verified locally; branded app icon remains blocked on owner-supplied `assets/logo.png` (B-8).
 - [x] Auto-update: startup + 6 h check, apply-on-restart, About-screen status (J9); development builds disable it when no channel is configured.
+- [x] Native invitation/password recovery: Velopack-managed `aqiclock://reset-password` protocol, current-user single-instance forwarding, recovery-token validation, password update window, and temporary-session revocation.
 - [x] Release pipeline to the public `MoFawkes/aqi-clock-releases` repository (B-7), with cloud URL/anon variables and repository-scoped `RELEASES_TOKEN` configured.
 - [ ] Publish and visually accept the first tagged `v0.9.x` installer/update/uninstall round-trip.
 - [ ] Run full manual test checklist on Win10 + Win11, incl. sleep/resume, offline day, DST-date simulation.

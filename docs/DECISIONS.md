@@ -33,6 +33,10 @@ The foundation is intentionally minimal. Supabase, Realtime, SQLite, notificatio
 **Accepted** 2026-07-16.
 Velopack assets are hosted in the public `MoFawkes/aqi-clock-releases` repository so installed clients can update anonymously while the source repository remains private. GitHub's built-in `GITHUB_TOKEN` is scoped to the source repository and cannot publish cross-repository; therefore the release workflow requires a fine-grained `RELEASES_TOKEN` Actions secret with contents-write access to that repository only. The credential exists solely in CI and never enters source, artifacts, configuration, or the client. Rejected: embedding a token in the client, making `mad-sys` public, or silently claiming cross-repository publication works without credentials.
 
+## ADR-018: Native password recovery uses an AQI Clock protocol activation
+**Accepted** 2026-07-17.
+Supabase invitation/recovery links must return to a password-setting surface; the hosted project initially redirected to the unusable default `localhost:3000`. Packaged AQI Clock registers `aqiclock://reset-password` under the current user's URL protocols through Velopack install/update hooks and removes it on uninstall. Supabase redirects the short-lived recovery session to that URI; the app validates the exact scheme, host, and `type=recovery`, updates the password through the Auth API, revokes the temporary session, and never persists or logs the token. A current-user-only named pipe forwards recovery activation to an already-running single instance. Rejected: a public web recovery page (additional hosting/security surface), direct edits to `auth.users`, and passing a service-role key to the client.
+
 ---
 
 ## ADR-002: Stay on .NET 8 for MVP; CommunityToolkit.Mvvm + Generic Host

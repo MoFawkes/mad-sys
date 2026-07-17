@@ -34,7 +34,11 @@ public partial class App : System.Windows.Application, IDisposable
     [STAThread]
     private static void Main(string[] args)
     {
-        VelopackApp.Build().Run();
+        VelopackApp.Build()
+            .OnAfterInstallFastCallback(_ => ProtocolRegistration.Register())
+            .OnAfterUpdateFastCallback(_ => ProtocolRegistration.Register())
+            .OnBeforeUninstallFastCallback(_ => ProtocolRegistration.Unregister())
+            .Run();
         var app = new App();
         app.InitializeComponent();
         app.Run();
@@ -43,7 +47,19 @@ public partial class App : System.Windows.Application, IDisposable
     protected override void OnStartup(StartupEventArgs e)
     {
         _mutex = new Mutex(true, InstanceName, out bool ownsMutex);
-        if (!ownsMutex) { try { EventWaitHandle.OpenExisting(ActivateName).Set(); } catch (WaitHandleCannotBeOpenedException) { } Shutdown(); return; }
+        if (!ownsMutex)
+        {
+            string? recoveryLink = FindRecoveryLink(e.Args);
+            bool sent = recoveryLink is not null &&
+                ActivationPipe.TrySendAsync(recoveryLink).GetAwaiter().GetResult();
+            if (!sent)
+            {
+                try { EventWaitHandle.OpenExisting(ActivateName).Set(); }
+                catch (WaitHandleCannotBeOpenedException) { }
+            }
+            Shutdown();
+            return;
+        }
         base.OnStartup(e);
         _startMinimized = e.Args.Any(argument => string.Equals(argument, "--minimized", StringComparison.OrdinalIgnoreCase));
         DispatcherUnhandledException += OnDispatcherUnhandledException;
@@ -52,7 +68,10 @@ public partial class App : System.Windows.Application, IDisposable
         _host.Start();
         _lifetime = new CancellationTokenSource();
         StartActivationListener(_lifetime.Token);
+        StartActivationPipeListener(_lifetime.Token);
         StartApplication();
+        string? startupRecoveryLink = FindRecoveryLink(e.Args);
+        if (startupRecoveryLink is not null) HandleRecoveryLink(startupRecoveryLink);
     }
 
     private static IHost BuildHost()
@@ -72,8 +91,9 @@ public partial class App : System.Windows.Application, IDisposable
         builder.Services.AddSingleton<ISettingsService, SettingsService>(); builder.Services.AddSingleton<IClockService, ClockService>(); builder.Services.AddSingleton<IWindowService, WindowService>(); builder.Services.AddSingleton<ThemeService>();
         builder.Services.AddSingleton<INotificationPresenter, ToastPresenter>(); builder.Services.AddSingleton<INotificationScheduler, NotificationScheduler>(); builder.Services.AddSingleton<TrayService>(); builder.Services.AddSingleton<StartupService>(); builder.Services.AddSingleton<IUpdateService, UpdateService>();
         builder.Services.AddSingleton<ClockViewModel>(); builder.Services.AddSingleton<AnnouncementsViewModel>(); builder.Services.AddSingleton<MainViewModel>(); builder.Services.AddTransient<SignInViewModel>(); builder.Services.AddTransient<SettingsViewModel>();
+        builder.Services.AddTransient<PasswordRecoveryViewModel>();
         builder.Services.AddSingleton<TimetableEditorViewModel>(); builder.Services.AddSingleton<WeekScheduleViewModel>(); builder.Services.AddSingleton<OverridesViewModel>(); builder.Services.AddSingleton<AnnouncementComposeViewModel>(); builder.Services.AddSingleton<AuditViewModel>(); builder.Services.AddSingleton<UsersViewModel>(); builder.Services.AddSingleton<AdminViewModel>();
-        builder.Services.AddSingleton<MainWindow>(); builder.Services.AddTransient<SignInWindow>(); builder.Services.AddTransient<SettingsWindow>(); builder.Services.AddTransient<AdminWindow>();
+        builder.Services.AddSingleton<MainWindow>(); builder.Services.AddTransient<SignInWindow>(); builder.Services.AddTransient<PasswordRecoveryWindow>(); builder.Services.AddTransient<SettingsWindow>(); builder.Services.AddTransient<AdminWindow>();
         return builder.Build();
     }
 
@@ -113,6 +133,34 @@ public partial class App : System.Windows.Application, IDisposable
         _activationEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ActivateName);
         _ = Task.Run(() => { while (!token.IsCancellationRequested) { _activationEvent.WaitOne(); if (!token.IsCancellationRequested) Dispatcher.Invoke(() => _host?.Services.GetRequiredService<IWindowService>().ActivateMainWindow()); } }, token);
     }
+
+    private void StartActivationPipeListener(CancellationToken token)
+    {
+        _ = Task.Run(() => ActivationPipe.ListenAsync(message =>
+        {
+            _ = Dispatcher.BeginInvoke(() => HandleRecoveryLink(message));
+            return Task.CompletedTask;
+        }, token), token);
+    }
+
+    private void HandleRecoveryLink(string link)
+    {
+        if (PasswordRecoveryLink.TryParse(link, out PasswordRecoveryRequest? request) && request is not null)
+        {
+            _host?.Services.GetRequiredService<IWindowService>().ShowPasswordRecoveryWindow(request);
+            return;
+        }
+
+        MessageBox.Show(
+            "This password recovery link is invalid or has expired. Request a new email from the sign-in window.",
+            "AQI Clock",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+    }
+
+    private static string? FindRecoveryLink(IEnumerable<string> arguments) =>
+        arguments.FirstOrDefault(argument =>
+            argument.StartsWith("aqiclock://", StringComparison.OrdinalIgnoreCase));
 
     protected override void OnExit(ExitEventArgs e)
     {

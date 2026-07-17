@@ -67,7 +67,12 @@ public partial class SignInViewModel(
     private async Task ForgotPasswordAsync(CancellationToken cancellationToken)
     {
         if (!IsValidEmail(Email)) { ErrorMessage = "Enter your email address first"; return; }
-        try { await gateway.SendPasswordResetAsync(Email, cancellationToken); ErrorMessage = "Password reset email sent"; }
+        try { await gateway.SendPasswordResetAsync(Email, cancellationToken); ErrorMessage = "Password reset email sent — open it on this PC"; }
+        catch (HttpRequestException exception) when (exception.StatusCode == System.Net.HttpStatusCode.BadRequest)
+        {
+            LogPasswordResetFailed(logger, exception);
+            ErrorMessage = "Password recovery is not configured correctly. Contact an administrator.";
+        }
         catch (HttpRequestException exception) { LogPasswordResetFailed(logger, exception); ErrorMessage = "No connection — try again later"; }
     }
 

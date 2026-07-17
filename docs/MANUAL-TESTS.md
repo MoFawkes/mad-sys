@@ -70,3 +70,15 @@ This checklist is the ADR-011 acceptance script for Windows surfaces that are no
 - [ ] Uninstall through Windows Installed apps; confirm app files, Start-menu shortcut, and AQI Clock Run value are removed.
 - [ ] Confirm only `%LOCALAPPDATA%\AqiClock\logs` remains when retaining diagnostic logs; manually remove other residue if the uninstall policy requests it.
 - [ ] Record the expected unsigned-pilot SmartScreen warning. Repeat after signing is introduced before wide rollout.
+
+## Password recovery and protocol activation
+
+- [ ] Confirm `HKCU\Software\Classes\aqiclock\shell\open\command` targets the root-level stable Velopack stub and quotes `%1`.
+- [ ] In Supabase Auth URL configuration, allow exactly `aqiclock://reset-password` before requesting a recovery email.
+- [ ] With AQI Clock closed, request recovery, click the email link, and confirm the resizable **Set a new password** window opens.
+- [ ] With AQI Clock already open at sign-in, click a second recovery link and confirm the existing instance receives it without creating a second resident process.
+- [ ] Confirm a short password and mismatched confirmation are blocked locally.
+- [ ] Confirm an expired/already-used link produces a friendly error without closing the recovery window.
+- [ ] Complete recovery, sign in with the new password, and confirm the old password no longer works.
+- [ ] Confirm logs, `settings.json`, `session.bin`, and `cache.db` contain no recovery URI, access token, refresh token, or password.
+- [ ] Update AQI Clock and confirm the protocol command still targets the stable stub; uninstall and confirm the `aqiclock` protocol key is removed.

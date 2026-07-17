@@ -47,6 +47,15 @@ public sealed class Phase5ViewModelTests
         Assert.False(WindowLifecycle.ShouldExitAfterSignInClose(new SessionState(Guid.NewGuid(), "staff@example.test", UserRole.Staff, true, false)));
     }
 
+    [Fact]
+    public void SecondLaunchTargetsTheVisibleSignedOutSurface()
+    {
+        Assert.Equal(ActivationTarget.SignIn, WindowLifecycle.TargetForActivation(SessionState.SignedOut, false));
+        Assert.Equal(ActivationTarget.PasswordRecovery, WindowLifecycle.TargetForActivation(SessionState.SignedOut, true));
+        Assert.Equal(ActivationTarget.Main, WindowLifecycle.TargetForActivation(
+            new SessionState(Guid.NewGuid(), "staff@example.test", UserRole.Staff, true, false), false));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
@@ -199,6 +208,7 @@ public sealed class Phase5ViewModelTests
     private sealed class SessionStub(Exception? signInFailure = null) : ISessionService { public SessionState Current => SessionState.SignedOut; public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => signInFailure is null ? Task.CompletedTask : Task.FromException(signInFailure); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; }
     private sealed class GatewayStub : ISupabaseGateway
     {
+        public Task CompletePasswordRecoveryAsync(string accessToken, string newPassword, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -214,5 +224,5 @@ public sealed class Phase5ViewModelTests
         public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
     private sealed class SettingsStub : ISettingsService { public AppSettings Current => new(); public event EventHandler<SettingsChanged>? Changed { add { } remove { } } public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask; }
-    private sealed class WindowStub : IWindowService { public void ShowMainWindow() { } public void ShowSignInWindow() { } public void ShowSettingsWindow() { } public void ShowAdminWindow() { } public void CloseAdminWindow(string? reason = null) { } public bool Confirm(string message, string title) => true; public void ShowAnnouncements() { } public void HideMainWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } public void ExitApplication() { } }
+    private sealed class WindowStub : IWindowService { public void ShowMainWindow() { } public void ShowSignInWindow() { } public void ShowPasswordRecoveryWindow(PasswordRecoveryRequest request) { } public void ClosePasswordRecoveryWindow() { } public void ShowSettingsWindow() { } public void ShowAdminWindow() { } public void CloseAdminWindow(string? reason = null) { } public bool Confirm(string message, string title) => true; public void ShowAnnouncements() { } public void HideMainWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } public void ExitApplication() { } }
 }

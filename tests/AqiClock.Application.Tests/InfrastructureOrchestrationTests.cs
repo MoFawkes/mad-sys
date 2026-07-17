@@ -104,6 +104,7 @@ public sealed class InfrastructureOrchestrationTests
 
     private sealed class FakeGateway : ISupabaseGateway
     {
+        public Task CompletePasswordRecoveryAsync(string accessToken, string newPassword, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Guid OrganizationId { get; init; } = Guid.NewGuid();
         public Exception? RefreshException { get; init; }
         public AuthenticatedSession RefreshedSession { get; init; } = new(Guid.NewGuid(), "staff@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1));
