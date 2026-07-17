@@ -11,6 +11,9 @@
                  WindowStartupLocation="CenterScreen"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Mica">
+    <ui:FluentWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </ui:FluentWindow.Resources>
     <Grid Background="{DynamicResource WindowBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -56,10 +59,12 @@
                             <TextBlock Text="{Binding ErrorMessage}"
                                        TextWrapping="Wrap"
                                        Foreground="{DynamicResource ErrorBrush}"
+                                       Visibility="{Binding HasErrorMessage, Converter={StaticResource BoolToVisibility}}"
                                        Margin="0,4,0,8" />
                             <TextBlock Text="{Binding ProgressMessage}"
                                        TextWrapping="Wrap"
                                        Foreground="{DynamicResource MutedBrush}"
+                                       Visibility="{Binding HasProgressMessage, Converter={StaticResource BoolToVisibility}}"
                                        Margin="0,0,0,8" />
                             <ui:Button Content="Sign in"
                                        Command="{Binding SignInCommand}"

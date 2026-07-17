@@ -2,6 +2,8 @@
 
 AQI Clock is a Windows desktop application (WPF, .NET 8) that shows staff the current time, the current lesson, time remaining, and the next lesson, driven by a centrally managed timetable. Administrators edit timetables and post announcements in Supabase-backed storage; every staff machine updates in near-real-time, works offline from a local SQLite cache, and raises native Windows notifications at lesson boundaries.
 
+The desktop presentation uses WPF-UI Fluent controls, light/dark/system themes, a navy brand accent, Mica-capable window chrome on Windows 11, and PerMonitorV2 scaling. MainWindow intentionally retains native WPF chrome switching so its accepted 320×80 frameless compact mode remains stable.
+
 **Status:** Phases 1–7 are complete and acceptance-green. Phase 8 packaging and release engineering is implemented; the production Supabase project, public release channel, and branded application icon are configured. Final installer acceptance and the pilot-machine rollout remain. See [`TASKS.md`](TASKS.md) for the phased plan and [`docs/MANUAL-TESTS.md`](docs/MANUAL-TESTS.md) for Windows integration acceptance.
 
 ## Key capabilities (planned MVP)

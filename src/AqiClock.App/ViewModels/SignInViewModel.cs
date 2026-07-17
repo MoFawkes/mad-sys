@@ -19,6 +19,11 @@ public partial class SignInViewModel(
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SignInCommand))] private bool _isBusy;
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string? _progressMessage;
+    public bool HasErrorMessage => !string.IsNullOrWhiteSpace(ErrorMessage);
+    public bool HasProgressMessage => !string.IsNullOrWhiteSpace(ProgressMessage);
+
+    partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(HasErrorMessage));
+    partial void OnProgressMessageChanged(string? value) => OnPropertyChanged(nameof(HasProgressMessage));
 
     private bool CanSignIn() => !IsBusy && IsValidEmail(Email) && !string.IsNullOrWhiteSpace(Password);
 

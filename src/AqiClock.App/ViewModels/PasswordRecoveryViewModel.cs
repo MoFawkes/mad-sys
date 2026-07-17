@@ -31,6 +31,11 @@ public partial class PasswordRecoveryViewModel(
 
     [ObservableProperty]
     private string? _progressMessage;
+    public bool HasErrorMessage => !string.IsNullOrWhiteSpace(ErrorMessage);
+    public bool HasProgressMessage => !string.IsNullOrWhiteSpace(ProgressMessage);
+
+    partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(HasErrorMessage));
+    partial void OnProgressMessageChanged(string? value) => OnPropertyChanged(nameof(HasProgressMessage));
 
     public void Initialize(PasswordRecoveryRequest request)
     {

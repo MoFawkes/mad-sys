@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Changed (Fluent UX polish)
+
+- Adopted WPF-UI 4.3 across sign-in, password recovery, Settings, Admin, and the main-window interior while preserving the accepted MVVM, native admin-grid, and compact-window behavior.
+- Added Fluent light/dark/system theme plumbing with a navy brand accent, semantic error/warning resources, shared typography tokens, and targeted app-dictionary swapping that preserves framework resources.
+- Enabled PerMonitorV2 DPI awareness and Mica-capable Fluent window chrome with graceful Windows 10 fallback.
+- Surfaced the quill-and-inkwell branding in authentication, Settings/About, the main header, executable, tray, installer, and notification identity.
+- Reworked Settings into Fluent cards and toggles, polished the six-tab Admin editor, and added professional clock, schedule, status, badge, and announcement presentation.
+
 ### Added (Phase 8 — packaging and pilot delivery)
 
 - Tag-derived MinVer assembly versions surfaced in Settings/About with live updater state.
