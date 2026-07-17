@@ -1,9 +1,10 @@
-using System.Windows;
 using AqiClock.App.ViewModels;
+using System.Windows;
+using Wpf.Ui.Controls;
 
 namespace AqiClock.App.Views;
 
-public partial class AdminWindow : Window
+public partial class AdminWindow : FluentWindow
 {
     private readonly AdminViewModel _viewModel;
     public AdminWindow(AdminViewModel viewModel) { InitializeComponent(); _viewModel = viewModel; DataContext = viewModel; Loaded += OnLoaded; }

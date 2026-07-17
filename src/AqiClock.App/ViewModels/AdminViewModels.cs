@@ -18,6 +18,7 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
     private readonly IWindowService _windows;
     [ObservableProperty] private bool _isOnline;
     [ObservableProperty] private string? _banner;
+    public bool HasBanner => !string.IsNullOrWhiteSpace(Banner);
     public TimetableEditorViewModel Timetables { get; }
     public WeekScheduleViewModel WeekSchedule { get; }
     public OverridesViewModel Overrides { get; }
@@ -30,6 +31,8 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
         Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements; Audit = audit; Users = users; _windows = windows; IsOnline = sync.State == ConnectivityState.Online;
         messenger.Register<SessionChanged>(this); messenger.Register<ConnectivityChanged>(this);
     }
+
+    partial void OnBannerChanged(string? value) => OnPropertyChanged(nameof(HasBanner));
 
     public async Task InitializeAsync(CancellationToken token = default) => await Task.WhenAll(Timetables.LoadAsync(token), WeekSchedule.LoadAsync(token), Overrides.LoadAsync(token), Announcements.LoadAsync(token), Audit.LoadAsync(token), Users.LoadAsync(token));
     public void Receive(SessionChanged message) => RunOnUiThread(() =>
