@@ -4,14 +4,22 @@ public sealed class BackoffPolicy
 {
     private static readonly TimeSpan MaximumDelay = TimeSpan.FromMinutes(5);
 
-    public static TimeSpan GetDelay(int consecutiveFailures)
+    public static TimeSpan GetDelay(int consecutiveFailures) =>
+        GetDelay(consecutiveFailures, TimeSpan.FromSeconds(30), MaximumDelay);
+
+    public static TimeSpan GetDelay(int consecutiveFailures, TimeSpan initialDelay, TimeSpan maximumDelay)
     {
         if (consecutiveFailures <= 0)
         {
             return TimeSpan.Zero;
         }
 
-        double seconds = Math.Min(30 * Math.Pow(2, consecutiveFailures - 1), MaximumDelay.TotalSeconds);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(initialDelay, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maximumDelay, initialDelay);
+
+        double seconds = Math.Min(
+            initialDelay.TotalSeconds * Math.Pow(2, consecutiveFailures - 1),
+            maximumDelay.TotalSeconds);
         return TimeSpan.FromSeconds(seconds);
     }
 }

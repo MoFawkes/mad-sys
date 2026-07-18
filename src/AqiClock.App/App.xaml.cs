@@ -28,6 +28,7 @@ public partial class App : System.Windows.Application, IDisposable
     private Mutex? _mutex;
     private EventWaitHandle? _activationEvent;
     private CancellationTokenSource? _lifetime;
+    private bool _ownsMutex;
     private bool _disposed;
     private bool _startMinimized;
 
@@ -47,6 +48,7 @@ public partial class App : System.Windows.Application, IDisposable
     protected override void OnStartup(StartupEventArgs e)
     {
         _mutex = new Mutex(true, InstanceName, out bool ownsMutex);
+        _ownsMutex = ownsMutex;
         if (!ownsMutex)
         {
             string? recoveryLink = FindRecoveryLink(e.Args);
@@ -57,6 +59,8 @@ public partial class App : System.Windows.Application, IDisposable
                 try { EventWaitHandle.OpenExisting(ActivateName).Set(); }
                 catch (WaitHandleCannotBeOpenedException) { }
             }
+            _mutex.Dispose();
+            _mutex = null;
             Shutdown();
             return;
         }
@@ -167,7 +171,12 @@ public partial class App : System.Windows.Application, IDisposable
         _lifetime?.Cancel(); _activationEvent?.Set(); _host?.Services.GetService<IClockService>()?.StopClock();
         _host?.Services.GetService<IUpdateService>()?.PrepareUpdateOnExit();
         if (_host is not null) { _host.StopAsync().GetAwaiter().GetResult(); _host.Dispose(); }
-        _activationEvent?.Dispose(); _lifetime?.Dispose(); _mutex?.ReleaseMutex(); _mutex?.Dispose(); Log.CloseAndFlush(); _disposed = true; base.OnExit(e);
+        _activationEvent?.Dispose(); _lifetime?.Dispose();
+        if (_ownsMutex) _mutex?.ReleaseMutex();
+        _mutex?.Dispose();
+        _mutex = null;
+        _ownsMutex = false;
+        Log.CloseAndFlush(); _disposed = true; base.OnExit(e);
     }
 
     public void Dispose()

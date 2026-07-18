@@ -3,6 +3,7 @@ using AqiClock.Application.Services;
 using AqiClock.Application.Sync;
 using AqiClock.Domain.Entities;
 using CommunityToolkit.Mvvm.Messaging;
+using Supabase.Realtime.Exceptions;
 
 namespace AqiClock.Application.Tests;
 
@@ -75,6 +76,72 @@ public sealed class InfrastructureOrchestrationTests
         Assert.Equal(1, gateway.PullCounts.GetValueOrDefault(CacheTable.Timetables));
     }
 
+    [Fact]
+    public async Task StartupSyncCompletesWhenRealtimeSubscriptionFails()
+    {
+        var gateway = new FakeGateway();
+        gateway.SubscriptionFailures.Enqueue(new RealtimeException("key rotation still propagating"));
+        await using var service = CreateSyncService(gateway);
+
+        await service.StartAsync();
+
+        Assert.Equal(ConnectivityState.Online, service.State);
+        Assert.NotNull(service.LastSyncedAt);
+        Assert.Equal(1, gateway.SubscribeCalls);
+        Assert.Equal(Enum.GetValues<CacheTable>().Length, gateway.PullCounts.Values.Sum());
+    }
+
+    [Fact]
+    public async Task HeartbeatRetriesRealtimeSubscriptionUntilItAttaches()
+    {
+        var gateway = new FakeGateway();
+        gateway.SubscriptionFailures.Enqueue(new RealtimeException("temporary 403"));
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15));
+
+        await service.StartAsync();
+        await WaitUntilAsync(() => gateway.SubscribeCalls >= 2 && gateway.ActiveSubscriptions == 1);
+
+        Assert.Equal(1, gateway.ActiveSubscriptions);
+        Assert.Equal(ConnectivityState.Online, service.State);
+    }
+
+    [Fact]
+    public async Task HeartbeatSurvivesUnexpectedRefreshFailure()
+    {
+        var gateway = new FakeGateway();
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15));
+        await service.StartAsync();
+        int successfulPulls = gateway.PullCounts.Values.Sum();
+        gateway.PullFailures.Enqueue(new InvalidOperationException("unexpected PostgREST-style failure"));
+
+        int fullRefresh = Enum.GetValues<CacheTable>().Length;
+        await WaitUntilAsync(() =>
+            service.State == ConnectivityState.Online &&
+            gateway.PullCounts.Values.Sum() >= successfulPulls + fullRefresh + 1);
+
+        Assert.Equal(ConnectivityState.Online, service.State);
+        Assert.True(gateway.PullCounts.Values.Sum() > successfulPulls);
+    }
+
+    private static SyncService CreateSyncService(FakeGateway gateway, TimeSpan? heartbeatInterval = null) =>
+        new(
+            gateway,
+            new FakeCache(),
+            new WeakReferenceMessenger(),
+            new DebouncePolicy(TimeSpan.Zero),
+            TimeProvider.System,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance,
+            heartbeatInterval);
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        while (!condition())
+        {
+            await Task.Delay(10, timeout.Token);
+        }
+    }
+
     private sealed class FakeSessionStore : ISessionStore
     {
         public StoredSession? Session { get; set; }
@@ -109,23 +176,42 @@ public sealed class InfrastructureOrchestrationTests
         public Exception? RefreshException { get; init; }
         public AuthenticatedSession RefreshedSession { get; init; } = new(Guid.NewGuid(), "staff@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1));
         public Dictionary<CacheTable, int> PullCounts { get; } = [];
+        public Queue<Exception> SubscriptionFailures { get; } = [];
+        public Queue<Exception> PullFailures { get; } = [];
+        public int SubscribeCalls { get; private set; }
+        public int ActiveSubscriptions { get; private set; }
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.FromResult(RefreshedSession);
         public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => RefreshException is null ? Task.FromResult(RefreshedSession) : Task.FromException<AuthenticatedSession>(RefreshException);
         public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(OrganizationId);
-        public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default) { PullCounts[table] = PullCounts.GetValueOrDefault(table) + 1; return Task.FromResult(new CacheSnapshot(table, [], DateTimeOffset.UtcNow)); }
+        public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default)
+        {
+            PullCounts[table] = PullCounts.GetValueOrDefault(table) + 1;
+            if (PullFailures.TryDequeue(out Exception? exception)) return Task.FromException<CacheSnapshot>(exception);
+            return Task.FromResult(new CacheSnapshot(table, [], DateTimeOffset.UtcNow));
+        }
         public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AuditEntry>>([]);
-        public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => Task.FromResult<IRealtimeSubscription>(new FakeSubscription());
+        public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default)
+        {
+            SubscribeCalls++;
+            if (SubscriptionFailures.TryDequeue(out Exception? exception)) return Task.FromException<IRealtimeSubscription>(exception);
+            ActiveSubscriptions++;
+            return Task.FromResult<IRealtimeSubscription>(new FakeSubscription(() => ActiveSubscriptions--));
+        }
     }
 
-    private sealed class FakeSubscription : IRealtimeSubscription
+    private sealed class FakeSubscription(Action? onDispose = null) : IRealtimeSubscription
     {
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public ValueTask DisposeAsync()
+        {
+            onDispose?.Invoke();
+            return ValueTask.CompletedTask;
+        }
     }
 }

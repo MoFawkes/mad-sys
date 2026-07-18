@@ -14,11 +14,14 @@ public sealed partial class SyncService(
     IMessenger messenger,
     DebouncePolicy debouncePolicy,
     TimeProvider timeProvider,
-    ILogger<SyncService> logger) : ISyncService
+    ILogger<SyncService> logger,
+    TimeSpan? heartbeatInterval = null) : ISyncService
 {
     private static readonly CacheTable[] Tables = Enum.GetValues<CacheTable>();
     private readonly ConcurrentDictionary<CacheTable, CancellationTokenSource> _debounces = new();
     private readonly SemaphoreSlim _syncGate = new(1, 1);
+    private readonly SemaphoreSlim _subscriptionGate = new(1, 1);
+    private readonly TimeSpan _heartbeatInterval = heartbeatInterval ?? TimeSpan.FromSeconds(30);
     private CancellationTokenSource? _lifetime;
     private IRealtimeSubscription? _subscription;
     private int _failures;
@@ -32,7 +35,7 @@ public sealed partial class SyncService(
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         await cache.InitializeAsync(cancellationToken).ConfigureAwait(false);
         NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
-        _subscription = await gateway.SubscribeAsync(OnRealtimeChangeAsync, _lifetime.Token).ConfigureAwait(false);
+        _ = ObserveBackgroundAsync(EnsureRealtimeSubscribedAsync(_lifetime.Token), "realtime subscription");
         _ = ObserveBackgroundAsync(RunHeartbeatAsync(_lifetime.Token), "heartbeat");
         await SyncAllAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -102,6 +105,7 @@ public sealed partial class SyncService(
         foreach (CancellationTokenSource source in _debounces.Values) source.Dispose();
         if (_subscription is not null) await _subscription.DisposeAsync().ConfigureAwait(false);
         _lifetime?.Dispose();
+        _subscriptionGate.Dispose();
         _syncGate.Dispose();
     }
 
@@ -133,16 +137,57 @@ public sealed partial class SyncService(
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            TimeSpan delay = _failures == 0 ? TimeSpan.FromSeconds(30) : BackoffPolicy.GetDelay(_failures);
+            int delayStep = Math.Max(1, _failures);
+            TimeSpan delay = BackoffPolicy.GetDelay(
+                delayStep,
+                _heartbeatInterval,
+                heartbeatInterval is null ? TimeSpan.FromMinutes(5) : TimeSpan.FromTicks(_heartbeatInterval.Ticks * 16));
             try
             {
                 await Task.Delay(delay, timeProvider, cancellationToken).ConfigureAwait(false);
-                await SyncAllAsync(cancellationToken).ConfigureAwait(false);
+                await EnsureRealtimeSubscribedAsync(cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await SyncAllAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    _failures++;
+                    SetState(ConnectivityState.Offline);
+                    LogBackgroundSyncFailed(logger, "heartbeat refresh", exception);
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 return;
             }
+        }
+    }
+
+    private async Task EnsureRealtimeSubscribedAsync(CancellationToken cancellationToken)
+    {
+        if (_subscription is not null) return;
+
+        await _subscriptionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (_subscription is not null) return;
+            _subscription = await gateway.SubscribeAsync(OnRealtimeChangeAsync, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            LogBackgroundSyncFailed(logger, "realtime subscription", exception);
+        }
+        finally
+        {
+            _subscriptionGate.Release();
         }
     }
 

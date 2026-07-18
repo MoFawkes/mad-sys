@@ -4,6 +4,7 @@
         xmlns:views="clr-namespace:AqiClock.App.Views"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         Title="AQI Clock"
+        Background="{DynamicResource WindowBrush}"
         Closing="OnClosing"
         LocationChanged="OnPlacementChanged"
         SizeChanged="OnPlacementChanged">
