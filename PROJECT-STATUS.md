@@ -145,3 +145,7 @@ In progress / next:
    or other credentials in this file.
 4. Link detailed acceptance evidence from this file rather than duplicating
    long logs.
+5. After executing an Architecture plan, Engineering must finish with a full
+   report for Fable 5 covering: delivered scope, files and commits, automated
+   and visual verification, release/deployment state, tracker synchronization,
+   unresolved risks, and the exact next acceptance actions.
