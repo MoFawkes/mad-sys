@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-18 21:13 BST
+Last updated: 2026-07-18 21:25 BST
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -13,13 +13,13 @@ the acceptance script.
 | Area | State |
 |---|---|
 | Staff pilot | v0.9.2 installed on 3 staff machines |
-| Public release channel | v0.9.4 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main`; v0.9.5 implementation candidate at `da6983c`, untagged |
+| Public release channel | v0.9.5 is live on `MoFawkes/aqi-clock-releases` |
+| Source | `main`; v0.9.5 tagged at `95b4591` |
 | Production backend | Supabase project active and healthy |
-| Latest release | v0.9.4 — main-window Dark-theme regression fix |
-| Next release | v0.9.5 — resilient sync, border/crash fixes, concept main-window redesign |
-| Candidate CI | Green at `226764c` (run `29655061319`); final flyout fix pending CI |
-| Release workflow | Last tag-bound run green at `8f98aad` |
+| Latest release | v0.9.5 — resilient sync, border/crash fixes, concept main-window redesign |
+| Next release | Unplanned; v0.9.5 pilot acceptance is in progress |
+| Candidate CI | Green at `95b4591` (run `29659315234`) |
+| Release workflow | v0.9.5 tag-bound run `29659428920` green |
 
 ## v0.9.3 scope
 
@@ -139,11 +139,9 @@ Completed:
 
 In progress / next:
 
-- Push the accepted candidate, require green main CI, then tag and publish
-  v0.9.5 through the established tag-bound Windows and Supabase gates.
-- Notify Architecture after publication so it can close the crash task and
-  perform the post-release Google Tasks synchronization. The pre-release
-  pinned status, matrix, crash, and round-trip task updates are complete.
+- Architecture: close the crash task and perform the post-release Google Tasks
+  synchronization now that v0.9.5 is public. The pre-release pinned status,
+  matrix, crash, and round-trip task updates were already complete.
 - Finish the hands-on System and 150% DPI portions of the UI/DPI matrix.
 - Perform the v0.9.2 → v0.9.5 auto-update check on a pilot machine.
 - Complete the installer/update/uninstaller round trip and record results in
@@ -175,7 +173,8 @@ In progress / next:
 | v0.9.5 candidate main CI | Engineering | Complete |
 | v0.9.5 owner visual acceptance | Owner | Complete with flyout fix |
 | v0.9.5 announcements flyout acceptance fix | Engineering | Complete |
-| v0.9.5 tag and public assets | Engineering | Pending final main CI |
+| v0.9.5 tag and public assets | Engineering | Complete |
+| v0.9.5 published artifact verification | Engineering | Complete |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
 | v0.9.2 → v0.9.5 pilot auto-update | Owner / Engineering | Pending |
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
@@ -247,6 +246,15 @@ In progress / next:
   pinned candidate status, crash-fix record, v0.9.5 matrix target, and
   v0.9.2 → v0.9.5 round-trip path are current. Crash-task closure and final
   tracker sync remain post-publication actions.
+- 2026-07-18 — Final candidate CI run `29659315234` passed Windows build/tests
+  and the repeatable Supabase migration/RLS matrix at `95b4591`.
+- 2026-07-18 — v0.9.5 was tagged at `95b4591` and published to the public
+  stable channel by release run `29659428920`. Both tag-bound gates and the
+  Velopack package/upload job passed.
+- 2026-07-18 — Engineering independently verified the public full/delta stable
+  index, portable ZIP SHA-256, embedded product version
+  `0.9.5+95b4591…`, publishable-key configuration, production Supabase host,
+  and updater target.
 
 ## Handoff rules
 
