@@ -4,7 +4,7 @@ AQI Clock is a Windows desktop application (WPF, .NET 8) that shows staff the cu
 
 The desktop presentation uses WPF-UI Fluent controls, light/dark/system themes, a navy brand accent, Mica-capable window chrome on Windows 11, and PerMonitorV2 scaling. MainWindow intentionally retains native WPF chrome switching so its accepted 320×80 frameless compact mode remains stable.
 
-**Status:** Phases 1–7 are complete and acceptance-green. Phase 8 packaging and release engineering is implemented; the production Supabase project, public release channel, and branded application icon are configured. Final installer acceptance and the pilot-machine rollout remain. See [`TASKS.md`](TASKS.md) for the phased plan and [`docs/MANUAL-TESTS.md`](docs/MANUAL-TESTS.md) for Windows integration acceptance.
+**Status:** Phases 1–7 are complete and acceptance-green. Phase 8 packaging and release engineering is implemented; the production Supabase project, public release channel, and branded application icon are configured. Final installer acceptance and the pilot-machine rollout remain. See [`PROJECT-STATUS.md`](PROJECT-STATUS.md) for the live Fable 5 / Engineering handoff, [`TASKS.md`](TASKS.md) for the phased plan, and [`docs/MANUAL-TESTS.md`](docs/MANUAL-TESTS.md) for Windows integration acceptance.
 
 ## Key capabilities (planned MVP)
 
@@ -26,6 +26,7 @@ The desktop presentation uses WPF-UI Fluent controls, light/dark/system themes, 
 | [`docs/BUSINESS_RULES.md`](docs/BUSINESS_RULES.md) | Plain-language "what happens when…" rules and precedence |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Auth, RLS policies, client storage, transport/update security |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Architectural decision record (ADR-001 …) |
+| [`PROJECT-STATUS.md`](PROJECT-STATUS.md) | Live Architecture / Engineering handoff, release state, ownership, and risks |
 | [`TASKS.md`](TASKS.md) | Dependency-ordered implementation checklist |
 
 ## Repository layout

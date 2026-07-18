@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+No changes yet.
+
+## 0.9.3 - 2026-07-18
+
 ### Changed (Fluent UX polish)
 
 - Adopted WPF-UI 4.3 across sign-in, password recovery, Settings, Admin, and the main-window interior while preserving the accepted MVVM, native admin-grid, and compact-window behavior.
