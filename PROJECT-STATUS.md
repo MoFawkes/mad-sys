@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-18 16:54 BST
+Last updated: 2026-07-18 17:04 BST
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -13,11 +13,11 @@ the acceptance script.
 | Area | State |
 |---|---|
 | Staff pilot | v0.9.2 installed on 3 staff machines |
-| Public release channel | `MoFawkes/aqi-clock-releases`, stable channel |
-| Source | `main`; Fluent UX baseline commit `09677a5` |
+| Public release channel | v0.9.3 is live on `MoFawkes/aqi-clock-releases` |
+| Source | `main`; v0.9.3 tag at `7ee42c2` |
 | Production backend | Supabase project active and healthy |
-| Release in progress | v0.9.3 — Fluent UX polish from 2026-07-17/18 |
-| CI baseline | Green at `09677a5` |
+| Latest release | v0.9.3 — Fluent UX polish from 2026-07-17/18 |
+| Release workflow | Green at `7ee42c2` |
 
 ## v0.9.3 scope
 
@@ -53,20 +53,17 @@ Next architecture inputs:
 
 ## Implementation / Engineering — Codex
 
-In progress:
-
-- Prepare and publish v0.9.3 from the Fluent UX baseline.
-- Run automated build/test gates and monitor the tagged release workflow.
-- Verify the public Velopack assets after publication.
-
-Completed during release preparation:
+Completed:
 
 - Replaced the invalid legacy Supabase client key in GitHub Actions with the
   current client-safe publishable key and verified the Auth endpoint accepts it.
 - Passed the local Release test gate: 120 tests passed; the 14 local-stack
   Supabase tests and one credential-dependent smoke test skipped as designed.
+- Published v0.9.3 after both tag-bound GitHub gates passed.
+- Verified the public portable artifact digest, embedded v0.9.3 product version,
+  publishable client key, production cloud response, and updater repository.
 
-Post-publication:
+In progress / next:
 
 - Run the hands-on Light/Dark/System × Normal/Compact × 100/150% DPI matrix.
 - Perform the v0.9.2 → v0.9.3 auto-update check on a pilot machine.
@@ -82,7 +79,8 @@ Post-publication:
 | Production Supabase project health | Engineering | Complete |
 | Current client-safe API key in release workflow | Engineering | Complete |
 | Local Release build/test gate | Engineering | Complete |
-| v0.9.3 tag and public assets | Engineering | In progress |
+| v0.9.3 tag and public assets | Engineering | Complete |
+| Published artifact integrity/configuration check | Engineering | Complete |
 | UI/DPI hands-on matrix | Owner / Engineering | Pending post-publication |
 | v0.9.2 → v0.9.3 pilot auto-update | Owner / Engineering | Pending |
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
@@ -98,6 +96,9 @@ Post-publication:
   against the production Auth endpoint before v0.9.3 packaging.
 - 2026-07-18 — Local Release gate passed with 120 tests; environment-dependent
   tests skipped as designed and will run in the tagged GitHub workflow.
+- 2026-07-18 — v0.9.3 published to the public stable channel from `7ee42c2`
+  after Windows and Supabase gates passed. Engineering independently verified
+  the public artifact digest, version, cloud configuration, and updater target.
 - 2026-07-18 — Clarified that the generated multi-window image is a concept,
   while v0.9.3 ships the implemented Fluent polish that preserves the accepted
   application structure.
