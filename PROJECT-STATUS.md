@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-18 21:25 BST
+Last updated: 2026-07-18 21:55 BST
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -14,11 +14,11 @@ the acceptance script.
 |---|---|
 | Staff pilot | v0.9.2 installed on 3 staff machines |
 | Public release channel | v0.9.5 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main`; v0.9.5 tagged at `95b4591` |
+| Source | `main`; v0.9.5 tagged at `95b4591`; v0.9.6 candidate at `3a558e5` |
 | Production backend | Supabase project active and healthy |
 | Latest release | v0.9.5 — resilient sync, border/crash fixes, concept main-window redesign |
-| Next release | Unplanned; v0.9.5 pilot acceptance is in progress |
-| Candidate CI | Green at `95b4591` (run `29659315234`) |
+| Next release | v0.9.6 — Light/Dark surface consistency fixes; untagged |
+| Candidate CI | v0.9.6 pending at `3a558e5`; v0.9.5 green at `95b4591` |
 | Release workflow | v0.9.5 tag-bound run `29659428920` green |
 
 ## v0.9.3 scope
@@ -51,6 +51,15 @@ the acceptance script.
   cover the status bar.
 - Settings/Admin fine-detail alignment to the concept remains follow-up
   backlog and is not part of v0.9.5.
+
+## v0.9.6 candidate scope
+
+- Theme all Admin `DataGrid` backgrounds, rows, cells, headers, dividers, and
+  selection states so Dark mode does not expose WPF's default white surface.
+- Restore the plain main window's dynamic `WindowBrush` after WPF-UI updates
+  its titlebar, keeping the 10px client margin light in Light mode.
+- Preserve WPF-UI's implicit Fluent button template in the locally conditional
+  "Edit timetables" and "Compose / manage" styles.
 
 ## Architecture — Fable 5
 
@@ -136,6 +145,11 @@ Completed:
 - Owner accepted the candidate subject to repairing the announcements flyout.
   Engineering fixed its header collision and status-bar overhang in `da6983c`,
   then captured corrected Dark-mode evidence with production sync online.
+- Implemented the v0.9.6 surface-consistency fixes in `3a558e5`. Dark Admin
+  evidence confirms the period grid and empty surface are themed; Light main
+  evidence confirms the client margin no longer forms a black frame.
+- Passed the v0.9.6 local Release gate: 124 tests passed, 15
+  credential/environment-dependent tests skipped as designed.
 
 In progress / next:
 
@@ -146,6 +160,8 @@ In progress / next:
 - Perform the v0.9.2 → v0.9.5 auto-update check on a pilot machine.
 - Complete the installer/update/uninstaller round trip and record results in
   `docs/MANUAL-TESTS.md`.
+- Require green candidate CI and owner acceptance before deciding whether to
+  tag/publish v0.9.6.
 
 ## Release gates
 
@@ -175,6 +191,11 @@ In progress / next:
 | v0.9.5 announcements flyout acceptance fix | Engineering | Complete |
 | v0.9.5 tag and public assets | Engineering | Complete |
 | v0.9.5 published artifact verification | Engineering | Complete |
+| v0.9.6 Admin grid + Light margin fixes | Engineering | Complete |
+| v0.9.6 Dark Admin + Light main visual evidence | Engineering | Complete |
+| v0.9.6 local Release test gate | Engineering | Complete |
+| v0.9.6 candidate main CI | Engineering | Pending |
+| v0.9.6 tag and public assets | Engineering | Blocked on acceptance/release decision |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
 | v0.9.2 → v0.9.5 pilot auto-update | Owner / Engineering | Pending |
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
@@ -255,6 +276,14 @@ In progress / next:
   index, portable ZIP SHA-256, embedded product version
   `0.9.5+95b4591…`, publishable-key configuration, production Supabase host,
   and updater target.
+- 2026-07-18 — Owner reported WPF's default white Admin period grid in Dark
+  mode and a black client-margin frame around the Light main window.
+  Engineering confirmed the latter was not the native resize border: WPF-UI's
+  titlebar helper had replaced the `Window.Background` resource reference.
+- 2026-07-18 — Engineering fixed both defects plus Architecture's pending
+  Fluent button-style corrections in `3a558e5`. Production-backed visual
+  evidence is under `artifacts/v0.9.6-ui/`; the local Release gate passed
+  124 runnable tests with zero failures.
 
 ## Handoff rules
 

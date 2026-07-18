@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Fixed
+
+- The Admin `DataGrid` surfaces now use the active card, text, divider, and
+  selection brushes instead of exposing WPF's default white grid in Dark mode.
+- Restored the main window's dynamic `WindowBrush` after WPF-UI updates its
+  native titlebar, preventing the client margin from appearing as a dark frame
+  in Light mode.
+- Kept locally styled Fluent actions based on WPF-UI's implicit button style,
+  removing default white pills from "Edit timetables" and
+  "Compose / manage".
+
 ## 0.9.5 - 2026-07-18
 
 ### Added
