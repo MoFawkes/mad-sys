@@ -2,11 +2,13 @@ using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using AqiClock.App.ViewModels;
 using AqiClock.App.Services;
 using AqiClock.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 using System.Windows.Threading;
+using Wpf.Ui.Appearance;
 
 namespace AqiClock.App;
 
@@ -27,11 +29,29 @@ public partial class MainWindow : Window
         InitializeComponent(); _viewModel = viewModel; _settings = settings; _logger = logger; DataContext = viewModel;
         _placementTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(350) };
         _placementTimer.Tick += OnPlacementTimerTick;
-        viewModel.PropertyChanged += OnViewModelChanged; Loaded += OnLoaded;
+        viewModel.PropertyChanged += OnViewModelChanged;
+        Loaded += OnLoaded;
+        SourceInitialized += OnSourceInitialized;
+        Closed += OnClosed;
     }
 
     public void AllowClose() => _allowClose = true;
     private async void OnLoaded(object sender, RoutedEventArgs e) { ApplyMode(); await _viewModel.InitializeAsync(); }
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        ApplicationThemeManager.Changed += OnApplicationThemeChanged;
+        ApplyTitleBarTheme(ApplicationThemeManager.GetAppTheme());
+    }
+    private void OnApplicationThemeChanged(ApplicationTheme currentApplicationTheme, Color systemAccent)
+        => ApplyTitleBarTheme(currentApplicationTheme);
+    private void ApplyTitleBarTheme(ApplicationTheme theme)
+    {
+        if (WindowStyle == WindowStyle.None) return;
+        if (theme == ApplicationTheme.Dark) WindowBackgroundManager.ApplyDarkThemeToWindow(this);
+        else WindowBackgroundManager.RemoveDarkThemeFromWindow(this);
+    }
+    private void OnClosed(object? sender, EventArgs e)
+        => ApplicationThemeManager.Changed -= OnApplicationThemeChanged;
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MainViewModel.DisplayMode)) ApplyMode();
@@ -50,6 +70,7 @@ public partial class MainWindow : Window
         MinWidth = layout.MinimumWidth; MinHeight = layout.MinimumHeight; Width = layout.Width; Height = layout.Height;
         WindowStyle = layout.IsFrameless ? WindowStyle.None : WindowStyle.SingleBorderWindow;
         ResizeMode = layout.IsFrameless ? ResizeMode.NoResize : ResizeMode.CanResize;
+        ApplyTitleBarTheme(ApplicationThemeManager.GetAppTheme());
         NormalLayout.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         CompactLayout.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
         AnnouncementPanel.Visibility = _viewModel.IsAnnouncementsOpen && !compact ? Visibility.Visible : Visibility.Collapsed;

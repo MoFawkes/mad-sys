@@ -6,6 +6,14 @@ All notable changes to this project will be documented in this file.
 
 No changes yet.
 
+## 0.9.4 - 2026-07-18
+
+### Fixed
+
+- Restored readable inherited foregrounds throughout the plain-WPF main window
+  in Dark mode and synchronized its native titlebar with live Light/Dark theme
+  changes while preserving the frameless 320×80 compact-mode contract.
+
 ## 0.9.3 - 2026-07-18
 
 ### Changed (Fluent UX polish)

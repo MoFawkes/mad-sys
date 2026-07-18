@@ -7,7 +7,10 @@
         Closing="OnClosing"
         LocationChanged="OnPlacementChanged"
         SizeChanged="OnPlacementChanged">
-  <Grid Background="{DynamicResource WindowBrush}" MouseLeftButtonDown="OnMouseLeftButtonDown" MouseMove="OnMouseMove">
+  <Grid Background="{DynamicResource WindowBrush}"
+        TextElement.Foreground="{DynamicResource TextBrush}"
+        MouseLeftButtonDown="OnMouseLeftButtonDown"
+        MouseMove="OnMouseMove">
     <Grid.Style>
       <Style TargetType="Grid">
         <Setter Property="Margin" Value="24" />
