@@ -79,7 +79,7 @@
                      Padding="10,0"
                      Margin="2,0">
             <ui:Button.Style>
-              <Style TargetType="{x:Type ui:Button}">
+              <Style TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
                 <Setter Property="Visibility" Value="Collapsed" />
                 <Style.Triggers>
                   <DataTrigger Binding="{Binding IsAdmin}" Value="True">
@@ -355,10 +355,10 @@
             <ui:Button Grid.Column="1"
                        Content="Compose / manage"
                        Command="{Binding ManageAnnouncementsCommand}"
+                       Appearance="Transparent"
                        Margin="0,0,8,0">
               <ui:Button.Style>
-                <Style TargetType="{x:Type ui:Button}">
-                  <Setter Property="Appearance" Value="Primary" />
+                <Style TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
                   <Setter Property="Visibility" Value="Collapsed" />
                   <Style.Triggers>
                     <DataTrigger Binding="{Binding IsAdmin}" Value="True">

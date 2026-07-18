@@ -49,6 +49,7 @@ public partial class MainWindow : Window
         if (WindowStyle == WindowStyle.None) return;
         if (theme == ApplicationTheme.Dark) WindowBackgroundManager.ApplyDarkThemeToWindow(this);
         else WindowBackgroundManager.RemoveDarkThemeFromWindow(this);
+        SetResourceReference(BackgroundProperty, "WindowBrush");
     }
     private void OnClosed(object? sender, EventArgs e)
         => ApplicationThemeManager.Changed -= OnApplicationThemeChanged;
