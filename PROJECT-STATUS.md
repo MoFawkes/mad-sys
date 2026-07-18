@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-18 18:56 BST
+Last updated: 2026-07-18 19:01 BST
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -14,11 +14,12 @@ the acceptance script.
 |---|---|
 | Staff pilot | v0.9.2 installed on 3 staff machines |
 | Public release channel | v0.9.4 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main`; v0.9.5 candidate at `ac1d1dc`, untagged |
+| Source | `main`; v0.9.5 candidate at `4cdcb54`, untagged |
 | Production backend | Supabase project active and healthy |
 | Latest release | v0.9.4 — main-window Dark-theme regression fix |
 | Next release | v0.9.5 — resilient sync, border/crash fixes, concept main-window redesign |
-| Release workflow | Green at `8f98aad` |
+| Candidate CI | Green at `4cdcb54` (run `29654904327`) |
+| Release workflow | Last tag-bound run green at `8f98aad` |
 
 ## v0.9.3 scope
 
@@ -164,6 +165,7 @@ In progress / next:
 | v0.9.5 concept main-window implementation | Engineering | Complete |
 | v0.9.5 Dark/Light × Normal/Compact visual evidence | Engineering | Complete |
 | v0.9.5 local Release test gate | Engineering | Complete |
+| v0.9.5 candidate main CI | Engineering | Complete |
 | v0.9.5 owner visual acceptance | Owner | Pending |
 | v0.9.5 tag and public assets | Engineering | Blocked on owner acceptance |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
@@ -226,6 +228,9 @@ In progress / next:
 - 2026-07-18 — Repository tracker and Fable memory were synchronized for the
   v0.9.5 candidate. Google Tasks remained unchanged because neither the Google
   Tasks connector nor a signed-in browser surface was available.
+- 2026-07-18 — Candidate CI run `29654904327` passed both release-blocking
+  jobs at `4cdcb54`: Windows build/tests and repeatable Supabase reset plus the
+  full RLS/behaviour matrix.
 
 ## Handoff rules
 
