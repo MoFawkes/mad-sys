@@ -8,7 +8,7 @@ public static class WindowLayouts
 {
     public static WindowLayout For(DisplayMode mode) => mode switch
     {
-        DisplayMode.Normal => new(720, 760, 520, 540, false),
+        DisplayMode.Normal => new(820, 560, 700, 500, false),
         DisplayMode.Compact => new(320, 80, 320, 80, true),
         _ => throw new ArgumentOutOfRangeException(nameof(mode)),
     };

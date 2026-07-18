@@ -25,7 +25,7 @@ public sealed class Phase5ViewModelTests
         WindowLayout normal = WindowLayouts.For(DisplayMode.Normal);
 
         Assert.Equal(320, compact.Width); Assert.Equal(80, compact.Height); Assert.True(compact.IsFrameless);
-        Assert.Equal(720, normal.Width); Assert.Equal(760, normal.Height); Assert.False(normal.IsFrameless);
+        Assert.Equal(820, normal.Width); Assert.Equal(560, normal.Height); Assert.False(normal.IsFrameless);
     }
 
     [Fact]
@@ -133,6 +133,10 @@ public sealed class Phase5ViewModelTests
         await vm.LoadAsync();
         messenger.Send(new ClockTick(now));
         Assert.Equal("Maths", vm.CurrentLesson);
+        Assert.Equal("09:59", vm.ShortTimeText);
+        Assert.Equal("Maths · 1 min left", vm.CompactLessonDetail);
+        Assert.True(vm.TodayPeriods.Single(period => period.Name == "Maths").IsCurrent);
+        Assert.True(vm.TodayPeriods.Single(period => period.Name == "English").IsUpcoming);
         messenger.Send(new ClockTick(now.AddSeconds(1)));
         Assert.Equal("No lesson right now", vm.CurrentLesson);
         Assert.Equal("Next: English at 10:05", vm.NextLesson);
@@ -195,6 +199,8 @@ public sealed class Phase5ViewModelTests
         Assert.Contains("Offline", vm.SyncStatus, StringComparison.Ordinal); Assert.False(vm.SyncNowCommand.CanExecute(null));
         messenger.Send(new ConnectivityChanged(ConnectivityState.Online, DateTimeOffset.UtcNow));
         Assert.Equal("Synced · just now", vm.SyncStatus); Assert.True(vm.SyncNowCommand.CanExecute(null));
+        messenger.Send(new ConnectivityChanged(ConnectivityState.Offline, DateTimeOffset.UtcNow.AddMinutes(-2)));
+        Assert.Contains("2 min ago", vm.SyncStatus, StringComparison.Ordinal);
     }
 
     private sealed class FixedClock(DateTime now) : IClock { public DateTime Now => now; public DateOnly LocalToday => DateOnly.FromDateTime(now); }

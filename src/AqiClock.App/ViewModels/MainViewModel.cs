@@ -16,6 +16,7 @@ public partial class MainViewModel : ObservableObject, IRecipient<ConnectivityCh
     private readonly IWindowService _windows;
     [ObservableProperty] private DisplayMode _displayMode;
     [ObservableProperty] private string _syncStatus = "Offline";
+    [ObservableProperty] private ConnectivityState _syncState = ConnectivityState.Offline;
     [ObservableProperty] private bool _isOnline;
     [ObservableProperty] private bool _isAdmin;
     [ObservableProperty] private bool _isAnnouncementsOpen;
@@ -76,8 +77,23 @@ public partial class MainViewModel : ObservableObject, IRecipient<ConnectivityCh
     private void ApplySession(SessionState state) { IsAdmin = state.Role == UserRole.Admin; if (state.RequiresSignIn) SyncStatus = "Sign in again to sync"; }
     private void ApplyConnectivity(ConnectivityState state, DateTimeOffset? synced)
     {
+        SyncState = state;
         IsOnline = state == ConnectivityState.Online;
-        SyncStatus = state switch { ConnectivityState.Syncing => "Syncing…", ConnectivityState.Online => "Synced · just now", _ when _session.Current.RequiresSignIn => "Sign in again to sync", _ => synced is null ? "Offline" : $"Offline — last synced {Relative(synced.Value)}" };
+        SyncStatus = state switch
+        {
+            ConnectivityState.Syncing => "Syncing…",
+            ConnectivityState.Online => $"Synced · {Relative(synced ?? DateTimeOffset.UtcNow)}",
+            _ when _session.Current.RequiresSignIn => "Sign in again to sync",
+            _ => synced is null ? "Offline" : $"Offline · last synced {Relative(synced.Value)}",
+        };
     }
-    private static string Relative(DateTimeOffset value) { TimeSpan age = DateTimeOffset.UtcNow - value; return age.TotalDays >= 7 ? "Timetable may be out of date" : age.TotalDays >= 1 ? $"{(int)age.TotalDays} d ago" : age.TotalHours >= 1 ? $"{(int)age.TotalHours} h ago" : "just now"; }
+    private static string Relative(DateTimeOffset value)
+    {
+        TimeSpan age = DateTimeOffset.UtcNow - value;
+        return age.TotalDays >= 7 ? "timetable may be out of date" :
+            age.TotalDays >= 1 ? $"{(int)age.TotalDays} d ago" :
+            age.TotalHours >= 1 ? $"{(int)age.TotalHours} h ago" :
+            age.TotalMinutes >= 1 ? $"{(int)age.TotalMinutes} min ago" :
+            "just now";
+    }
 }

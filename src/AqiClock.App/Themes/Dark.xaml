@@ -7,6 +7,9 @@
   <SolidColorBrush x:Key="TextBrush" Color="#F5F5F5"/>
   <SolidColorBrush x:Key="MutedBrush" Color="#C4C4C4"/>
   <SolidColorBrush x:Key="AccentBrush" Color="#8BA9D8"/>
+  <SolidColorBrush x:Key="SuccessBrush" Color="#6CCB5F"/>
+  <SolidColorBrush x:Key="CurrentPeriodBrush" Color="#172A43"/>
+  <SolidColorBrush x:Key="DividerBrush" Color="#3A3A3A"/>
   <SolidColorBrush x:Key="ErrorBrush" Color="#FF99A4"/>
   <SolidColorBrush x:Key="WarningBrush" Color="#FCE100"/>
   <SolidColorBrush x:Key="WarningBackgroundBrush" Color="#433519"/>
