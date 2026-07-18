@@ -4,7 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-No changes yet.
+### Added
+
+- Redesigned the main window to the approved concept with a two-pane
+  clock/current-lesson and today's-periods layout, explicit past/current/
+  upcoming row states, Fluent symbol toolbar, state-coloured sync strip,
+  empty-day treatment, and a theme-aware header mark.
+- Added compact-only `HH:mm` time and inline lesson/countdown detail while
+  preserving the fixed frameless 320×80 compact-window contract.
+- Added minute-level relative sync details and focused recovery regressions
+  for failed Realtime startup, later subscription attachment, and unexpected
+  heartbeat refresh failures.
+
+### Changed
+
+- Changed the normal main-window baseline to 820×560 (700×500 minimum) so the
+  approved two-pane information architecture remains usable when resized.
+- Made the Realtime subscription an independently retried enhancement: REST
+  cache initialization and the heartbeat now start even when the WebSocket
+  upgrade fails.
+
+### Fixed
+
+- Prevented a Realtime WebSocket 403 from permanently wedging REST sync and
+  heartbeat startup.
+- Prevented the bundled C# client from sending a modern opaque
+  `sb_publishable_*` key as a legacy Realtime Bearer token; the socket now uses
+  its valid `apikey` query parameter and the user JWT only for channel joins.
+- Kept the heartbeat alive after exception types outside the narrow
+  HTTP/timeout/I/O filter, allowing later refreshes to recover connectivity.
+- Removed the white ring around the dark main-window interior by painting the
+  plain WPF window itself with the active `WindowBrush`.
+- Prevented second-instance exit APPCRASH events by releasing the named mutex
+  only from the process that actually acquired it.
 
 ## 0.9.4 - 2026-07-18
 

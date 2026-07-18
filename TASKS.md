@@ -112,6 +112,9 @@ Ordered by implementation dependency: each phase builds only on the phases above
 
 ## Post-MVP backlog (unordered — see SPECIFICATION.md §4)
 
+- [ ] Align Settings/Admin fine detail to the approved concept (for example,
+  Settings sidebar navigation); main-window concept alignment ships separately
+  in v0.9.5.
 - [ ] Per-user personal timetables.
 - [ ] In-app user invitations.
 - [ ] Rich audit viewer (filters, diffs, export).
