@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-18 21:55 BST
+Last updated: 2026-07-18 21:59 BST
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -14,11 +14,11 @@ the acceptance script.
 |---|---|
 | Staff pilot | v0.9.2 installed on 3 staff machines |
 | Public release channel | v0.9.5 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main`; v0.9.5 tagged at `95b4591`; v0.9.6 candidate at `3a558e5` |
+| Source | `main`; v0.9.5 tagged at `95b4591`; v0.9.6 candidate at `58c136a` |
 | Production backend | Supabase project active and healthy |
 | Latest release | v0.9.5 — resilient sync, border/crash fixes, concept main-window redesign |
 | Next release | v0.9.6 — Light/Dark surface consistency fixes; untagged |
-| Candidate CI | v0.9.6 pending at `3a558e5`; v0.9.5 green at `95b4591` |
+| Candidate CI | v0.9.6 green at `58c136a` (run `29660649932`) |
 | Release workflow | v0.9.5 tag-bound run `29659428920` green |
 
 ## v0.9.3 scope
@@ -194,7 +194,7 @@ In progress / next:
 | v0.9.6 Admin grid + Light margin fixes | Engineering | Complete |
 | v0.9.6 Dark Admin + Light main visual evidence | Engineering | Complete |
 | v0.9.6 local Release test gate | Engineering | Complete |
-| v0.9.6 candidate main CI | Engineering | Pending |
+| v0.9.6 candidate main CI | Engineering | Complete |
 | v0.9.6 tag and public assets | Engineering | Blocked on acceptance/release decision |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
 | v0.9.2 → v0.9.5 pilot auto-update | Owner / Engineering | Pending |
@@ -284,6 +284,9 @@ In progress / next:
   Fluent button-style corrections in `3a558e5`. Production-backed visual
   evidence is under `artifacts/v0.9.6-ui/`; the local Release gate passed
   124 runnable tests with zero failures.
+- 2026-07-18 — v0.9.6 candidate CI run `29660649932` passed both required jobs
+  at `58c136a`: Windows build/tests and the repeatable Supabase migration/RLS
+  matrix. No release tag was created.
 
 ## Handoff rules
 
