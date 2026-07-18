@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-18 19:01 BST
+Last updated: 2026-07-18 21:13 BST
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -14,11 +14,11 @@ the acceptance script.
 |---|---|
 | Staff pilot | v0.9.2 installed on 3 staff machines |
 | Public release channel | v0.9.4 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main`; v0.9.5 candidate at `4cdcb54`, untagged |
+| Source | `main`; v0.9.5 implementation candidate at `da6983c`, untagged |
 | Production backend | Supabase project active and healthy |
 | Latest release | v0.9.4 — main-window Dark-theme regression fix |
 | Next release | v0.9.5 — resilient sync, border/crash fixes, concept main-window redesign |
-| Candidate CI | Green at `4cdcb54` (run `29654904327`) |
+| Candidate CI | Green at `226764c` (run `29655061319`); final flyout fix pending CI |
 | Release workflow | Last tag-bound run green at `8f98aad` |
 
 ## v0.9.3 scope
@@ -46,6 +46,9 @@ the acceptance script.
 - Owner decision 2026-07-18: the generated concept is now the main-window
   design target. Normal mode uses a two-pane lesson/period composition,
   concept-aligned toolbar and status strip; Compact remains exactly 320×80.
+- The announcements flyout is scoped to the normal-layout content row, with
+  explicit title/action columns so it cannot collide with its admin action or
+  cover the status bar.
 - Settings/Admin fine-detail alignment to the concept remains follow-up
   backlog and is not part of v0.9.5.
 
@@ -79,13 +82,15 @@ Defects fixed for v0.9.5:
 - Second-instance launch released a named mutex it did not own and raised an
   unhandled `ApplicationException`. Ownership is now explicit and the
   non-owning path exits with code 0.
+- The redesigned announcements overlay used a root-level panel and a
+  collision-prone `DockPanel` header. It now overlays only the content row and
+  uses explicit columns for the title, admin action, and close action.
 
 Next architecture inputs:
 
 - Record any post-v0.9.3 design/functionality notes as explicit backlog items
   with acceptance criteria.
-- Accept or reject the v0.9.5 main-window screenshots against the approved
-  concept before Engineering creates the release tag.
+- Close the release trackers after Engineering publishes v0.9.5.
 - Keep code signing, Supabase plan review, and .NET LTS migration in the
   pre-wide-rollout gate.
 
@@ -128,15 +133,17 @@ Completed:
 - Captured Dark/Light Normal, Dark/Light Compact, empty-day, lesson-state, and
   announcements-overlay evidence under `artifacts/v0.9.5-ui/` (local,
   intentionally ignored).
+- Owner accepted the candidate subject to repairing the announcements flyout.
+  Engineering fixed its header collision and status-bar overhang in `da6983c`,
+  then captured corrected Dark-mode evidence with production sync online.
 
 In progress / next:
 
-- Owner visual acceptance of the v0.9.5 main window against the concept.
-- After acceptance, tag and publish v0.9.5 through the established tag-bound
-  Windows and Supabase gates.
-- Retry the Google Tasks "AQI Clock" list synchronization when its connector or
-  a signed-in browser surface is available; neither was exposed in this
-  Engineering session.
+- Push the accepted candidate, require green main CI, then tag and publish
+  v0.9.5 through the established tag-bound Windows and Supabase gates.
+- Notify Architecture after publication so it can close the crash task and
+  perform the post-release Google Tasks synchronization. The pre-release
+  pinned status, matrix, crash, and round-trip task updates are complete.
 - Finish the hands-on System and 150% DPI portions of the UI/DPI matrix.
 - Perform the v0.9.2 → v0.9.5 auto-update check on a pilot machine.
 - Complete the installer/update/uninstaller round trip and record results in
@@ -166,8 +173,9 @@ In progress / next:
 | v0.9.5 Dark/Light × Normal/Compact visual evidence | Engineering | Complete |
 | v0.9.5 local Release test gate | Engineering | Complete |
 | v0.9.5 candidate main CI | Engineering | Complete |
-| v0.9.5 owner visual acceptance | Owner | Pending |
-| v0.9.5 tag and public assets | Engineering | Blocked on owner acceptance |
+| v0.9.5 owner visual acceptance | Owner | Complete with flyout fix |
+| v0.9.5 announcements flyout acceptance fix | Engineering | Complete |
+| v0.9.5 tag and public assets | Engineering | Pending final main CI |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
 | v0.9.2 → v0.9.5 pilot auto-update | Owner / Engineering | Pending |
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
@@ -231,6 +239,14 @@ In progress / next:
 - 2026-07-18 — Candidate CI run `29654904327` passed both release-blocking
   jobs at `4cdcb54`: Windows build/tests and repeatable Supabase reset plus the
   full RLS/behaviour matrix.
+- 2026-07-18 — Architecture accepted the concept redesign subject to one
+  pre-tag condition: repair the announcements header collision and keep the
+  overlay above the status bar. Engineering completed both in `da6983c`;
+  corrected evidence is `artifacts/v0.9.5-ui/dark-announcements-fixed.png`.
+- 2026-07-18 — Architecture synchronized the Google Tasks "AQI Clock" list:
+  pinned candidate status, crash-fix record, v0.9.5 matrix target, and
+  v0.9.2 → v0.9.5 round-trip path are current. Crash-task closure and final
+  tracker sync remain post-publication actions.
 
 ## Handoff rules
 
