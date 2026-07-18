@@ -43,6 +43,11 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         }
 
         _client = new global::Supabase.Client(value.Url, value.AnonKey, new global::Supabase.SupabaseOptions { AutoConnectRealtime = false, AutoRefreshToken = false });
+        // The bundled client falls back to "Authorization: Bearer <api key>"
+        // when its own Auth session is empty. Modern sb_publishable_* keys are
+        // opaque rather than JWTs, so Realtime must authenticate the socket
+        // with its existing apikey query parameter and the user token at join.
+        _client.Realtime.GetHeaders = static () => [];
         _httpClient = new HttpClient { BaseAddress = uri, Timeout = TimeSpan.FromSeconds(30) };
         _httpClient.DefaultRequestHeaders.Add("apikey", value.AnonKey);
     }

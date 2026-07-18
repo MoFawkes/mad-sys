@@ -1,8 +1,11 @@
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Services;
 using AqiClock.Application.Sync;
+using AqiClock.Application.Configuration;
 using AqiClock.Domain.Entities;
+using AqiClock.Infrastructure.Supabase;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.Options;
 using Supabase.Realtime.Exceptions;
 
 namespace AqiClock.Application.Tests;
@@ -121,6 +124,30 @@ public sealed class InfrastructureOrchestrationTests
 
         Assert.Equal(ConnectivityState.Online, service.State);
         Assert.True(gateway.PullCounts.Values.Sum() > successfulPulls);
+    }
+
+    [Fact]
+    public void RealtimeUpgradeDoesNotSendPublishableKeyAsBearerHeader()
+    {
+        using var gateway = new SupabaseGateway(
+            Options.Create(new SupabaseOptions
+            {
+                Url = "https://example.supabase.co",
+                AnonKey = "sb_publishable_example",
+            }),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<SupabaseGateway>.Instance);
+        var clientField = typeof(SupabaseGateway).GetField(
+            "_client",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var client = Assert.IsType<global::Supabase.Client>(clientField?.GetValue(gateway));
+
+        IReadOnlyDictionary<string, string> headers =
+            client.Realtime.GetHeaders?.Invoke() ?? new Dictionary<string, string>();
+
+        Assert.DoesNotContain(headers.Keys, key =>
+            string.Equals(key, "Authorization", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(headers.Values, value =>
+            value.Contains("sb_publishable_", StringComparison.Ordinal));
     }
 
     private static SyncService CreateSyncService(FakeGateway gateway, TimeSpan? heartbeatInterval = null) =>
