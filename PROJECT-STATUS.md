@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-18 17:31 BST
+Last updated: 2026-07-18 17:42 BST
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -13,11 +13,11 @@ the acceptance script.
 | Area | State |
 |---|---|
 | Staff pilot | v0.9.2 installed on 3 staff machines |
-| Public release channel | v0.9.3 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main`; v0.9.4 dark-mode fix in release preparation |
+| Public release channel | v0.9.4 is live on `MoFawkes/aqi-clock-releases` |
+| Source | `main`; v0.9.4 tag at `8f98aad` |
 | Production backend | Supabase project active and healthy |
-| Latest release | v0.9.3 — Fluent UX polish from 2026-07-17/18 |
-| Release candidate | v0.9.4 — main-window Dark-theme regression fix |
+| Latest release | v0.9.4 — main-window Dark-theme regression fix |
+| Release workflow | Green at `8f98aad` |
 
 ## v0.9.3 scope
 
@@ -74,10 +74,12 @@ Completed:
   `1` in Dark/System and `0` in Light.
 - Passed the v0.9.4 local Release gate: 120 tests passed; environment-dependent
   tests skipped as designed.
+- Published v0.9.4 after both tag-bound gates passed and independently verified
+  its digest, embedded version, publishable key, cloud response, updater target,
+  and full/delta stable index.
 
 In progress / next:
 
-- Publish and verify v0.9.4 through the tag-bound release workflow.
 - Finish the hands-on System and 150% DPI portions of the UI/DPI matrix.
 - Perform the v0.9.2 → v0.9.4 auto-update check on a pilot machine.
 - Complete the installer/update/uninstaller round trip and record results in
@@ -98,7 +100,8 @@ In progress / next:
 | v0.9.4 foreground and native-titlebar fix | Engineering | Complete |
 | v0.9.4 Light/Dark × Normal/Compact visual check | Engineering | Complete |
 | v0.9.4 local Release test gate | Engineering | Complete |
-| v0.9.4 tag and public assets | Engineering | In progress |
+| v0.9.4 tag and public assets | Engineering | Complete |
+| v0.9.4 published artifact verification | Engineering | Complete |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
 | v0.9.2 → v0.9.4 pilot auto-update | Owner / Engineering | Pending |
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
@@ -125,6 +128,9 @@ In progress / next:
   titlebar theme synchronization for v0.9.4, then verified Light/Dark in Normal
   and 320×80 Compact modes plus live theme switching. No `ThemeService.Apply`
   System-resolution behavior was changed.
+- 2026-07-18 — v0.9.4 published to the public stable channel from `8f98aad`
+  after Windows and Supabase gates passed. Engineering independently verified
+  the public artifact digest, embedded version/configuration, and stable index.
 - 2026-07-18 — Clarified that the generated multi-window image is a concept,
   while v0.9.3 ships the implemented Fluent polish that preserves the accepted
   application structure.
