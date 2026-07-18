@@ -320,6 +320,62 @@
           </StackPanel>
         </DockPanel>
       </Border>
+
+      <Border x:Name="AnnouncementPanel"
+              Grid.Row="1"
+              Panel.ZIndex="10"
+              Width="420"
+              Margin="0,10"
+              HorizontalAlignment="Right"
+              VerticalAlignment="Stretch"
+              Background="{DynamicResource CardBrush}"
+              BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+              BorderThickness="1"
+              CornerRadius="12"
+              Padding="20"
+              Visibility="Collapsed">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+          <Grid Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0"
+                       Text="Announcements"
+                       FontSize="{DynamicResource SubtitleFontSize}"
+                       FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center"
+                       Margin="0,0,12,0" />
+            <ui:Button Grid.Column="1"
+                       Content="Compose / manage"
+                       Command="{Binding ManageAnnouncementsCommand}"
+                       Margin="0,0,8,0">
+              <ui:Button.Style>
+                <Style TargetType="{x:Type ui:Button}">
+                  <Setter Property="Appearance" Value="Primary" />
+                  <Setter Property="Visibility" Value="Collapsed" />
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsAdmin}" Value="True">
+                      <Setter Property="Visibility" Value="Visible" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </ui:Button.Style>
+            </ui:Button>
+            <ui:Button Grid.Column="2"
+                       Content="Close"
+                       Appearance="Transparent"
+                       Command="{Binding ToggleAnnouncementsCommand}" />
+          </Grid>
+          <views:AnnouncementsView Grid.Row="1" DataContext="{Binding Announcements}" />
+        </Grid>
+      </Border>
     </Grid>
 
     <Grid x:Name="CompactLayout" Visibility="Collapsed">
@@ -380,49 +436,5 @@
                    Foreground="{DynamicResource AccentBrush}"
                    Value="{Binding Clock.Progress}" />
     </Grid>
-
-    <Border x:Name="AnnouncementPanel"
-            Width="420"
-            HorizontalAlignment="Right"
-            Background="{DynamicResource CardBrush}"
-            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-            BorderThickness="1"
-            CornerRadius="12"
-            Padding="20"
-            Visibility="Collapsed">
-      <Grid>
-        <Grid.RowDefinitions>
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-        <DockPanel Margin="0,0,0,12">
-          <ui:Button DockPanel.Dock="Right"
-                     Content="Close"
-                     Appearance="Transparent"
-                     Command="{Binding ToggleAnnouncementsCommand}" />
-          <ui:Button DockPanel.Dock="Right"
-                     Content="Compose / manage"
-                     Command="{Binding ManageAnnouncementsCommand}"
-                     Margin="0,0,8,0">
-            <ui:Button.Style>
-              <Style TargetType="{x:Type ui:Button}">
-                <Setter Property="Appearance" Value="Primary" />
-                <Setter Property="Visibility" Value="Collapsed" />
-                <Style.Triggers>
-                  <DataTrigger Binding="{Binding IsAdmin}" Value="True">
-                    <Setter Property="Visibility" Value="Visible" />
-                  </DataTrigger>
-                </Style.Triggers>
-              </Style>
-            </ui:Button.Style>
-          </ui:Button>
-          <TextBlock Text="Announcements"
-                     FontSize="{DynamicResource SubtitleFontSize}"
-                     FontWeight="SemiBold"
-                     VerticalAlignment="Center" />
-        </DockPanel>
-        <views:AnnouncementsView Grid.Row="1" DataContext="{Binding Announcements}" />
-      </Grid>
-    </Border>
   </Grid>
 </Window>

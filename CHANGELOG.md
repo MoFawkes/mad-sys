@@ -37,6 +37,9 @@ All notable changes to this project will be documented in this file.
   plain WPF window itself with the active `WindowBrush`.
 - Prevented second-instance exit APPCRASH events by releasing the named mutex
   only from the process that actually acquired it.
+- Kept the announcements flyout inside the normal-layout content row and
+  separated its title/actions into explicit columns, preventing header
+  collisions and status-bar overhang.
 
 ## 0.9.4 - 2026-07-18
 
