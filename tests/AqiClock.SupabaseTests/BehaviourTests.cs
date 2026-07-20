@@ -200,7 +200,7 @@ public sealed class BehaviourTests(SupabaseFixture fixture)
             "select string_agg(tablename, ',' order by tablename) from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public'");
 
         Assert.Equal(
-            "announcements,date_overrides,periods,profiles,timetables,week_schedule",
+            "announcements,classes,date_overrides,period_classes,periods,profiles,timetables,week_schedule",
             tables);
     }
 }
