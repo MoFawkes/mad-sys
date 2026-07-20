@@ -11,10 +11,22 @@
       <TextBlock Text="This choice lasts for this app session only." Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,16"/>
     </StackPanel>
     <ListBox Grid.Row="1" ItemsSource="{Binding Classes}" Background="{DynamicResource CardBrush}">
+      <ListBox.ItemContainerStyle>
+        <Style TargetType="ListBoxItem">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="Padding" Value="0" />
+        </Style>
+      </ListBox.ItemContainerStyle>
       <ListBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}" Padding="8"/></DataTemplate></ListBox.ItemTemplate>
     </ListBox>
     <TextBlock Grid.Row="2" Text="Naseehah (optional)" FontWeight="SemiBold" Foreground="{DynamicResource HeaderBrush}" Margin="0,16,0,8"/>
     <ListBox Grid.Row="3" ItemsSource="{Binding NaseehahChoices}" Background="{DynamicResource CardBrush}">
+      <ListBox.ItemContainerStyle>
+        <Style TargetType="ListBoxItem">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="Padding" Value="0" />
+        </Style>
+      </ListBox.ItemContainerStyle>
       <ListBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}" Padding="8"/></DataTemplate></ListBox.ItemTemplate>
     </ListBox>
     <StackPanel Grid.Row="4" Margin="0,12,0,0">

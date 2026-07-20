@@ -71,7 +71,6 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>
         finally
         {
             await _sessionStore.ClearAsync(CancellationToken.None).ConfigureAwait(false);
-            await _cache.WipeAsync(CancellationToken.None).ConfigureAwait(false);
             _audience.Clear();
             SetState(SessionState.SignedOut);
         }

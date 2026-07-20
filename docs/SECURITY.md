@@ -58,7 +58,7 @@ Hardening details implemented by the migrations:
 | Settings | `settings.json` | Plain JSON, nothing sensitive permitted in it |
 | Logs | `logs\` | Serilog scrubbing rule: never log tokens, passwords, or full JWTs; 7-day rolling retention |
 
-Sign-out wipes `session.bin`, `cache.db`, and `announcement_read`/`notification_log` (shared-machine hygiene, UI-FLOWS.md J8).
+Sign-out wipes `session.bin` only. The shared reference cache (`cache.db` — timetables, classes, periods, announcements) is deliberately left intact: audience-aware Student devices rely on that cache surviving a Teacher/Admin sign-out on the same shared machine (see `feature/audience-aware-app`). Since `cache.db` holds no credentials and is already documented above as low-sensitivity, this does not weaken shared-machine hygiene for the data that actually matters (the session token).
 
 ## 5. Transport and update security
 

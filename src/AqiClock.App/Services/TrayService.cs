@@ -80,7 +80,7 @@ public sealed class TrayService : IRecipient<SessionChanged>, IDisposable
         menu.Items.Add(Item("Sync now", async (_, _) => await _sync.SyncAllAsync(), enabled: _main.IsOnline));
         menu.Items.Add(new Separator());
         menu.Items.Add(Item("Settings", (_, _) => _windows.ShowSettingsWindow()));
-        menu.Items.Add(Item("Sign out", async (_, _) => { await _session.SignOutAsync(); _windows.ShowSignInWindow(); }));
+        menu.Items.Add(Item("Sign out", async (_, _) => { await _session.SignOutAsync(); _windows.ShowRoleChoiceWindow(); }));
         menu.Items.Add(Item("Exit", (_, _) => _windows.ExitApplication()));
     }
 

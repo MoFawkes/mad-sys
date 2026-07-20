@@ -55,16 +55,26 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
     }
     public void ShowRoleChoiceWindow()
     {
-        _roleChoice ??= _services.GetRequiredService<RoleChoiceWindow>();
+        _settings?.Close();
+        CloseAdminWindow();
+        if (_main?.IsVisible == true) _main.Hide();
+        if (_roleChoice is null)
+        {
+            _roleChoice = _services.GetRequiredService<RoleChoiceWindow>();
+            _roleChoice.Closed += OnRoleChoiceClosed;
+        }
         System.Windows.Application.Current.MainWindow = _roleChoice;
-        _roleChoice.Closed += OnRoleChoiceClosed;
         _roleChoice.Show(); _roleChoice.Activate();
     }
     public void ShowStudentClassPickerWindow()
     {
-        _studentPicker ??= _services.GetRequiredService<StudentClassPickerWindow>();
+        if (_studentPicker is null)
+        {
+            _studentPicker = _services.GetRequiredService<StudentClassPickerWindow>();
+            _studentPicker.Closed += OnStudentPickerClosed;
+        }
+        _ = _studentPicker.RefreshAsync();
         System.Windows.Application.Current.MainWindow = _studentPicker;
-        _studentPicker.Closed += OnStudentPickerClosed;
         _studentPicker.Show(); _studentPicker.Activate();
     }
     public void ShowPasswordRecoveryWindow(PasswordRecoveryRequest request)

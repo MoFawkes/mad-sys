@@ -43,7 +43,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
 
     [RelayCommand(CanExecute = nameof(CanSync))] private Task SyncNowAsync(CancellationToken token) => _sync.SyncAllAsync(token);
     [RelayCommand] private Task SendTestNotificationAsync(CancellationToken token) => _notifications.ShowTestAsync(token);
-    [RelayCommand] private async Task SignOutAsync(CancellationToken token) { await _session.SignOutAsync(token); _windows.ShowSignInWindow(); }
+    [RelayCommand] private async Task SignOutAsync(CancellationToken token) { await _session.SignOutAsync(token); _windows.ShowRoleChoiceWindow(); }
     [RelayCommand] private static void ViewLogs()
     {
         string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AqiClock", "logs");
