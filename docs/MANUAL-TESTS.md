@@ -136,7 +136,7 @@ For PR #1, the Admin-tab checks below supersede the legacy six-tab assertion imm
 
 - [ ] Compose an announcement for a specific class with today's date and a future `HH:mm` publish time. It is scheduled and remains absent from active readers and notifications until that time.
 - [ ] Confirm the scheduled announcement is suppressed for a student session that selected a different class and becomes visible/notifiable for the selected target class once due.
-- [ ] **Known open issue — expected to fail:** publish an announcement with a valid HTTPS e-Masjid link and inspect the reader. The current reader does not render the stored link; route this back for implementation before merge.
+- [ ] Publish an announcement with a valid HTTPS e-Masjid link. Confirm the reader shows **Open e-Masjid** and clicking it opens the URL in the default browser.
 - [ ] Try a relative, malformed, or non-HTTPS e-Masjid link. Publishing is blocked with `The e-Masjid link must be a valid HTTPS URL.`
 - [ ] Delete an announcement that has a `PublishAt` value. It moves out of the active view into **History**, and its original publication date remains unchanged.
 - [ ] On a soft-deleted History item, confirm **Publish now** is disabled and cannot resurrect the announcement.

@@ -1,14 +1,26 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Messages;
 using AqiClock.Domain.Entities;
 using AqiClock.Domain.Time;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 
 namespace AqiClock.App.ViewModels;
 
-public sealed record AnnouncementDisplay(Guid Id, string Title, string Body, string RelativeTime, string Poster, bool IsUnread);
+public sealed record AnnouncementDisplay(
+    Guid Id,
+    string Title,
+    string Body,
+    string RelativeTime,
+    string Poster,
+    bool IsUnread,
+    string? EMasjidLink)
+{
+    public bool HasEMasjidLink => !string.IsNullOrWhiteSpace(EMasjidLink);
+}
 
 public partial class AnnouncementsViewModel : ObservableObject, IRecipient<DataChanged>
 {
@@ -40,12 +52,26 @@ public partial class AnnouncementsViewModel : ObservableObject, IRecipient<DataC
             bool isRead = await _readStore.IsReadAsync(item.Id, cancellationToken);
             if (!isRead && markRead) { await _readStore.MarkReadAsync(item.Id, now, cancellationToken); isRead = true; }
             if (!isRead) unread++;
-            Items.Add(new(item.Id, item.Title, item.Body, Relative(item.CreatedAt, now), names.GetValueOrDefault(item.CreatedBy, "Unknown"), !isRead));
+            Items.Add(new(
+                item.Id,
+                item.Title,
+                item.Body,
+                Relative(item.CreatedAt, now),
+                names.GetValueOrDefault(item.CreatedBy, "Unknown"),
+                !isRead,
+                item.EMasjidLink));
         }
         UnreadCount = unread;
     }
 
     public void Receive(DataChanged message) { if (message.Table is CacheTable.Announcements or CacheTable.Profiles) _ = LoadAsync(false); }
+    [RelayCommand]
+    private static void OpenEMasjidLink(string? link)
+    {
+        if (!string.IsNullOrWhiteSpace(link))
+            Process.Start(new ProcessStartInfo(link) { UseShellExecute = true });
+    }
+
     private static string Relative(DateTimeOffset value, DateTimeOffset now)
     { TimeSpan age = now - value; return age.TotalMinutes < 1 ? "just now" : age.TotalHours < 1 ? $"{(int)age.TotalMinutes} min ago" : age.TotalDays < 1 ? $"{(int)age.TotalHours} h ago" : $"{(int)age.TotalDays} d ago"; }
 }

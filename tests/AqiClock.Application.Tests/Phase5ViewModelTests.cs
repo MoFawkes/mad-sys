@@ -155,6 +155,33 @@ public sealed class Phase5ViewModelTests
     }
 
     [Fact]
+    public async Task AnnouncementLoadCarriesEMasjidLinkIntoReaderDisplay()
+    {
+        Guid author = Guid.NewGuid();
+        const string link = "https://example.com/e-masjid";
+        var announcement = new Announcement(
+            Guid.NewGuid(),
+            "Programme",
+            "Details",
+            DateTimeOffset.Now.AddMinutes(-2),
+            author,
+            null,
+            EMasjidLink: link);
+        var vm = new AnnouncementsViewModel(
+            new AnnouncementRepository(announcement),
+            new ReadStore(),
+            new ProfileRepository(new Profile(author, "Sam", UserRole.Teacher, true)),
+            new FixedClock(DateTime.Now),
+            new WeakReferenceMessenger());
+
+        await vm.LoadAsync(false);
+
+        AnnouncementDisplay display = Assert.Single(vm.Items);
+        Assert.Equal(link, display.EMasjidLink);
+        Assert.True(display.HasEMasjidLink);
+    }
+
+    [Fact]
     public async Task SettingsRoundTripPersistsTypedValues()
     {
         string directory = Path.Combine(Path.GetTempPath(), "AqiClockTests", Guid.NewGuid().ToString("N"));
