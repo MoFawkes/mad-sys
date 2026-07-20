@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-18 21:59 BST
+Last updated: 2026-07-20 21:18 BST
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -13,13 +13,13 @@ the acceptance script.
 | Area | State |
 |---|---|
 | Staff pilot | v0.9.2 installed on 3 staff machines |
-| Public release channel | v0.9.5 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main`; v0.9.5 tagged at `95b4591`; v0.9.6 candidate at `58c136a` |
+| Public release channel | v0.9.6 is live on `MoFawkes/aqi-clock-releases` |
+| Source | `main`; v0.9.6 tagged at `d52249f` |
 | Production backend | Supabase project active and healthy |
-| Latest release | v0.9.5 — resilient sync, border/crash fixes, concept main-window redesign |
-| Next release | v0.9.6 — Light/Dark surface consistency fixes; untagged |
-| Candidate CI | v0.9.6 green at `58c136a` (run `29660649932`) |
-| Release workflow | v0.9.5 tag-bound run `29659428920` green |
+| Latest release | v0.9.6 — Light/Dark surface consistency fixes |
+| Next release | Audience-aware sign-in and announcements from draft PR #1; version TBD |
+| Candidate CI | PR #1 green at `8ffcf8d` (run `29774052806`) |
+| Release workflow | v0.9.6 tag-bound run `29775056726` green |
 
 ## v0.9.3 scope
 
@@ -150,6 +150,10 @@ Completed:
   evidence confirms the client margin no longer forms a black frame.
 - Passed the v0.9.6 local Release gate: 124 tests passed, 15
   credential/environment-dependent tests skipped as designed.
+- Published v0.9.6 from `d52249f` after main CI run `29774771246` and
+  tag-bound release run `29775056726` passed. Independently verified the
+  public portable digest, full/delta stable index, embedded product version,
+  publishable client configuration, live Auth response, and updater target.
 
 In progress / next:
 
@@ -160,8 +164,11 @@ In progress / next:
 - Perform the v0.9.2 → v0.9.5 auto-update check on a pilot machine.
 - Complete the installer/update/uninstaller round trip and record results in
   `docs/MANUAL-TESTS.md`.
-- Require green candidate CI and owner acceptance before deciding whether to
-  tag/publish v0.9.6.
+- Require green candidate CI and owner acceptance before merging and tagging
+  the audience-aware release.
+- Owner decision 2026-07-20: v0.9.6 ships the already-accepted surface fixes
+  independently. The audience-aware rewrite ships as a later version after
+  its manual UX/theme checklist and production-like migration rehearsal pass.
 
 ## Release gates
 
@@ -195,7 +202,10 @@ In progress / next:
 | v0.9.6 Dark Admin + Light main visual evidence | Engineering | Complete |
 | v0.9.6 local Release test gate | Engineering | Complete |
 | v0.9.6 candidate main CI | Engineering | Complete |
-| v0.9.6 tag and public assets | Engineering | Blocked on acceptance/release decision |
+| v0.9.6 tag and public assets | Engineering | Complete |
+| Audience-aware PR #1 automated CI | Engineering | Complete |
+| Audience-aware manual UX/theme acceptance | Owner | Pending |
+| Audience-aware production-like migration rehearsal | Owner / Engineering | Pending |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
 | v0.9.2 → v0.9.5 pilot auto-update | Owner / Engineering | Pending |
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
@@ -287,6 +297,16 @@ In progress / next:
 - 2026-07-18 — v0.9.6 candidate CI run `29660649932` passed both required jobs
   at `58c136a`: Windows build/tests and the repeatable Supabase migration/RLS
   matrix. No release tag was created.
+- 2026-07-20 — Owner chose to ship the accepted v0.9.6 surface fixes
+  independently from the audience-aware rewrite. Engineering dated the
+  changelog, passed main CI run `29774771246`, tagged `v0.9.6` at `d52249f`,
+  and published through tag-bound release run `29775056726`.
+- 2026-07-20 — Public v0.9.6 verification passed. The portable ZIP SHA-256
+  is `31febd24fd533d2ddc43186d4162ed1f5f7f132ef08061081054b060ac3dd889`;
+  the stable index contains matching 0.9.6 full/delta packages; the executable
+  reports `0.9.6+d52249f218f82c4e652fa2361903dc1d31dce2ae`; packaged Supabase
+  configuration uses HTTPS and a publishable key whose Auth settings endpoint
+  returned HTTP 200; and the updater targets `MoFawkes/aqi-clock-releases`.
 
 ## Handoff rules
 
