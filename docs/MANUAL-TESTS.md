@@ -91,3 +91,69 @@ This checklist is the ADR-011 acceptance script for Windows surfaces that are no
 - [ ] At 150% scaling, repeat sign-in, Settings, Admin, and both Main modes. Confirm text is not clipped, scrolling remains available, and compact mode stays exactly 320×80 device-independent units.
 - [ ] Move each open window between monitors with different scaling and confirm PerMonitorV2 reflows sharply without losing saved placement or producing an off-screen window.
 - [ ] Confirm the six Admin tabs remain Timetables, Week schedule, Date overrides, Announcements, Recent changes, Users; selectors and grids remain editable and show no binding-error log entries.
+
+## Audience-aware sign-in and announcements (PR #1)
+
+Use the shared **Test record** above for this run. Test commit `d2e221c` or a later commit from PR #1 on a Windows build connected to a non-production Supabase target.
+
+For PR #1, the Admin-tab checks below supersede the legacy six-tab assertion immediately above; the rewrite adds and renames Admin sections.
+
+### Audience-aware prerequisites
+
+- [ ] Create at least two classes with distinct names and sort orders.
+- [ ] Tag at least one period with one class and leave another period untagged or tagged to the other class.
+- [ ] Have an active Admin account available for the Admin-window checks.
+- [ ] Prepare announcement content suitable for a future scheduled publication, class targeting, and an HTTPS e-Masjid link.
+- [ ] Complete a sync so the student picker has current classes and period tags in its local cache.
+
+### Sign-in fork
+
+- [ ] Cold start opens **Choose how to continue** (`RoleChoiceWindow`) instead of opening email/password sign-in directly.
+- [ ] **Teacher** opens the existing email/password `SignInWindow`, and valid teacher credentials reach the main clock with the existing teacher behavior unchanged.
+- [ ] From `RoleChoiceWindow`, choose **Teacher**, then close `SignInWindow` without signing in. The app returns to `RoleChoiceWindow` instead of exiting.
+- [ ] **Student** opens `StudentClassPickerWindow` without requesting a personal identity or credentials.
+
+### Student classes and optional Naseehah
+
+- [ ] Select multiple classes using the checkbox rows. With no class selected, **Start student session** remains blocked and shows the inline `Select at least one class.` error.
+- [ ] Confirm the independent optional Naseehah checkboxes allow all four states: AM only, PM only, both, and neither.
+- [ ] Select a PM-running class and AM Naseehah only. Its class-tagged PM period notification still fires; an AM-audience announcement appears/notifies and a PM-audience announcement does not.
+- [ ] Repeat with neither Naseehah option selected. Class-tagged period notifications remain active, while AM- and PM-audience announcements are both suppressed.
+- [ ] With only class A selected, confirm periods and specific-class announcements tagged only to class B do not notify or appear.
+- [ ] Click a period or announcement toast during an active student session. It activates the running main window rather than reopening sign-in.
+- [ ] Restart after a student session. No selected classes, Naseehah choices, or student identity survive; the app asks how to continue again.
+
+### Admin — Classes / Audiences
+
+- [ ] Add, edit, save, and delete an unreferenced class using the per-row controls.
+- [ ] Save two classes with the same name or **Order** value. The Admin window shows `A class already uses that name or sort order.` instead of crashing.
+- [ ] Target an announcement at a class, then attempt to delete that class. The Admin window shows `This class is referenced by an announcement. Reassign or delete the announcement first.` instead of exposing an exception.
+- [ ] In the period-tags grid, enter one or more valid class names in the comma-separated **Classes** column and choose **Save tags**. Sync/reload and confirm the assignments persist.
+- [ ] Enter an unknown class name while saving period tags and confirm the row reports a useful inline error without losing other saved tags.
+- [ ] In **Profiles / Audiences**, confirm Teacher and Admin profiles remain editable and Graduate remains visibly unavailable/coming soon.
+
+### Admin — Announcements
+
+- [ ] Compose an announcement for a specific class with today's date and a future `HH:mm` publish time. It is scheduled and remains absent from active readers and notifications until that time.
+- [ ] Confirm the scheduled announcement is suppressed for a student session that selected a different class and becomes visible/notifiable for the selected target class once due.
+- [ ] **Known open issue — expected to fail:** publish an announcement with a valid HTTPS e-Masjid link and inspect the reader. The current reader does not render the stored link; route this back for implementation before merge.
+- [ ] Try a relative, malformed, or non-HTTPS e-Masjid link. Publishing is blocked with `The e-Masjid link must be a valid HTTPS URL.`
+- [ ] Delete an announcement that has a `PublishAt` value. It moves out of the active view into **History**, and its original publication date remains unchanged.
+- [ ] On a soft-deleted History item, confirm **Publish now** is disabled and cannot resurrect the announcement.
+- [ ] Confirm **Graduates** is absent from the Audience picker. This is intentional while Graduate sign-in and delivery are deferred; do not offer this audience until a Graduate device role can receive it.
+
+The AM/PM and class-overlap scheduler scenarios are also covered by the automated application tests. Record the PR CI run in **Notes or issue links**; do not substitute CI for the interaction checks above.
+
+### Audience-aware Light/Dark presentation
+
+- [ ] Inspect `RoleChoiceWindow` and `StudentClassPickerWindow` in Light, Dark, and System modes. Switching themes updates each open/new window without restarting.
+- [ ] In Light mode, confirm headers use navy `#112549`, primary actions use blue `#2E6DD8`, the background uses cream `#F4F0E6`, and secondary text uses grey `#6B7280`.
+- [ ] In Dark mode, confirm navy surfaces and cream text remain readable. Pay particular attention to headings using dark `HeaderBrush` (`#0B1933`) against the window/card surfaces and record any insufficient contrast as a failure.
+- [ ] Inspect Main, Admin, Announcements, Role Choice, and Student Class Picker in both Light and Dark modes. Confirm there is no default-white chrome, clipped text, unreadable selection state, or binding-error log entry.
+- [ ] Re-check the Admin `DataGrid` background and main-window frame border in both themes.
+
+`HighlightBrush` is defined as gold in both theme dictionaries but is not currently consumed by a control. Its absence on these screens is therefore not a visual failure.
+
+### Release decision
+
+The current untagged v0.9.6 candidate is a small accepted theme fix based on `58c136a`; PR #1 is a substantially larger sign-in and session-behavior change that still requires this checklist. Decide whether v0.9.6 waits for the audience-aware verification or can be tagged while this work ships in a later version. Once the owner decides, record the choice in the handoff section of `PROJECT-STATUS.md`.
