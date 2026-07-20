@@ -104,16 +104,23 @@ public sealed class NotificationSchedulerTests
     }
 
     [Theory]
-    [InlineData(8, true, 1)]
-    [InlineData(13, true, 0)]
-    [InlineData(8, false, 0)]
-    public async Task StudentPeriodNotificationsRequireSelectedClassAndHalfDay(int hour, bool selectedClassTagged, int expectedToasts)
+    [InlineData(8, true, true, 1)]
+    [InlineData(13, true, true, 1)]
+    [InlineData(13, true, false, 1)]
+    [InlineData(8, false, false, 0)]
+    public async Task StudentPeriodNotificationsRequireOnlySelectedClassOverlap(
+        int hour,
+        bool selectedClassTagged,
+        bool optIntoAmNaseehah,
+        int expectedToasts)
     {
         DateTime now = new(2026, 7, 20, hour, 30, 0, DateTimeKind.Local);
         SchedulerFixture fixture = CreateFixture(now);
         fixture.SetPeriod(now.TimeOfDay, TimeSpan.FromMinutes(45));
         Guid selectedClass = Guid.NewGuid();
-        fixture.Audience.SetStudent([selectedClass], SessionHalfDay.Am);
+        fixture.Audience.SetStudent(
+            [selectedClass],
+            optIntoAmNaseehah ? [SessionHalfDay.Am] : []);
         fixture.Classes.ClassIds = selectedClassTagged ? new HashSet<Guid> { selectedClass } : new HashSet<Guid> { Guid.NewGuid() };
         using NotificationScheduler scheduler = fixture.Create();
 
@@ -124,23 +131,32 @@ public sealed class NotificationSchedulerTests
     }
 
     [Fact]
-    public async Task StudentAnnouncementsUseTheSameClassAndHalfDayAudienceContext()
+    public async Task StudentAnnouncementOptInsAreIndependentOfSelectedClasses()
     {
-        SchedulerFixture fixture = CreateFixture(Monday);
         Guid selectedClass = Guid.NewGuid();
-        fixture.Audience.SetStudent([selectedClass], SessionHalfDay.Am);
-        fixture.Announcements.Items =
-        [
-            AnnouncementFor(AudienceType.SpecificClass, selectedClass),
-            AnnouncementFor(AudienceType.SpecificClass, Guid.NewGuid()),
-            AnnouncementFor(AudienceType.Am),
-            AnnouncementFor(AudienceType.Pm),
-        ];
-        using NotificationScheduler scheduler = fixture.Create();
+        await AssertDeliveredAsync([SessionHalfDay.Am], AudienceType.SpecificClass, AudienceType.Am);
+        await AssertDeliveredAsync([SessionHalfDay.Pm], AudienceType.SpecificClass, AudienceType.Pm);
+        await AssertDeliveredAsync([], AudienceType.SpecificClass);
 
-        await scheduler.StartAsync();
+        async Task AssertDeliveredAsync(
+            IEnumerable<SessionHalfDay> optedHalfDays,
+            params AudienceType[] expectedAudiences)
+        {
+            SchedulerFixture fixture = CreateFixture(Monday);
+            fixture.Audience.SetStudent([selectedClass], optedHalfDays);
+            fixture.Announcements.Items =
+            [
+                AnnouncementFor(AudienceType.SpecificClass, selectedClass),
+                AnnouncementFor(AudienceType.SpecificClass, Guid.NewGuid()),
+                AnnouncementFor(AudienceType.Am),
+                AnnouncementFor(AudienceType.Pm),
+            ];
+            using NotificationScheduler scheduler = fixture.Create();
 
-        Assert.Equal(2, fixture.Presenter.Announcements);
+            await scheduler.StartAsync();
+
+            Assert.Equal(expectedAudiences, fixture.Presenter.AnnouncementAudiences);
+        }
 
         Announcement AnnouncementFor(AudienceType audience, Guid? classId = null) =>
             new(Guid.NewGuid(), audience.ToString(), "Body", new DateTimeOffset(Monday), Guid.NewGuid(), new DateTimeOffset(Monday.AddHours(1)), audience, classId);
@@ -192,9 +208,10 @@ public sealed class NotificationSchedulerTests
     private sealed class FakePresenter : INotificationPresenter
     {
         public int Starts { get; private set; } public int EndWarnings { get; private set; } public int Announcements { get; private set; }
+        public List<AudienceType> AnnouncementAudiences { get; } = [];
         public Task ShowLessonStartAsync(NotificationEvent notification, int periodNumber, CancellationToken cancellationToken = default) { Starts++; return Task.CompletedTask; }
         public Task ShowEndWarningAsync(NotificationEvent notification, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default) { EndWarnings++; return Task.CompletedTask; }
-        public Task ShowAnnouncementAsync(Announcement announcement, CancellationToken cancellationToken = default) { Announcements++; return Task.CompletedTask; }
+        public Task ShowAnnouncementAsync(Announcement announcement, CancellationToken cancellationToken = default) { Announcements++; AnnouncementAudiences.Add(announcement.AudienceType); return Task.CompletedTask; }
         public Task ShowTestAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
     private sealed class FakeLog : INotificationLogStore

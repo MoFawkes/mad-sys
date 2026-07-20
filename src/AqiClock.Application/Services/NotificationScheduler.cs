@@ -206,7 +206,7 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
     private async Task<bool> AppliesToDeviceAsync(Period period, CancellationToken cancellationToken)
     {
         IReadOnlySet<Guid> periodClasses = await _classes.GetClassIdsForPeriodAsync(period.Id, cancellationToken).ConfigureAwait(false);
-        return _audience.MatchesPeriod(periodClasses, period.StartTime);
+        return _audience.MatchesPeriod(periodClasses);
     }
 
     private void OnSettingsChanged(object? sender, SettingsChanged args) => RunSafely(() => RebuildAsync(_clock.Now));

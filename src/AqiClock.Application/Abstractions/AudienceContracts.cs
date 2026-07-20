@@ -8,50 +8,50 @@ public enum SessionHalfDay { Am, Pm }
 public sealed record DeviceAudience(
     DeviceAudienceRole Role,
     IReadOnlySet<Guid> SelectedClassIds,
-    SessionHalfDay? HalfDay);
+    IReadOnlySet<SessionHalfDay> OptedHalfDays);
 
 public interface IDeviceAudienceContext
 {
     DeviceAudience Current { get; }
     void SetTeacher(UserRole role);
-    void SetStudent(IEnumerable<Guid> classIds, SessionHalfDay halfDay);
+    void SetStudent(IEnumerable<Guid> classIds, IEnumerable<SessionHalfDay> optedHalfDays);
     void Clear();
     bool Matches(Announcement announcement);
-    bool MatchesPeriod(IReadOnlySet<Guid> periodClassIds, TimeOnly startTime);
+    bool MatchesPeriod(IReadOnlySet<Guid> periodClassIds);
 }
 
 public sealed class DeviceAudienceContext : IDeviceAudienceContext
 {
     public DeviceAudience Current { get; private set; } =
-        new(DeviceAudienceRole.Teacher, new HashSet<Guid>(), null);
+        new(DeviceAudienceRole.Teacher, new HashSet<Guid>(), new HashSet<SessionHalfDay>());
 
     public void SetTeacher(UserRole role) => Current = new(
         role == UserRole.Admin ? DeviceAudienceRole.Admin : DeviceAudienceRole.Teacher,
         new HashSet<Guid>(),
-        null);
+        new HashSet<SessionHalfDay>());
 
-    public void SetStudent(IEnumerable<Guid> classIds, SessionHalfDay halfDay) =>
-        Current = new(DeviceAudienceRole.StudentDevice, classIds.ToHashSet(), halfDay);
+    public void SetStudent(IEnumerable<Guid> classIds, IEnumerable<SessionHalfDay> optedHalfDays) =>
+        Current = new(DeviceAudienceRole.StudentDevice, classIds.ToHashSet(), optedHalfDays.ToHashSet());
 
-    public void Clear() => Current = new(DeviceAudienceRole.Teacher, new HashSet<Guid>(), null);
+    public void Clear() => Current = new(
+        DeviceAudienceRole.Teacher,
+        new HashSet<Guid>(),
+        new HashSet<SessionHalfDay>());
 
     public bool Matches(Announcement announcement) => announcement.AudienceType switch
     {
         AudienceType.Everyone => true,
         AudienceType.Teachers => Current.Role is DeviceAudienceRole.Teacher or DeviceAudienceRole.Admin,
         AudienceType.Graduates => false,
-        AudienceType.Am => Current.HalfDay == SessionHalfDay.Am,
-        AudienceType.Pm => Current.HalfDay == SessionHalfDay.Pm,
+        AudienceType.Am => Current.OptedHalfDays.Contains(SessionHalfDay.Am),
+        AudienceType.Pm => Current.OptedHalfDays.Contains(SessionHalfDay.Pm),
         AudienceType.SpecificClass => announcement.AudienceClassId is { } id && Current.SelectedClassIds.Contains(id),
         _ => false,
     };
 
-    public bool MatchesPeriod(IReadOnlySet<Guid> periodClassIds, TimeOnly startTime)
-    {
-        if (Current.Role != DeviceAudienceRole.StudentDevice) return true;
-        SessionHalfDay periodHalfDay = startTime < new TimeOnly(12, 0) ? SessionHalfDay.Am : SessionHalfDay.Pm;
-        return Current.HalfDay == periodHalfDay && periodClassIds.Overlaps(Current.SelectedClassIds);
-    }
+    public bool MatchesPeriod(IReadOnlySet<Guid> periodClassIds) =>
+        Current.Role != DeviceAudienceRole.StudentDevice ||
+        periodClassIds.Overlaps(Current.SelectedClassIds);
 }
 
 public sealed class EmptyClassRepository : IClassRepository

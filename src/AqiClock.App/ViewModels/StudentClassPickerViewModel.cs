@@ -12,14 +12,24 @@ public partial class StudentClassChoice(Guid id, string name) : ObservableObject
     [ObservableProperty] private bool _isSelected;
 }
 
+public partial class StudentNaseehahChoice(SessionHalfDay halfDay, string name) : ObservableObject
+{
+    public SessionHalfDay HalfDay { get; } = halfDay;
+    public string Name { get; } = name;
+    [ObservableProperty] private bool _isSelected;
+}
+
 public partial class StudentClassPickerViewModel(
     IClassRepository classes,
     ILocalCache cache,
     IDeviceAudienceContext audience) : ObservableObject
 {
     public ObservableCollection<StudentClassChoice> Classes { get; } = [];
-    public IReadOnlyList<SessionHalfDay> HalfDays { get; } = Enum.GetValues<SessionHalfDay>();
-    [ObservableProperty] private SessionHalfDay _selectedHalfDay = SessionHalfDay.Am;
+    public ObservableCollection<StudentNaseehahChoice> NaseehahChoices { get; } =
+    [
+        new(SessionHalfDay.Am, "Naseehah (AM)"),
+        new(SessionHalfDay.Pm, "Naseehah (PM)"),
+    ];
     [ObservableProperty] private string? _error;
 
     public async Task LoadAsync(CancellationToken token = default)
@@ -35,7 +45,11 @@ public partial class StudentClassPickerViewModel(
     {
         Guid[] selected = Classes.Where(x => x.IsSelected).Select(x => x.Id).ToArray();
         if (selected.Length == 0) { Error = "Select at least one class."; return false; }
-        audience.SetStudent(selected, SelectedHalfDay);
+        SessionHalfDay[] optedHalfDays = NaseehahChoices
+            .Where(x => x.IsSelected)
+            .Select(x => x.HalfDay)
+            .ToArray();
+        audience.SetStudent(selected, optedHalfDays);
         Error = null;
         return true;
     }
