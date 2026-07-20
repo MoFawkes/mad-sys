@@ -16,7 +16,7 @@ public sealed class FirstRunSignInTests
         {
             using var cache = new SqliteCacheDatabase(databasePath);
             var store = new SessionStoreStub();
-            AuthenticatedSession authenticated = new(Guid.NewGuid(), "staff@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1));
+            AuthenticatedSession authenticated = new(Guid.NewGuid(), "teacher@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1));
             var service = new SessionService(store, new GatewayStub(authenticated), new SqliteProfileRepository(cache), cache, new WeakReferenceMessenger());
 
             await service.SignInAsync(authenticated.Email, "password");

@@ -61,7 +61,7 @@ public sealed class GatewaySmokeTests(SupabaseFixture fixture)
         CacheSnapshot promoted = await gateway.PullAsync(CacheTable.Profiles);
         Assert.Contains(promoted.Rows.Cast<ProfileRow>(), item => item.Id == fixture.StaffUserId && item.Role == "admin");
 
-        await gateway.UpdateProfileAsync(fixture.StaffUserId, "staff", true);
+        await gateway.UpdateProfileAsync(fixture.StaffUserId, "teacher", true);
         IReadOnlyList<AuditEntry> audit = await gateway.GetAuditEntriesAsync();
         Assert.Contains(audit, item => item.EntityType == "profiles" && item.EntityId == fixture.StaffUserId && item.Action == "update");
     }

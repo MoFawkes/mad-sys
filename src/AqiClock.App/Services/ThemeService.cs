@@ -8,7 +8,7 @@ namespace AqiClock.App.Services;
 
 public sealed class ThemeService
 {
-    private static readonly Color BrandNavy = Color.FromRgb(0x24, 0x45, 0x7A);
+    private static readonly Color BrandBlue = Color.FromRgb(0x2E, 0x6D, 0xD8);
     private AppTheme? _applied;
 
     public void Apply(AppTheme theme)
@@ -21,7 +21,7 @@ public sealed class ThemeService
 
         ApplicationTheme fluentTheme = effective == AppTheme.Dark ? ApplicationTheme.Dark : ApplicationTheme.Light;
         ApplicationThemeManager.Apply(fluentTheme, WindowBackdropType.Mica, updateAccent: false);
-        ApplicationAccentColorManager.Apply(BrandNavy, fluentTheme, systemGlassColor: false, systemAccentColor: false);
+        ApplicationAccentColorManager.Apply(BrandBlue, fluentTheme, systemGlassColor: false, systemAccentColor: false);
         SwapApplicationThemeDictionary(effective);
     }
 

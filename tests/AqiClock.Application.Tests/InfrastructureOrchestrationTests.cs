@@ -201,7 +201,7 @@ public sealed class InfrastructureOrchestrationTests
         public Task CompletePasswordRecoveryAsync(string accessToken, string newPassword, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Guid OrganizationId { get; init; } = Guid.NewGuid();
         public Exception? RefreshException { get; init; }
-        public AuthenticatedSession RefreshedSession { get; init; } = new(Guid.NewGuid(), "staff@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1));
+        public AuthenticatedSession RefreshedSession { get; init; } = new(Guid.NewGuid(), "teacher@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1));
         public Dictionary<CacheTable, int> PullCounts { get; } = [];
         public Queue<Exception> SubscriptionFailures { get; } = [];
         public Queue<Exception> PullFailures { get; } = [];

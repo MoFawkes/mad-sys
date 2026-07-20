@@ -29,7 +29,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _announcementNotifications;
     [ObservableProperty] private string _updateStatus = string.Empty;
     public string Email => _session.Current.Email ?? "Signed out";
-    public string Role => _session.Current.Role == UserRole.Admin ? "Admin" : "Staff";
+    public string Role => _session.Current.Role == UserRole.Admin ? "Admin" : "Teacher";
     public bool CanSync => _sync.State == Application.Sync.ConnectivityState.Online;
     public IReadOnlyList<AppTheme> Themes { get; } = Enum.GetValues<AppTheme>();
     public string Version { get { _ = _updates.Current; return AppVersion.Current; } }

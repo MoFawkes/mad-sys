@@ -13,20 +13,35 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
 {
     private readonly IServiceProvider _services;
     private readonly ISessionService _session;
+    private readonly IDeviceAudienceContext _audience;
     private MainWindow? _main;
     private SignInWindow? _signIn;
+    private RoleChoiceWindow? _roleChoice;
+    private StudentClassPickerWindow? _studentPicker;
     private PasswordRecoveryWindow? _passwordRecovery;
     private SettingsWindow? _settings;
     private AdminWindow? _admin;
-    public WindowService(IServiceProvider services, ISessionService session, IMessenger messenger)
+    private bool _returnToRoleChoiceOnSignInClose;
+    public WindowService(IServiceProvider services, ISessionService session, IMessenger messenger, IDeviceAudienceContext audience)
     {
         _services = services;
         _session = session;
+        _audience = audience;
         messenger.Register(this);
     }
 
     public void ShowMainWindow() { _main ??= _services.GetRequiredService<MainWindow>(); System.Windows.Application.Current.MainWindow = _main; _main.Show(); _main.Activate(); }
     public void ShowSignInWindow()
+    {
+        _returnToRoleChoiceOnSignInClose = false;
+        ShowSignInWindowCore();
+    }
+    public void ShowTeacherSignInWindow()
+    {
+        _returnToRoleChoiceOnSignInClose = true;
+        ShowSignInWindowCore();
+    }
+    private void ShowSignInWindowCore()
     {
         _settings?.Close();
         CloseAdminWindow();
@@ -37,6 +52,20 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
             _signIn.Closed += OnSignInClosed;
         }
         System.Windows.Application.Current.MainWindow = _signIn; _signIn.Show(); _signIn.Activate();
+    }
+    public void ShowRoleChoiceWindow()
+    {
+        _roleChoice ??= _services.GetRequiredService<RoleChoiceWindow>();
+        System.Windows.Application.Current.MainWindow = _roleChoice;
+        _roleChoice.Closed += OnRoleChoiceClosed;
+        _roleChoice.Show(); _roleChoice.Activate();
+    }
+    public void ShowStudentClassPickerWindow()
+    {
+        _studentPicker ??= _services.GetRequiredService<StudentClassPickerWindow>();
+        System.Windows.Application.Current.MainWindow = _studentPicker;
+        _studentPicker.Closed += OnStudentPickerClosed;
+        _studentPicker.Show(); _studentPicker.Activate();
     }
     public void ShowPasswordRecoveryWindow(PasswordRecoveryRequest request)
     {
@@ -73,7 +102,7 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
     public void ActivateMainWindow()
     {
         switch (WindowLifecycle.TargetForActivation(
-            _session.Current, _passwordRecovery?.IsVisible == true))
+            _session.Current, _passwordRecovery?.IsVisible == true, _audience.Current.Role == DeviceAudienceRole.StudentDevice))
         {
             case ActivationTarget.PasswordRecovery:
                 _passwordRecovery!.Activate();
@@ -103,7 +132,26 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
     private void OnSignInClosed(object? sender, EventArgs e)
     {
         _signIn = null;
-        if (WindowLifecycle.ShouldExitAfterSignInClose(_session.Current)) System.Windows.Application.Current.Shutdown();
+        bool returnToRoleChoice = _returnToRoleChoiceOnSignInClose;
+        _returnToRoleChoiceOnSignInClose = false;
+        if (WindowLifecycle.ShouldExitAfterSignInClose(_session.Current, returnToRoleChoice)) System.Windows.Application.Current.Shutdown();
+        else if (returnToRoleChoice && _session.Current.UserId is null) ShowRoleChoiceWindow();
+    }
+
+    private void OnRoleChoiceClosed(object? sender, EventArgs e)
+    {
+        _roleChoice = null;
+        bool transitioned = _signIn?.IsVisible == true || _studentPicker?.IsVisible == true;
+        if (!transitioned && _session.Current.UserId is null && _audience.Current.Role != DeviceAudienceRole.StudentDevice)
+            System.Windows.Application.Current.Shutdown();
+    }
+
+    private void OnStudentPickerClosed(object? sender, EventArgs e)
+    {
+        _studentPicker = null;
+        if (_session.Current.UserId is null && _audience.Current.Role != DeviceAudienceRole.StudentDevice
+            && !System.Windows.Application.Current.Dispatcher.HasShutdownStarted)
+            ShowRoleChoiceWindow();
     }
 
     private void OnPasswordRecoveryClosed(object? sender, EventArgs e)

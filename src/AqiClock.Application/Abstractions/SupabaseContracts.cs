@@ -20,6 +20,8 @@ public interface ISupabaseGateway
     Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default);
     Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default);
     Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default);
+    Task SetPeriodClassesAsync(Guid periodId, IReadOnlyCollection<Guid> classIds, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
     Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default);
     Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default);
 }

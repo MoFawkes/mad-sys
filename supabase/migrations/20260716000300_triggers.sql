@@ -118,7 +118,7 @@ begin
        or new.role is distinct from old.role
        or new.is_active is distinct from old.is_active
        or new.created_at is distinct from old.created_at then
-        raise exception 'Staff may update only their own display_name'
+        raise exception 'Teachers may update only their own display_name'
             using errcode = '42501';
     end if;
 

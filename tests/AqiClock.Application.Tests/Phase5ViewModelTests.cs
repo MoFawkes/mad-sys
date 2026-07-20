@@ -44,7 +44,8 @@ public sealed class Phase5ViewModelTests
     public void ClosingSignInExitsOnlyWhileSignedOut()
     {
         Assert.True(WindowLifecycle.ShouldExitAfterSignInClose(SessionState.SignedOut));
-        Assert.False(WindowLifecycle.ShouldExitAfterSignInClose(new SessionState(Guid.NewGuid(), "staff@example.test", UserRole.Staff, true, false)));
+        Assert.False(WindowLifecycle.ShouldExitAfterSignInClose(SessionState.SignedOut, returnToRoleChoice: true));
+        Assert.False(WindowLifecycle.ShouldExitAfterSignInClose(new SessionState(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false)));
     }
 
     [Fact]
@@ -52,8 +53,9 @@ public sealed class Phase5ViewModelTests
     {
         Assert.Equal(ActivationTarget.SignIn, WindowLifecycle.TargetForActivation(SessionState.SignedOut, false));
         Assert.Equal(ActivationTarget.PasswordRecovery, WindowLifecycle.TargetForActivation(SessionState.SignedOut, true));
+        Assert.Equal(ActivationTarget.Main, WindowLifecycle.TargetForActivation(SessionState.SignedOut, false, studentSessionActive: true));
         Assert.Equal(ActivationTarget.Main, WindowLifecycle.TargetForActivation(
-            new SessionState(Guid.NewGuid(), "staff@example.test", UserRole.Staff, true, false), false));
+            new SessionState(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false), false));
     }
 
     [Theory]
@@ -96,7 +98,7 @@ public sealed class Phase5ViewModelTests
     public async Task UnexpectedLocalPersistenceFailureIsShownInWindow()
     {
         var vm = CreateSignInViewModel(new SessionStub(new IOException("disk unavailable")), new SyncStub());
-        vm.Email = "staff@example.test"; vm.Password = "not-empty";
+        vm.Email = "teacher@example.test"; vm.Password = "not-empty";
 
         await vm.SignInCommand.ExecuteAsync(null);
 
@@ -107,7 +109,7 @@ public sealed class Phase5ViewModelTests
     public async Task PostAuthenticationSyncFailureIsNotReportedAsBadCredentials()
     {
         var vm = CreateSignInViewModel(new SessionStub(), new SyncStub(new InvalidOperationException("realtime unavailable")));
-        vm.Email = "staff@example.test"; vm.Password = "correct-password";
+        vm.Email = "teacher@example.test"; vm.Password = "correct-password";
 
         await vm.SignInCommand.ExecuteAsync(null);
 
@@ -147,7 +149,7 @@ public sealed class Phase5ViewModelTests
     {
         Guid author = Guid.NewGuid(); Guid id = Guid.NewGuid();
         var store = new ReadStore();
-        var vm = new AnnouncementsViewModel(new AnnouncementRepository(new Announcement(id, "Meeting", "At 3", DateTimeOffset.Now.AddMinutes(-2), author, null)), store, new ProfileRepository(new Profile(author, "Sam", UserRole.Staff, true)), new FixedClock(DateTime.Now), new WeakReferenceMessenger());
+        var vm = new AnnouncementsViewModel(new AnnouncementRepository(new Announcement(id, "Meeting", "At 3", DateTimeOffset.Now.AddMinutes(-2), author, null)), store, new ProfileRepository(new Profile(author, "Sam", UserRole.Teacher, true)), new FixedClock(DateTime.Now), new WeakReferenceMessenger());
         await vm.LoadAsync(false); Assert.Equal(1, vm.UnreadCount);
         await vm.LoadAsync(true); Assert.Equal(0, vm.UnreadCount); Assert.True(await store.IsReadAsync(id));
     }

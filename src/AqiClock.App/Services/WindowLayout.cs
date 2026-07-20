@@ -16,10 +16,11 @@ public static class WindowLayouts
 
 public static class WindowLifecycle
 {
-    public static bool ShouldExitAfterSignInClose(SessionState session) => session.UserId is null;
-    public static ActivationTarget TargetForActivation(SessionState session, bool recoveryVisible) =>
+    public static bool ShouldExitAfterSignInClose(SessionState session, bool returnToRoleChoice = false) =>
+        session.UserId is null && !returnToRoleChoice;
+    public static ActivationTarget TargetForActivation(SessionState session, bool recoveryVisible, bool studentSessionActive = false) =>
         recoveryVisible ? ActivationTarget.PasswordRecovery :
-        session.UserId is null ? ActivationTarget.SignIn :
+        session.UserId is null && !studentSessionActive ? ActivationTarget.SignIn :
         ActivationTarget.Main;
 }
 
