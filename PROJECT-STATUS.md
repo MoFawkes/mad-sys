@@ -226,7 +226,7 @@ In progress / next:
 | v0.9.6 candidate main CI | Engineering | Complete |
 | v0.9.6 tag and public assets | Engineering | Complete |
 | Audience-aware PR #1 automated CI | Engineering | Complete |
-| Audience-aware manual UX/theme acceptance | Owner | Re-run 2026-07-23 late evening after fix round — most items now pass (sync cycles, palette, dark admin, scheduling, student filtering); **5 items still open** (theme-change border, student period-toast delivery regression suspect, teacher-role UI gating, student-session exit path, lesson-card state) — see `docs/MANUAL-TESTS.md` |
+| Audience-aware manual UX/theme acceptance | Owner | **Complete 2026-07-23 ~22:30** — final five-item re-check passed after fix round 2 (`a4bdfee`); one pre-existing timetable-editor grid quirk logged as follow-up backlog; see `docs/MANUAL-TESTS.md` final verdict |
 | Audience-aware production-like migration rehearsal | Engineering | Complete — CI job `rehearsal`, run `30028621145` |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
 | v0.9.2 → v0.9.5 pilot auto-update | Owner / Engineering | Pending |

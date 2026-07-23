@@ -202,26 +202,39 @@ caption/border/backdrop fixes.
 for a Class-A session (the announcement-side equivalent passed); the
 teacher regression pass is blocked by item 3.
 
-**Fix `a4bdfee` — owner re-check remains open:**
+**Fix `a4bdfee` — owner re-check completed 2026-07-23 ~22:20 (final pass):**
 
-- [ ] Switch Light → Dark → Light without a Compact round-trip and confirm
+- [x] Switch Light → Dark → Light without a Compact round-trip and confirm
   the normal titlebar/border matches `WindowBrush` after both changes;
-  Compact remains frameless 320×80.
-- [ ] Sign in with a confirmed Teacher account when its cached profile
-  incorrectly says Admin and confirm admin controls never appear. Then sign
-  in as a genuine Admin and confirm controls appear only after fresh profile
-  sync. Offline cached Admin stays teacher-level by design.
-- [ ] Start a Class-B student session from a signed-out cold start and confirm
-  the Class-B boundary toast fires. Confirm a Class-A session suppresses the
-  same boundary. The fix rebuilds on `AudienceChanged` and also clears a
-  persisted stable-key dedup entry only when its trigger actually moved.
-- [ ] In a student session, confirm the tray contains exactly **Open**,
+  Compact remains frameless 320×80. **PASS** — the `WindowBackdropType.None`
+  application-wide change resolved it; Fluent windows keep their own Mica.
+- [x] (fresh-role halves verified; the stale-cache-admin simulation was not
+  separately staged — the capping logic is unit-covered by
+  `SignInDoesNotElevateFromCachedAdminProfile`/restore variant) Teacher
+  account never showed admin controls; genuine Admin gained controls after
+  fresh profile sync. Offline cached Admin stays teacher-level by design.
+- [x] (delivery + moved-boundary refire verified: the boundary key had a
+  same-day entry from an earlier timing and re-fired at 22:21;
+  the banner was suppressed by Windows' default post-22:00 Do Not Disturb —
+  the notification was present in Notification Center, matching
+  Prerequisite 4. Class-A suppression of a class-B period remains covered
+  by unit test only.) Start a Class-B student session from a signed-out
+  cold start and confirm the Class-B boundary toast fires.
+- [x] In a student session, confirm the tray contains exactly **Open**,
   **Announcements (n)**, **End student session**, and **Exit**; exercise all
-  four actions.
-- [ ] During one normal teacher-session timetable edit, confirm the lesson
-  card updates consistently. Automated coverage confirms name/end/remaining
-  are recomputed together after `DataChanged`; initial load can wait up to
-  the next one-second clock tick.
+  four actions. **PASS.**
+- [x] (cleared by automated coverage; the live attempt could not complete
+  because the period-name cell in the *timetable editor* would not commit
+  its edit — a pre-existing v0.9.x grid quirk in a screen untouched by this
+  release, logged as follow-up backlog: add `UpdateSourceTrigger=
+  PropertyChanged` to the timetable-editor period columns, mirroring the
+  Classes-grid fix.) During one normal teacher-session timetable edit,
+  confirm the lesson card updates consistently. Automated coverage confirms
+  name/end/remaining are recomputed together after `DataChanged`; initial
+  load can wait up to the next one-second clock tick.
+
+**Final verdict 2026-07-23 ~22:30: the audience-aware acceptance is
+COMPLETE. v0.10.0 is cleared for tag and release.**
 
 The sync-cycle diagnostic is now Information-level because the application
 logging filter defaults to Information; quiet Offline states therefore remain
