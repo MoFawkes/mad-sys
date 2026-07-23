@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.10.0 - 2026-07-23
+
+### Added
+
+- Added audience-aware entry for credentialled teachers and admins or
+  credential-free student sessions with one or more selected class audiences.
+- Added class/audience administration, period tagging, class-targeted
+  announcements, scheduled publication, and optional HTTPS e-Masjid links.
+
+### Changed
+
+- Rethemed the application with the Navy/Cream palette in Light and Dark modes.
+- Renamed the announcement archive to **Scheduled & history** so future
+  announcements are not mistaken for deleted items.
+
+### Fixed
+
+- Made sync stop quietly on sign-out and fully restart its heartbeat, Realtime
+  subscription, and immediate cache refresh after every later sign-in.
+- Initialized cached lessons and announcements when entering a student session.
+- Based scheduled-announcement expiry presets on publication time and rejected
+  custom expiry values that precede publication.
+- Painted the role-choice and student-class-picker content with the active
+  palette and matched the native main-window border to its theme surface.
+- Surfaced unknown period-class tags in the Classes/Audiences banner as well as
+  the edited row.
+
 ## 0.9.6 - 2026-07-20
 
 ### Fixed

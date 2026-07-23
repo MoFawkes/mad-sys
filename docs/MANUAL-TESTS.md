@@ -112,6 +112,10 @@ For PR #1, the Admin-tab checks below supersede the legacy six-tab assertion imm
 - [x] **Teacher** opens the existing email/password `SignInWindow`, and valid teacher credentials reach the main clock with the existing teacher behavior unchanged.
 - [x] From `RoleChoiceWindow`, choose **Teacher**, then close `SignInWindow` without signing in. The app returns to `RoleChoiceWindow` instead of exiting.
 - [x] **Student** opens `StudentClassPickerWindow` without requesting a personal identity or credentials.
+- [ ] **RE-CHECK fix `23e9b5f`:** sign in and reach **Synced**, sign out and
+  leave the app beyond at least one heartbeat interval with no
+  `A session is required` error, then sign in again and reach **Synced**;
+  repeat the out/in cycle once more.
 
 ### Student classes and optional Naseehah
 
@@ -129,28 +133,28 @@ For PR #1, the Admin-tab checks below supersede the legacy six-tab assertion imm
 - [x] (after in-session fix: Classes tab previously had no visible error element) Save two classes with the same name or **Order** value. The Admin window shows `A class already uses that name or sort order.` instead of crashing.
 - [x] Target an announcement at a class, then attempt to delete that class. The Admin window shows `This class is referenced by an announcement. Reassign or delete the announcement first.` instead of exposing an exception.
 - [x] (after in-session fix: grid edits previously never committed on Save) In the period-tags grid, enter one or more valid class names in the comma-separated **Classes** column and choose **Save tags**. Sync/reload and confirm the assignments persist.
-- [ ] **FAIL 2026-07-23:** the inline "Unknown: ..." error is set but never visibly rendered, so an unknown class name looks saved. Enter an unknown class name while saving period tags and confirm the row reports a useful inline error without losing other saved tags.
+- [ ] **RE-CHECK fix `23e9b5f` (failed 2026-07-23):** enter an unknown class name while saving period tags and confirm both the Classes/Audiences banner and widened row report a useful error without losing other saved tags; then save valid tags and confirm both errors clear.
 - [ ] In **Profiles / Audiences**, confirm Teacher and Admin profiles remain editable and Graduate remains visibly unavailable/coming soon.
 
 ### Admin — Announcements
 
-- [x] (note: the scheduled item is listed under **History** until due � confirm this labelling is intended) Compose an announcement for a specific class with today's date and a future `HH:mm` publish time. It is scheduled and remains absent from active readers and notifications until that time.
+- [x] Compose an announcement for a specific class with today's date and a future `HH:mm` publish time. It is scheduled, appears under **Scheduled & history**, and remains absent from active readers and notifications until that time.
 - [x] Confirm the scheduled announcement is suppressed for a student session that selected a different class and becomes visible/notifiable for the selected target class once due.
 - [x] Publish an announcement with a valid HTTPS e-Masjid link. Confirm the reader shows **Open e-Masjid** and clicking it opens the URL in the default browser.
 - [x] Try a relative, malformed, or non-HTTPS e-Masjid link. Publishing is blocked with `The e-Masjid link must be a valid HTTPS URL.`
-- [x] Delete an announcement that has a `PublishAt` value. It moves out of the active view into **History**, and its original publication date remains unchanged.
-- [x] On a soft-deleted History item, confirm **Publish now** is disabled and cannot resurrect the announcement.
+- [x] Delete an announcement that has a `PublishAt` value. It moves out of the active view into **Scheduled & history**, and its original publication date remains unchanged.
+- [x] On a soft-deleted **Scheduled & history** item, confirm **Publish now** is disabled and cannot resurrect the announcement.
 - [x] Confirm **Graduates** is absent from the Audience picker. This is intentional while Graduate sign-in and delivery are deferred; do not offer this audience until a Graduate device role can receive it.
 
 The AM/PM and class-overlap scheduler scenarios are also covered by the automated application tests. Record the PR CI run in **Notes or issue links**; do not substitute CI for the interaction checks above.
 
 ### Audience-aware Light/Dark presentation
 
-- [ ] Inspect `RoleChoiceWindow` and `StudentClassPickerWindow` in Light, Dark, and System modes. Switching themes updates each open/new window without restarting.
+- [ ] **RE-CHECK fix `23e9b5f`:** inspect `RoleChoiceWindow` and `StudentClassPickerWindow` in Light, Dark, and System modes. Switching themes updates each open/new window without restarting.
 - [ ] In Light mode, confirm headers use navy `#112549`, primary actions use blue `#2E6DD8`, the background uses cream `#F4F0E6`, and secondary text uses grey `#6B7280`.
-- [ ] In Dark mode, confirm navy surfaces and cream text remain readable. Pay particular attention to headings using dark `HeaderBrush` (`#0B1933`) against the window/card surfaces and record any insufficient contrast as a failure.
+- [ ] In Dark mode, confirm navy `WindowBrush` (`#112549`) surfaces and cream `HeaderBrush`/text (`#F4F0E6`) remain readable against the window/card surfaces.
 - [ ] Inspect Main, Admin, Announcements, Role Choice, and Student Class Picker in both Light and Dark modes. Confirm there is no default-white chrome, clipped text, unreadable selection state, or binding-error log entry.
-- [ ] Re-check the Admin `DataGrid` background and main-window frame border in both themes.
+- [ ] **RE-CHECK fix `23e9b5f`:** re-check the Admin `DataGrid` background and main-window frame border in both themes; the normal-window native border should match `WindowBrush`, while Compact remains frameless 320×80.
 
 `HighlightBrush` is defined as gold in both theme dictionaries but is not currently consumed by a control. Its absence on these screens is therefore not a visual failure.
 
@@ -168,6 +172,11 @@ The AM/PM and class-overlap scheduler scenarios are also covered by the automate
 - The Admin Dark grid re-check and part of the theme matrix were blocked
   by the sync defect below ("not synced" after sign-out/sign-in).
 
+Fix `23e9b5f` moves the palette brush to each Fluent window's inner grid,
+matches the normal main window's DWM border to `WindowBrush`, and preserves
+Compact's frameless path. The owner boxes intentionally remain unticked for
+the guided visual re-check.
+
 **Merge-blocking defects found this session:**
 
 1. Sign-out leaves `SyncService` running (heartbeat logs
@@ -180,6 +189,13 @@ The AM/PM and class-overlap scheduler scenarios are also covered by the automate
    (marked FAIL above) — the message should also surface in the
    Classes-tab error banner.
 
+Fix `23e9b5f` addresses the three blockers: sync teardown/restart and quiet
+signed-out ticks; inner-grid palette rendering plus native frame treatment;
+and the period-tag banner/widened row. It also initializes the main cached
+display on student entry and fixes scheduled expiry relative to publication.
+These statements record implementation and automated coverage, not owner
+acceptance; the corresponding `[ ]` re-check boxes remain open.
+
 **Fixed live during the session (verified by re-test, committed on the branch):**
 
 - Classes/period-tags `DataGridTextColumn` edits never committed on Save
@@ -190,9 +206,9 @@ The AM/PM and class-overlap scheduler scenarios are also covered by the automate
 
 **Observations for the owner to ratify (not defects until decided):**
 
-- Scheduled announcements are listed under **History** until due;
-  "Publish now" on them publishes immediately (as designed?). Consider a
-  clearer label such as "Scheduled & history".
+- Scheduled announcements remain in the combined archive until due and
+  "Publish now" still publishes immediately; the approved label is now
+  **Scheduled & history**.
 - Untagged periods (e.g. Break) do not notify class-filtered student
   sessions. Plausibly intended; document it if so.
 - A signed-out student device cannot pull announcements created after
@@ -215,4 +231,8 @@ from a student session.
 
 ### Release decision
 
-Decided 2026-07-20: v0.9.6 shipped the accepted theme fixes on their own, and the audience-aware work in PR #1 ships as its own later release (version still to be chosen). This checklist plus the Light/Dark presentation pass above are the remaining owner acceptance before that release is tagged; the production-like migration rehearsal runs automatically in CI.
+Decided 2026-07-23: v0.9.6 shipped the earlier theme fixes on their own, and
+the audience-aware work in PR #1 will ship as v0.10.0. After architect diff
+verification, the open re-check boxes plus the four still-untested items are
+the remaining owner acceptance before tagging; the production-like migration
+rehearsal runs automatically in CI.
