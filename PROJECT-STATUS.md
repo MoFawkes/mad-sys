@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-23 22:40 BST
+Last updated: 2026-07-23 23:25 BST
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -13,13 +13,13 @@ the acceptance script.
 | Area | State |
 |---|---|
 | Staff pilot | v0.9.2 installed on 3 staff machines |
-| Public release channel | v0.9.6 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main` at v0.9.6; accepted v0.10.0 candidate in draft PR #1 at `042e1eb` |
+| Public release channel | v0.10.0 is live on `MoFawkes/aqi-clock-releases` |
+| Source | `main`; v0.10.0 tagged at merge commit `15ecb86` |
 | Production backend | Supabase project active and healthy |
-| Latest release | v0.9.6 — Light/Dark surface consistency fixes |
-| Next release | v0.10.0 — accepted audience-aware sign-in, classes, announcements, and Navy/Cream theme |
-| Candidate CI | PR #1 green at `042e1eb` (run `30045041244`): Windows, Supabase/RLS, and migration rehearsal |
-| Release workflow | v0.9.6 tag-bound run `29775056726` green |
+| Latest release | v0.10.0 — audience-aware sign-in, classes, announcements, and Navy/Cream theme |
+| Next release | Post-v0.10.0 backlog; scope/version not yet selected |
+| Candidate CI | Merged-main run `30048989635` green at `15ecb86` |
+| Release workflow | v0.10.0 tag-bound run `30049223114` green; public assets verified |
 
 ## v0.9.3 scope
 
@@ -172,8 +172,6 @@ In progress / next:
 - Perform the v0.9.2 → v0.9.5 auto-update check on a pilot machine.
 - Complete the installer/update/uninstaller round trip and record results in
   `docs/MANUAL-TESTS.md`.
-- Merge accepted draft PR #1, tag the merged commit as v0.10.0, monitor the
-  tag-bound release workflow, and verify the public stable-channel assets.
 - Track the pre-existing timetable-editor period-cell commit quirk as
   post-v0.10.0 backlog; it is not an audience-aware release blocker.
 - After publication, synchronize release trackers/status and retain the
@@ -215,6 +213,8 @@ In progress / next:
 | Audience-aware PR #1 automated CI | Engineering | Complete |
 | Audience-aware manual UX/theme acceptance | Owner | **Complete 2026-07-23 ~22:30** — final five-item re-check passed after fix round 2 (`a4bdfee`); one pre-existing timetable-editor grid quirk logged as follow-up backlog; see `docs/MANUAL-TESTS.md` final verdict |
 | Audience-aware production-like migration rehearsal | Engineering | Complete — CI job `rehearsal`, run `30028621145` |
+| v0.10.0 merge, tag, and public assets | Engineering | Complete — `v0.10.0` at `15ecb86`; release run `30049223114` green |
+| v0.10.0 published artifact verification | Engineering | Complete — stable full/delta index, portable digest/version, cloud config, and updater target verified |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
 | v0.9.2 → v0.9.5 pilot auto-update | Owner / Engineering | Pending |
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
@@ -350,6 +350,16 @@ In progress / next:
   production-like migration rehearsal. v0.10.0 is accepted for merge, tag,
   and publication. The timetable-editor period-cell commit quirk is recorded
   as non-blocking follow-up.
+- 2026-07-23 23:21 — PR #1 merged to `main` as `15ecb86`, merged-main CI run
+  `30048989635` passed all three jobs, and annotated tag `v0.10.0` triggered
+  release run `30049223114`. Its Windows, Supabase/RLS, production-like
+  rehearsal, package, artifact-upload, and public Velopack publication jobs
+  all passed. Public release `AQI Clock 0.10.0` is live with full, delta,
+  Setup, portable, and stable-index assets. The portable SHA-256 is
+  `de8eacfce6631a376a237164539b1a5fdd55206f6fe149e9ff442708c07bc625`;
+  the executable reports `0.10.0+15ecb86d6763255f78f287301e400debced2132d`;
+  packaged Supabase configuration uses HTTPS plus a publishable key, and the
+  updater targets `MoFawkes/aqi-clock-releases`.
 - 2026-07-23 — Owner ran the audience-aware click-through live against a
   local stack, guided by Fable 5. Functional sections largely passed:
   sign-in fork, student sessions with class/Naseehah filtering (all five
