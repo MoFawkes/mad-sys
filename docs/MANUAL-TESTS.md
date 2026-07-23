@@ -1,4 +1,4 @@
-?# AQI Clock manual OS-integration checklist
+# AQI Clock manual OS-integration checklist
 
 This checklist is the ADR-011 acceptance script for Windows surfaces that are not reliably covered by unit tests. Run the full checklist on Windows 10 and Windows 11 before the Phase 8 pilot. Record the app commit, Windows version, tester, date, and result for each run.
 
