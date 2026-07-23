@@ -20,4 +20,5 @@ logs/
 node_modules/
 supabase/.temp/
 supabase/.branches/
+supabase/snippets/
 .supabase-home/
