@@ -1,15 +1,15 @@
-# AQI Clock manual OS-integration checklist
+?# AQI Clock manual OS-integration checklist
 
 This checklist is the ADR-011 acceptance script for Windows surfaces that are not reliably covered by unit tests. Run the full checklist on Windows 10 and Windows 11 before the Phase 8 pilot. Record the app commit, Windows version, tester, date, and result for each run.
 
 ## Test record
 
-- App commit:
-- Windows version/build:
-- Tester and date:
-- Supabase target: local / cloud
-- Result: not run / pass / fail
-- Notes or issue links:
+- App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
+- Windows version/build: Windows 11 Home 10.0.26200
+- Tester and date: Owner (MK), guided live by Fable 5 — 2026-07-23 evening
+- Supabase target: local
+- Result: audience-aware functional sections largely pass; **Light/Dark presentation FAILED**; sync-restart defect found — see the dated results block at the end of the audience-aware section
+- Notes or issue links: PR #1; findings recorded in the 2026-07-23 session-results block below
 
 ## Prerequisites
 
@@ -100,47 +100,47 @@ For PR #1, the Admin-tab checks below supersede the legacy six-tab assertion imm
 
 ### Audience-aware prerequisites
 
-- [ ] Create at least two classes with distinct names and sort orders.
-- [ ] Tag at least one period with one class and leave another period untagged or tagged to the other class.
-- [ ] Have an active Admin account available for the Admin-window checks.
-- [ ] Prepare announcement content suitable for a future scheduled publication, class targeting, and an HTTPS e-Masjid link.
-- [ ] Complete a sync so the student picker has current classes and period tags in its local cache.
+- [x] Create at least two classes with distinct names and sort orders.
+- [x] Tag at least one period with one class and leave another period untagged or tagged to the other class.
+- [x] Have an active Admin account available for the Admin-window checks.
+- [x] Prepare announcement content suitable for a future scheduled publication, class targeting, and an HTTPS e-Masjid link.
+- [x] Complete a sync so the student picker has current classes and period tags in its local cache.
 
 ### Sign-in fork
 
-- [ ] Cold start opens **Choose how to continue** (`RoleChoiceWindow`) instead of opening email/password sign-in directly.
-- [ ] **Teacher** opens the existing email/password `SignInWindow`, and valid teacher credentials reach the main clock with the existing teacher behavior unchanged.
-- [ ] From `RoleChoiceWindow`, choose **Teacher**, then close `SignInWindow` without signing in. The app returns to `RoleChoiceWindow` instead of exiting.
-- [ ] **Student** opens `StudentClassPickerWindow` without requesting a personal identity or credentials.
+- [x] Cold start opens **Choose how to continue** (`RoleChoiceWindow`) instead of opening email/password sign-in directly.
+- [x] **Teacher** opens the existing email/password `SignInWindow`, and valid teacher credentials reach the main clock with the existing teacher behavior unchanged.
+- [x] From `RoleChoiceWindow`, choose **Teacher**, then close `SignInWindow` without signing in. The app returns to `RoleChoiceWindow` instead of exiting.
+- [x] **Student** opens `StudentClassPickerWindow` without requesting a personal identity or credentials.
 
 ### Student classes and optional Naseehah
 
-- [ ] Select multiple classes using the checkbox rows. With no class selected, **Start student session** remains blocked and shows the inline `Select at least one class.` error.
-- [ ] Confirm the independent optional Naseehah checkboxes allow all four states: AM only, PM only, both, and neither.
-- [ ] Select a PM-running class and AM Naseehah only. Its class-tagged PM period notification still fires; an AM-audience announcement appears/notifies and a PM-audience announcement does not.
-- [ ] Repeat with neither Naseehah option selected. Class-tagged period notifications remain active, while AM- and PM-audience announcements are both suppressed.
-- [ ] With only class A selected, confirm periods and specific-class announcements tagged only to class B do not notify or appear.
-- [ ] Click a period or announcement toast during an active student session. It activates the running main window rather than reopening sign-in.
-- [ ] Restart after a student session. No selected classes, Naseehah choices, or student identity survive; the app asks how to continue again.
+- [x] Select multiple classes using the checkbox rows. With no class selected, **Start student session** remains blocked and shows the inline `Select at least one class.` error.
+- [x] Confirm the independent optional Naseehah checkboxes allow all four states: AM only, PM only, both, and neither.
+- [x] Select a PM-running class and AM Naseehah only. Its class-tagged PM period notification still fires; an AM-audience announcement appears/notifies and a PM-audience announcement does not.
+- [x] Repeat with neither Naseehah option selected. Class-tagged period notifications remain active, while AM- and PM-audience announcements are both suppressed.
+- [x] (announcements verified; a class-B-tagged *period* was not exercised) With only class A selected, confirm periods and specific-class announcements tagged only to class B do not notify or appear.
+- [x] Click a period or announcement toast during an active student session. It activates the running main window rather than reopening sign-in.
+- [x] Restart after a student session. No selected classes, Naseehah choices, or student identity survive; the app asks how to continue again.
 
 ### Admin — Classes / Audiences
 
-- [ ] Add, edit, save, and delete an unreferenced class using the per-row controls.
-- [ ] Save two classes with the same name or **Order** value. The Admin window shows `A class already uses that name or sort order.` instead of crashing.
-- [ ] Target an announcement at a class, then attempt to delete that class. The Admin window shows `This class is referenced by an announcement. Reassign or delete the announcement first.` instead of exposing an exception.
-- [ ] In the period-tags grid, enter one or more valid class names in the comma-separated **Classes** column and choose **Save tags**. Sync/reload and confirm the assignments persist.
-- [ ] Enter an unknown class name while saving period tags and confirm the row reports a useful inline error without losing other saved tags.
+- [x] Add, edit, save, and delete an unreferenced class using the per-row controls.
+- [x] (after in-session fix: Classes tab previously had no visible error element) Save two classes with the same name or **Order** value. The Admin window shows `A class already uses that name or sort order.` instead of crashing.
+- [x] Target an announcement at a class, then attempt to delete that class. The Admin window shows `This class is referenced by an announcement. Reassign or delete the announcement first.` instead of exposing an exception.
+- [x] (after in-session fix: grid edits previously never committed on Save) In the period-tags grid, enter one or more valid class names in the comma-separated **Classes** column and choose **Save tags**. Sync/reload and confirm the assignments persist.
+- [ ] **FAIL 2026-07-23:** the inline "Unknown: ..." error is set but never visibly rendered, so an unknown class name looks saved. Enter an unknown class name while saving period tags and confirm the row reports a useful inline error without losing other saved tags.
 - [ ] In **Profiles / Audiences**, confirm Teacher and Admin profiles remain editable and Graduate remains visibly unavailable/coming soon.
 
 ### Admin — Announcements
 
-- [ ] Compose an announcement for a specific class with today's date and a future `HH:mm` publish time. It is scheduled and remains absent from active readers and notifications until that time.
-- [ ] Confirm the scheduled announcement is suppressed for a student session that selected a different class and becomes visible/notifiable for the selected target class once due.
-- [ ] Publish an announcement with a valid HTTPS e-Masjid link. Confirm the reader shows **Open e-Masjid** and clicking it opens the URL in the default browser.
-- [ ] Try a relative, malformed, or non-HTTPS e-Masjid link. Publishing is blocked with `The e-Masjid link must be a valid HTTPS URL.`
-- [ ] Delete an announcement that has a `PublishAt` value. It moves out of the active view into **History**, and its original publication date remains unchanged.
-- [ ] On a soft-deleted History item, confirm **Publish now** is disabled and cannot resurrect the announcement.
-- [ ] Confirm **Graduates** is absent from the Audience picker. This is intentional while Graduate sign-in and delivery are deferred; do not offer this audience until a Graduate device role can receive it.
+- [x] (note: the scheduled item is listed under **History** until due � confirm this labelling is intended) Compose an announcement for a specific class with today's date and a future `HH:mm` publish time. It is scheduled and remains absent from active readers and notifications until that time.
+- [x] Confirm the scheduled announcement is suppressed for a student session that selected a different class and becomes visible/notifiable for the selected target class once due.
+- [x] Publish an announcement with a valid HTTPS e-Masjid link. Confirm the reader shows **Open e-Masjid** and clicking it opens the URL in the default browser.
+- [x] Try a relative, malformed, or non-HTTPS e-Masjid link. Publishing is blocked with `The e-Masjid link must be a valid HTTPS URL.`
+- [x] Delete an announcement that has a `PublishAt` value. It moves out of the active view into **History**, and its original publication date remains unchanged.
+- [x] On a soft-deleted History item, confirm **Publish now** is disabled and cannot resurrect the announcement.
+- [x] Confirm **Graduates** is absent from the Audience picker. This is intentional while Graduate sign-in and delivery are deferred; do not offer this audience until a Graduate device role can receive it.
 
 The AM/PM and class-overlap scheduler scenarios are also covered by the automated application tests. Record the PR CI run in **Notes or issue links**; do not substitute CI for the interaction checks above.
 
@@ -153,6 +153,65 @@ The AM/PM and class-overlap scheduler scenarios are also covered by the automate
 - [ ] Re-check the Admin `DataGrid` background and main-window frame border in both themes.
 
 `HighlightBrush` is defined as gold in both theme dictionaries but is not currently consumed by a control. Its absence on these screens is therefore not a visual failure.
+
+### 2026-07-23 session results (owner click-through, local stack)
+
+**This section FAILED.** The five Light/Dark items above remain unticked because:
+
+- The Navy/Cream palette does not render on `RoleChoiceWindow` or
+  `StudentClassPickerWindow` in either theme — both show default grey
+  WPF-UI surfaces. The XAML correctly binds `WindowBrush`/`HeaderBrush`;
+  WPF-UI's `FluentWindow` background management overrides
+  `Window.Background` after load (the same mechanism the v0.9.6
+  main-window fix addressed for the plain window).
+- The main window shows a black frame ring again in Dark mode.
+- The Admin Dark grid re-check and part of the theme matrix were blocked
+  by the sync defect below ("not synced" after sign-out/sign-in).
+
+**Merge-blocking defects found this session:**
+
+1. Sign-out leaves `SyncService` running (heartbeat logs
+   `A session is required` indefinitely) and a later sign-in's
+   `sync.StartAsync` is a no-op because of the `_lifetime` start-once
+   guard — the session ends up permanently "not synced". The student
+   flow makes sign-out/sign-in cycles routine, so this must be fixed.
+2. The palette/frame failures above.
+3. The period-tags inline "Unknown: ..." error never renders visibly
+   (marked FAIL above) — the message should also surface in the
+   Classes-tab error banner.
+
+**Fixed live during the session (verified by re-test, committed on the branch):**
+
+- Classes/period-tags `DataGridTextColumn` edits never committed on Save
+  (`UpdateSourceTrigger=PropertyChanged` added) — previously every save
+  wrote the stale defaults.
+- The Classes tab had no visible element for its error property; the
+  duplicate-name message now renders.
+
+**Observations for the owner to ratify (not defects until decided):**
+
+- Scheduled announcements are listed under **History** until due;
+  "Publish now" on them publishes immediately (as designed?). Consider a
+  clearer label such as "Scheduled & history".
+- Untagged periods (e.g. Break) do not notify class-filtered student
+  sessions. Plausibly intended; document it if so.
+- A signed-out student device cannot pull announcements created after
+  its last signed-in sync (no session for REST/Realtime). The scheduled
+  due-time flip works from cache, but genuinely new server content will
+  not arrive mid-student-session. Decide whether that is acceptable for
+  this release.
+- Cold-start close of the sign-in window exited the whole app **once**
+  (first run of the evening); it could not be reproduced afterwards —
+  the cancel path now reliably returns to the role choice. Watch for
+  recurrence.
+- One unhandled `VirtualizingStackPanel` layout exception was logged
+  while the (pre-fix) classes grid was being fought; likely tied to the
+  reload-during-edit behaviour. Re-check after the fixes.
+
+**Still untested:** Profiles/Audiences tab (Teacher/Admin editable,
+Graduate visibly unavailable); a class-B-tagged *period* suppression
+case; teacher-account regression pass; tray **Exit** discoverability
+from a student session.
 
 ### Release decision
 

@@ -183,6 +183,14 @@ In progress / next:
 - With the rehearsal now green in CI, the audience-aware release is blocked
   only on the owner's manual UX/theme acceptance in `docs/MANUAL-TESTS.md`
   and the version-number choice for the release itself.
+- 2026-07-23 owner click-through outcome: engineering fix round required
+  before re-acceptance — (1) sign-out/sign-in leaves sync permanently dead
+  (`SyncService` start-once guard + no stop on sign-out); (2) the new
+  Navy/Cream palette does not render on the FluentWindows and the Dark
+  main-window frame ring is back; (3) the period-tags unknown-class error
+  is invisible. Full record in `docs/MANUAL-TESTS.md` §"2026-07-23 session
+  results". Two grid defects were fixed and re-verified live during the
+  session.
 
 ## Release gates
 
@@ -218,7 +226,7 @@ In progress / next:
 | v0.9.6 candidate main CI | Engineering | Complete |
 | v0.9.6 tag and public assets | Engineering | Complete |
 | Audience-aware PR #1 automated CI | Engineering | Complete |
-| Audience-aware manual UX/theme acceptance | Owner | Pending |
+| Audience-aware manual UX/theme acceptance | Owner | Attempted 2026-07-23 — functional sections largely pass; **Light/Dark presentation and sync-restart FAILED**; fixes required before re-run |
 | Audience-aware production-like migration rehearsal | Engineering | Complete — CI job `rehearsal`, run `30028621145` |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
 | v0.9.2 → v0.9.5 pilot auto-update | Owner / Engineering | Pending |
@@ -334,6 +342,18 @@ In progress / next:
   in the audience migration via `create or replace`. The rehearsal gate is
   Complete; the audience-aware release now waits only on the owner's manual
   UX/theme acceptance and the version-number decision.
+- 2026-07-23 — Owner ran the audience-aware click-through live against a
+  local stack, guided by Fable 5. Functional sections largely passed:
+  sign-in fork, student sessions with class/Naseehah filtering (all five
+  audience-visibility outcomes correct, scheduled announcement arrived on
+  time, toast routing correct, restart wipe correct), class management, and
+  the full announcements suite. Two defects were diagnosed, fixed, and
+  re-verified during the session (DataGrid edits never committed on Save;
+  Classes-tab error message had no visible element). Three merge-blockers
+  remain for engineering: dead sync after sign-out/sign-in cycles, the
+  unapplied Navy/Cream palette on FluentWindows plus the Dark frame ring,
+  and the invisible unknown-class tag error. Full pass/fail record and
+  owner-ratification observations are in `docs/MANUAL-TESTS.md`.
 
 ## Handoff rules
 

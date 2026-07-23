@@ -129,13 +129,14 @@
             <TabItem Header="Classes / Audiences">
               <Grid DataContext="{Binding Classes}" Margin="10"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="1.3*"/></Grid.ColumnDefinitions>
                 <DockPanel Margin="0,0,10,0"><ui:Button DockPanel.Dock="Top" Content="Add class" Command="{Binding AddCommand}" HorizontalAlignment="Left"/>
+                  <TextBlock DockPanel.Dock="Top" Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}"/>
                   <DataGrid ItemsSource="{Binding Items}" AutoGenerateColumns="False" CanUserAddRows="False"><DataGrid.Columns>
-                    <DataGridTextColumn Header="Name" Binding="{Binding Name}"/><DataGridTextColumn Header="Order" Binding="{Binding SortOrder}"/>
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/><DataGridTextColumn Header="Order" Binding="{Binding SortOrder, UpdateSourceTrigger=PropertyChanged}"/>
                     <DataGridTemplateColumn><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal"><ui:Button Content="Save" Command="{Binding DataContext.SaveCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/><ui:Button Content="Delete" Appearance="Danger" Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Margin="4,0,0,0"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                   </DataGrid.Columns></DataGrid></DockPanel>
                 <DataGrid Grid.Column="1" ItemsSource="{Binding PeriodTags}" AutoGenerateColumns="False" CanUserAddRows="False"><DataGrid.Columns>
-                  <DataGridTextColumn Header="Period" Binding="{Binding PeriodName}" IsReadOnly="True"/><DataGridTextColumn Header="Classes (comma-separated)" Binding="{Binding ClassNames}" Width="*"/>
-                  <DataGridTemplateColumn><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel><ui:Button Content="Save tags" Command="{Binding DataContext.SaveTagsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/><TextBlock Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                  <DataGridTextColumn Header="Period" Binding="{Binding PeriodName}" IsReadOnly="True"/><DataGridTextColumn Header="Classes (comma-separated)" Binding="{Binding ClassNames, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                  <DataGridTemplateColumn><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal"><ui:Button Content="Save tags" Command="{Binding DataContext.SaveTagsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/><TextBlock Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                 </DataGrid.Columns></DataGrid>
               </Grid>
             </TabItem>
