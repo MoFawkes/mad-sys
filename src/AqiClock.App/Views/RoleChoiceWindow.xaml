@@ -3,8 +3,8 @@
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
   Title="Choose how to continue" Width="480" Height="330" WindowStartupLocation="CenterScreen"
-  Background="{DynamicResource WindowBrush}">
-  <Grid Margin="36">
+  ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica">
+  <Grid Margin="36" Background="{DynamicResource WindowBrush}">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/></Grid.RowDefinitions>
     <StackPanel>
       <TextBlock Text="AQI Clock" FontSize="{DynamicResource TitleFontSize}" FontWeight="Bold" Foreground="{DynamicResource HeaderBrush}"/>

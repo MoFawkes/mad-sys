@@ -5,6 +5,7 @@ using AqiClock.Application.Configuration;
 using AqiClock.Domain.Entities;
 using AqiClock.Infrastructure.Supabase;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Supabase.Realtime.Exceptions;
 
@@ -127,6 +128,59 @@ public sealed class InfrastructureOrchestrationTests
     }
 
     [Fact]
+    public async Task StopThenStartRestartsHeartbeatAndRealtime()
+    {
+        var gateway = new FakeGateway();
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15));
+
+        await service.StartAsync();
+        await WaitUntilAsync(() => gateway.ActiveSubscriptions == 1);
+        await service.StopAsync();
+        int pullsAfterStop = gateway.PullCounts.Values.Sum();
+        await Task.Delay(60);
+
+        Assert.Equal(0, gateway.ActiveSubscriptions);
+        Assert.Equal(pullsAfterStop, gateway.PullCounts.Values.Sum());
+        Assert.Equal(ConnectivityState.Offline, service.State);
+
+        await service.StartAsync();
+        await WaitUntilAsync(() => gateway.SubscribeCalls >= 2 && service.State == ConnectivityState.Online);
+
+        Assert.Equal(1, gateway.ActiveSubscriptions);
+        Assert.Equal(ConnectivityState.Online, service.State);
+    }
+
+    [Fact]
+    public async Task SignedOutHeartbeatTickDoesNotLogError()
+    {
+        var gateway = new FakeGateway();
+        var logger = new CapturingLogger<SyncService>();
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15), logger: logger);
+        await service.StartAsync();
+        gateway.IsSignedOut = true;
+
+        await WaitUntilAsync(() => service.State == ConnectivityState.Offline);
+        await Task.Delay(50);
+
+        Assert.Empty(logger.Errors);
+    }
+
+    [Fact]
+    public async Task SessionChangedSignedOutStopsSync()
+    {
+        var gateway = new FakeGateway();
+        var messenger = new WeakReferenceMessenger();
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15), messenger);
+        await service.StartAsync();
+        await WaitUntilAsync(() => gateway.ActiveSubscriptions == 1);
+
+        messenger.Send(new AqiClock.Application.Messages.SessionChanged(SessionState.SignedOut));
+        await WaitUntilAsync(() => gateway.ActiveSubscriptions == 0 && service.State == ConnectivityState.Offline);
+
+        Assert.Equal(0, gateway.ActiveSubscriptions);
+    }
+
+    [Fact]
     public void RealtimeUpgradeDoesNotSendPublishableKeyAsBearerHeader()
     {
         using var gateway = new SupabaseGateway(
@@ -150,14 +204,18 @@ public sealed class InfrastructureOrchestrationTests
             value.Contains("sb_publishable_", StringComparison.Ordinal));
     }
 
-    private static SyncService CreateSyncService(FakeGateway gateway, TimeSpan? heartbeatInterval = null) =>
+    private static SyncService CreateSyncService(
+        FakeGateway gateway,
+        TimeSpan? heartbeatInterval = null,
+        IMessenger? messenger = null,
+        ILogger<SyncService>? logger = null) =>
         new(
             gateway,
             new FakeCache(),
-            new WeakReferenceMessenger(),
+            messenger ?? new WeakReferenceMessenger(),
             new DebouncePolicy(TimeSpan.Zero),
             TimeProvider.System,
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance,
+            logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance,
             heartbeatInterval);
 
     private static async Task WaitUntilAsync(Func<bool> condition)
@@ -207,11 +265,15 @@ public sealed class InfrastructureOrchestrationTests
         public Queue<Exception> PullFailures { get; } = [];
         public int SubscribeCalls { get; private set; }
         public int ActiveSubscriptions { get; private set; }
+        public bool IsSignedOut { get; set; }
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.FromResult(RefreshedSession);
         public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => RefreshException is null ? Task.FromResult(RefreshedSession) : Task.FromException<AuthenticatedSession>(RefreshException);
         public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(OrganizationId);
+        public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) =>
+            IsSignedOut
+                ? Task.FromException<Guid>(new InvalidOperationException("A session is required."))
+                : Task.FromResult(OrganizationId);
         public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default)
         {
             PullCounts[table] = PullCounts.GetValueOrDefault(table) + 1;
@@ -239,6 +301,17 @@ public sealed class InfrastructureOrchestrationTests
         {
             onDispose?.Invoke();
             return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<Exception> Errors { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel >= LogLevel.Error && exception is not null) Errors.Add(exception);
         }
     }
 }

@@ -1,7 +1,9 @@
 using System.ComponentModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using AqiClock.App.ViewModels;
 using AqiClock.App.Services;
@@ -14,6 +16,7 @@ namespace AqiClock.App;
 
 public partial class MainWindow : Window
 {
+    private const int DwmwaBorderColor = 34;
     private readonly MainViewModel _viewModel;
     private readonly ISettingsService _settings;
     private readonly ILogger<MainWindow> _logger;
@@ -50,6 +53,17 @@ public partial class MainWindow : Window
         if (theme == ApplicationTheme.Dark) WindowBackgroundManager.ApplyDarkThemeToWindow(this);
         else WindowBackgroundManager.RemoveDarkThemeFromWindow(this);
         SetResourceReference(BackgroundProperty, "WindowBrush");
+        ApplyNativeBorderColor();
+    }
+
+    private void ApplyNativeBorderColor()
+    {
+        if (WindowStyle == WindowStyle.None || TryFindResource("WindowBrush") is not SolidColorBrush brush) return;
+        nint handle = new WindowInteropHelper(this).Handle;
+        if (handle == 0) return;
+        Color color = brush.Color;
+        int colorReference = color.R | color.G << 8 | color.B << 16;
+        _ = DwmSetWindowAttribute(handle, DwmwaBorderColor, ref colorReference, sizeof(int));
     }
     private void OnClosed(object? sender, EventArgs e)
         => ApplicationThemeManager.Changed -= OnApplicationThemeChanged;
@@ -113,4 +127,7 @@ public partial class MainWindow : Window
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Could not persist window placement")]
     private static partial void LogPlacementSaveFailed(ILogger logger, Exception exception);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(nint windowHandle, int attribute, ref int value, int valueSize);
 }

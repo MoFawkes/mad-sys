@@ -234,6 +234,47 @@ public sealed class AdminViewModelTests
 
         AnnouncementRow row = Assert.IsType<AnnouncementRow>(gateway.LastInsertedRow);
         Assert.Equal(new DateTime(2030, 8, 12, 14, 35, 0), row.PublishAt?.LocalDateTime);
+        Assert.True(row.ExpiresAt > row.PublishAt);
+        Assert.Equal(new DateTime(2030, 8, 12, 23, 59, 59, 999).AddTicks(9999), row.ExpiresAt?.LocalDateTime);
+    }
+
+    [Fact]
+    public async Task ScheduledPublishRejectsExpiryBeforePublication()
+    {
+        var gateway = new Gateway();
+        var vm = new AnnouncementComposeViewModel(gateway, new Sync(), new Session(), new Announcements(), new Windows())
+        {
+            Title = "Scheduled",
+            Body = "Body",
+            PublishAt = new DateTime(2030, 8, 12),
+            PublishTime = "14:35",
+            Expiry = ExpiryPreset.Custom,
+            CustomExpiry = new DateTime(2030, 8, 12, 10, 0, 0),
+        };
+
+        await vm.PublishCommand.ExecuteAsync(null);
+
+        Assert.Null(gateway.LastInsertedRow);
+        Assert.Contains("later than the publication", vm.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PeriodTagUnknownClassSetsBannerAndSuccessfulSaveClearsIt()
+    {
+        var classes = new Classes(new AqiClock.Domain.Entities.Class(Guid.NewGuid(), "Class A", 0));
+        var vm = new ClassesViewModel(classes, new Timetables(), new Gateway(), new Sync());
+        var item = new PeriodClassEditorItem { PeriodId = Guid.NewGuid(), PeriodName = "Normal — Period 1", ClassNames = "Class X" };
+
+        await vm.SaveTagsCommand.ExecuteAsync(item);
+
+        Assert.Contains("Class X", item.Error);
+        Assert.Contains("Period tags — Normal — Period 1", vm.Error);
+
+        item.ClassNames = "Class A";
+        await vm.SaveTagsCommand.ExecuteAsync(item);
+
+        Assert.Null(item.Error);
+        Assert.Null(vm.Error);
     }
 
     [Fact]
@@ -265,8 +306,8 @@ public sealed class AdminViewModelTests
     private sealed class Profiles(params Profile[] rows) : IProfileRepository { public Task<IReadOnlyList<Profile>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Profile>>(rows); public Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(rows.FirstOrDefault(x => x.Id == id)); }
     private sealed class Classes(params AqiClock.Domain.Entities.Class[] rows) : IClassRepository { public Task<IReadOnlyList<AqiClock.Domain.Entities.Class>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AqiClock.Domain.Entities.Class>>(rows); public Task<IReadOnlySet<Guid>> GetClassIdsForPeriodAsync(Guid periodId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>()); }
     private sealed class Session(Guid? id = null) : ISessionService { public SessionState Current { get; } = new(id ?? Guid.NewGuid(), "admin@example.test", UserRole.Admin, true, false); public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; }
-    private sealed class Sync : ISyncService { public ConnectivityState State { get; set; } = ConnectivityState.Online; public DateTimeOffset? LastSyncedAt => DateTimeOffset.UtcNow; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.CompletedTask; public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
-    private sealed class EchoSync(IMessenger messenger) : ISyncService { public ConnectivityState State => ConnectivityState.Online; public DateTimeOffset? LastSyncedAt => DateTimeOffset.UtcNow; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) { messenger.Send(new DataChanged(table)); return Task.CompletedTask; } public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
+    private sealed class Sync : ISyncService { public ConnectivityState State { get; set; } = ConnectivityState.Online; public DateTimeOffset? LastSyncedAt => DateTimeOffset.UtcNow; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.CompletedTask; public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
+    private sealed class EchoSync(IMessenger messenger) : ISyncService { public ConnectivityState State => ConnectivityState.Online; public DateTimeOffset? LastSyncedAt => DateTimeOffset.UtcNow; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) { messenger.Send(new DataChanged(table)); return Task.CompletedTask; } public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
     private sealed class Windows(bool confirmResult = true) : IWindowService { public bool AdminClosed { get; private set; } public string? CloseReason { get; private set; } public void ShowMainWindow() { } public void ShowSignInWindow() { } public void ShowPasswordRecoveryWindow(PasswordRecoveryRequest request) { } public void ClosePasswordRecoveryWindow() { } public void ShowSettingsWindow() { } public void ShowAdminWindow() { } public void CloseAdminWindow(string? reason = null) { AdminClosed = true; CloseReason = reason; } public bool Confirm(string message, string title) => confirmResult; public void ShowAnnouncements() { } public void HideMainWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } public void ExitApplication() { } }
     private sealed class Gateway : ISupabaseGateway
     {
