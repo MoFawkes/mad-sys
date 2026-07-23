@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-20 21:18 BST
+Last updated: 2026-07-23 18:45 BST
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -18,7 +18,7 @@ the acceptance script.
 | Production backend | Supabase project active and healthy |
 | Latest release | v0.9.6 — Light/Dark surface consistency fixes |
 | Next release | Audience-aware sign-in and announcements from draft PR #1; version TBD |
-| Candidate CI | PR #1 green at `8ffcf8d` (run `29774052806`) |
+| Candidate CI | PR #1 green at `40624aa` (run `30028621145`), including the new migration-rehearsal job |
 | Release workflow | v0.9.6 tag-bound run `29775056726` green |
 
 ## v0.9.3 scope
@@ -154,6 +154,17 @@ Completed:
   tag-bound release run `29775056726` passed. Independently verified the
   public portable digest, full/delta stable index, embedded product version,
   publishable client configuration, live Auth response, and updater target.
+- Added the production-like migration rehearsal as a third CI job
+  (`40624aa`): reset to the released v0.9.6 baseline, load production-like
+  staff/announcement data, apply the pending audience migration incrementally
+  as `db push` will in production, assert the migrated schema/data, then run
+  the full RLS/behaviour matrix against the upgraded database. Release tags
+  require it automatically through the existing `needs: gates` chain.
+- Fixed frozen-migration drift found while building the rehearsal: the
+  Teacher-rename click-through had edited the already-applied
+  `20260716000300` trigger migration, which production would never re-run.
+  The frozen file is reverted and the renamed guard wording now ships in the
+  audience migration via `create or replace`.
 
 In progress / next:
 
@@ -169,6 +180,9 @@ In progress / next:
 - Owner decision 2026-07-20: v0.9.6 ships the already-accepted surface fixes
   independently. The audience-aware rewrite ships as a later version after
   its manual UX/theme checklist and production-like migration rehearsal pass.
+- With the rehearsal now green in CI, the audience-aware release is blocked
+  only on the owner's manual UX/theme acceptance in `docs/MANUAL-TESTS.md`
+  and the version-number choice for the release itself.
 
 ## Release gates
 
@@ -205,7 +219,7 @@ In progress / next:
 | v0.9.6 tag and public assets | Engineering | Complete |
 | Audience-aware PR #1 automated CI | Engineering | Complete |
 | Audience-aware manual UX/theme acceptance | Owner | Pending |
-| Audience-aware production-like migration rehearsal | Owner / Engineering | Pending |
+| Audience-aware production-like migration rehearsal | Engineering | Complete — CI job `rehearsal`, run `30028621145` |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
 | v0.9.2 → v0.9.5 pilot auto-update | Owner / Engineering | Pending |
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
@@ -307,6 +321,19 @@ In progress / next:
   reports `0.9.6+d52249f218f82c4e652fa2361903dc1d31dce2ae`; packaged Supabase
   configuration uses HTTPS and a publishable key whose Auth settings endpoint
   returned HTTP 200; and the updater targets `MoFawkes/aqi-clock-releases`.
+- 2026-07-23 — Architecture rebased `feature/audience-aware-app` onto the
+  post-release `main` (docs-only divergence) and gitignored the local
+  `supabase/snippets/` Studio scratch directory.
+- 2026-07-23 — Architecture implemented the production-like migration
+  rehearsal as CI job `rehearsal` and it passed in run `30028621145`
+  alongside both existing jobs at `40624aa`. While building it, found and
+  fixed frozen-migration drift: the Teacher-rename had edited the
+  already-applied `20260716000300` trigger migration, so production would
+  have kept the old `guard_profile_columns` wording while fresh databases
+  got the new one. The frozen file is restored and the change now travels
+  in the audience migration via `create or replace`. The rehearsal gate is
+  Complete; the audience-aware release now waits only on the owner's manual
+  UX/theme acceptance and the version-number decision.
 
 ## Handoff rules
 

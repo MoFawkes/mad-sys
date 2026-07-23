@@ -156,4 +156,4 @@ The AM/PM and class-overlap scheduler scenarios are also covered by the automate
 
 ### Release decision
 
-The current untagged v0.9.6 candidate is a small accepted theme fix based on `58c136a`; PR #1 is a substantially larger sign-in and session-behavior change that still requires this checklist. Decide whether v0.9.6 waits for the audience-aware verification or can be tagged while this work ships in a later version. Once the owner decides, record the choice in the handoff section of `PROJECT-STATUS.md`.
+Decided 2026-07-20: v0.9.6 shipped the accepted theme fixes on their own, and the audience-aware work in PR #1 ships as its own later release (version still to be chosen). This checklist plus the Light/Dark presentation pass above are the remaining owner acceptance before that release is tagged; the production-like migration rehearsal runs automatically in CI.
