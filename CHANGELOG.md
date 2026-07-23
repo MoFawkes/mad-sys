@@ -10,12 +10,17 @@ All notable changes to this project will be documented in this file.
   credential-free student sessions with one or more selected class audiences.
 - Added class/audience administration, period tagging, class-targeted
   announcements, scheduled publication, and optional HTTPS e-Masjid links.
+- Added a student-session tray with Open, announcement count, End student
+  session, and Exit actions.
 
 ### Changed
 
 - Rethemed the application with the Navy/Cream palette in Light and Dark modes.
 - Renamed the announcement archive to **Scheduled & history** so future
   announcements are not mistaken for deleted items.
+- Cached administrator roles are treated as unverified after authentication;
+  offline sign-in remains teacher-level until a fresh profile sync confirms
+  administrator access.
 
 ### Fixed
 
@@ -28,6 +33,11 @@ All notable changes to this project will be documented in this file.
   palette and matched the native main-window border to its theme surface.
 - Surfaced unknown period-class tags in the Classes/Audiences banner as well as
   the edited row.
+- Rebuilt notification plans when the device audience changes and allowed a
+  genuinely moved same-day boundary to fire after restart without repeating
+  unchanged recorded notifications.
+- Prevented WPF-UI's application-wide backdrop pass from overwriting the plain
+  main window's native border colors after a Light/Dark theme change.
 
 ## 0.9.6 - 2026-07-20
 

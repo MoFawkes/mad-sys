@@ -202,6 +202,31 @@ caption/border/backdrop fixes.
 for a Class-A session (the announcement-side equivalent passed); the
 teacher regression pass is blocked by item 3.
 
+**Fix `a4bdfee` — owner re-check remains open:**
+
+- [ ] Switch Light → Dark → Light without a Compact round-trip and confirm
+  the normal titlebar/border matches `WindowBrush` after both changes;
+  Compact remains frameless 320×80.
+- [ ] Sign in with a confirmed Teacher account when its cached profile
+  incorrectly says Admin and confirm admin controls never appear. Then sign
+  in as a genuine Admin and confirm controls appear only after fresh profile
+  sync. Offline cached Admin stays teacher-level by design.
+- [ ] Start a Class-B student session from a signed-out cold start and confirm
+  the Class-B boundary toast fires. Confirm a Class-A session suppresses the
+  same boundary. The fix rebuilds on `AudienceChanged` and also clears a
+  persisted stable-key dedup entry only when its trigger actually moved.
+- [ ] In a student session, confirm the tray contains exactly **Open**,
+  **Announcements (n)**, **End student session**, and **Exit**; exercise all
+  four actions.
+- [ ] During one normal teacher-session timetable edit, confirm the lesson
+  card updates consistently. Automated coverage confirms name/end/remaining
+  are recomputed together after `DataChanged`; initial load can wait up to
+  the next one-second clock tick.
+
+The sync-cycle diagnostic is now Information-level because the application
+logging filter defaults to Information; quiet Offline states therefore remain
+present in the rolling file log without restoring per-heartbeat error spam.
+
 ### 2026-07-23 session results (owner click-through, local stack)
 
 **This section FAILED.** The five Light/Dark items above remain unticked because:
