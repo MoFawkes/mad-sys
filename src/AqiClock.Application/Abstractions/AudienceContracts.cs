@@ -1,4 +1,6 @@
 using AqiClock.Domain.Entities;
+using AqiClock.Application.Messages;
+using CommunityToolkit.Mvvm.Messaging;
 
 namespace AqiClock.Application.Abstractions;
 
@@ -22,21 +24,31 @@ public interface IDeviceAudienceContext
 
 public sealed class DeviceAudienceContext : IDeviceAudienceContext
 {
+    private readonly IMessenger _messenger;
+
+    public DeviceAudienceContext(IMessenger messenger) => _messenger = messenger;
+
     public DeviceAudience Current { get; private set; } =
         new(DeviceAudienceRole.Teacher, new HashSet<Guid>(), new HashSet<SessionHalfDay>());
 
-    public void SetTeacher(UserRole role) => Current = new(
+    public void SetTeacher(UserRole role) => SetCurrent(new(
         role == UserRole.Admin ? DeviceAudienceRole.Admin : DeviceAudienceRole.Teacher,
         new HashSet<Guid>(),
-        new HashSet<SessionHalfDay>());
+        new HashSet<SessionHalfDay>()));
 
     public void SetStudent(IEnumerable<Guid> classIds, IEnumerable<SessionHalfDay> optedHalfDays) =>
-        Current = new(DeviceAudienceRole.StudentDevice, classIds.ToHashSet(), optedHalfDays.ToHashSet());
+        SetCurrent(new(DeviceAudienceRole.StudentDevice, classIds.ToHashSet(), optedHalfDays.ToHashSet()));
 
-    public void Clear() => Current = new(
+    public void Clear() => SetCurrent(new(
         DeviceAudienceRole.Teacher,
         new HashSet<Guid>(),
-        new HashSet<SessionHalfDay>());
+        new HashSet<SessionHalfDay>()));
+
+    private void SetCurrent(DeviceAudience state)
+    {
+        Current = state;
+        _messenger.Send(new AudienceChanged(state));
+    }
 
     public bool Matches(Announcement announcement) => announcement.AudienceType switch
     {

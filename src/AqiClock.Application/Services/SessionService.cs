@@ -15,7 +15,7 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>
     private readonly IDeviceAudienceContext _audience;
 
     public SessionService(ISessionStore sessionStore, ISupabaseGateway gateway, IProfileRepository profiles, ILocalCache cache, IMessenger messenger)
-        : this(sessionStore, gateway, profiles, cache, messenger, new DeviceAudienceContext())
+        : this(sessionStore, gateway, profiles, cache, messenger, new DeviceAudienceContext(messenger))
     {
     }
 
@@ -80,8 +80,9 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>
     {
         await _sessionStore.SaveAsync(new StoredSession(session.AccessToken, session.RefreshToken, session.ExpiresAt), cancellationToken).ConfigureAwait(false);
         Profile? profile = await _profiles.GetByIdAsync(session.UserId, cancellationToken).ConfigureAwait(false);
-        _audience.SetTeacher(profile?.Role ?? UserRole.Teacher);
-        SetState(new SessionState(session.UserId, session.Email, profile?.Role, profile?.IsActive ?? false, false));
+        UserRole? initialRole = profile?.Role == UserRole.Admin ? UserRole.Teacher : profile?.Role;
+        _audience.SetTeacher(initialRole ?? UserRole.Teacher);
+        SetState(new SessionState(session.UserId, session.Email, initialRole, profile?.IsActive ?? false, false));
     }
 
     private void SetState(SessionState state)
@@ -100,6 +101,7 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>
         Profile? profile = await _profiles.GetByIdAsync(userId).ConfigureAwait(false);
         if (profile is not null && Current.UserId == userId)
         {
+            _audience.SetTeacher(profile.Role);
             SetState(Current with { Role = profile.Role, IsActive = profile.IsActive });
         }
     }

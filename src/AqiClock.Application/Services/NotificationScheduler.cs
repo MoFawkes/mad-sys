@@ -9,7 +9,8 @@ using Microsoft.Extensions.Logging;
 namespace AqiClock.Application.Services;
 
 public sealed partial class NotificationScheduler : INotificationScheduler,
-    IRecipient<ClockTick>, IRecipient<TimeJumped>, IRecipient<DataChanged>, IRecipient<SessionChanged>, IDisposable
+    IRecipient<ClockTick>, IRecipient<TimeJumped>, IRecipient<DataChanged>, IRecipient<SessionChanged>,
+    IRecipient<AudienceChanged>, IDisposable
 {
     private static readonly TimeSpan Grace = TimeSpan.FromSeconds(120);
     private readonly ITimetableRepository _timetables;
@@ -41,7 +42,7 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
         IClock clock,
         IMessenger messenger,
         ILogger<NotificationScheduler> logger)
-        : this(timetables, weekSchedule, overrides, announcements, new EmptyClassRepository(), new DeviceAudienceContext(), log, presenter, settings, clock, messenger, logger)
+        : this(timetables, weekSchedule, overrides, announcements, new EmptyClassRepository(), new DeviceAudienceContext(messenger), log, presenter, settings, clock, messenger, logger)
     {
     }
 
@@ -96,6 +97,10 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
             foreach (NotificationEvent item in rebuilt)
             {
                 if (_knownTriggers.TryGetValue(item.Key, out DateTime oldTrigger) && oldTrigger <= now && item.TriggerTime > now && oldTrigger != item.TriggerTime)
+                    await _log.RemoveAsync(item.Key, cancellationToken).ConfigureAwait(false);
+                else if (item.TriggerTime > now
+                    && await _log.GetAsync(item.Key, cancellationToken).ConfigureAwait(false) is { FiredAt: { } firedAt }
+                    && (firedAt.LocalDateTime - item.TriggerTime).Duration() > Grace)
                     await _log.RemoveAsync(item.Key, cancellationToken).ConfigureAwait(false);
             }
 
@@ -176,6 +181,11 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
     {
         if (message.State.UserId is not null) RunSafely(() => RebuildAsync(_clock.Now));
     }
+    public void Receive(AudienceChanged message) => RunSafely(async () =>
+    {
+        await RebuildAsync(_clock.Now).ConfigureAwait(false);
+        await ProcessAnnouncementsAsync(_clock.Now).ConfigureAwait(false);
+    });
 
     private bool IsEnabled(NotificationEventKind kind) => kind == NotificationEventKind.LessonStart
         ? _settings.Current.LessonStartNotifications

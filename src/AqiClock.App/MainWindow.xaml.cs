@@ -54,36 +54,8 @@ public partial class MainWindow : Window
         if (WindowStyle == WindowStyle.None) return;
         if (theme == ApplicationTheme.Dark) WindowBackgroundManager.ApplyDarkThemeToWindow(this);
         else WindowBackgroundManager.RemoveDarkThemeFromWindow(this);
-        // The dark-theme helper applies a backdrop to this plain window, which makes
-        // the DWM caption/border colors inert until the frame is rebuilt. Strip it.
-        _ = Wpf.Ui.Controls.WindowBackdrop.RemoveBackdrop(this);
         SetResourceReference(BackgroundProperty, "WindowBrush");
         ApplyNativeBorderColor();
-        // WPF-UI's theme application resets the DWM caption/border colors after our
-        // Changed handler runs (verified live: an external DwmSetWindowAttribute call
-        // renders instantly, in-handler calls get stomped). Re-apply after its pass.
-        ScheduleNativeColorRetry();
-    }
-
-    private System.Windows.Threading.DispatcherTimer? _nativeColorRetry;
-    private int _nativeColorRetriesLeft;
-    private void ScheduleNativeColorRetry()
-    {
-        if (_nativeColorRetry is null)
-        {
-            // WPF-UI's theme transition finishes well after the Changed event, so a
-            // single early retry loses the race; retry until the transition settles.
-            _nativeColorRetry = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
-            _nativeColorRetry.Tick += (_, _) =>
-            {
-                ApplyNativeBorderColor();
-                if (--_nativeColorRetriesLeft <= 0) _nativeColorRetry!.Stop();
-            };
-        }
-
-        _nativeColorRetriesLeft = 5;
-        _nativeColorRetry.Stop();
-        _nativeColorRetry.Start();
     }
 
     private void ApplyNativeBorderColor()

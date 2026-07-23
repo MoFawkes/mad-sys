@@ -144,7 +144,7 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Sync cycle failed; staying offline until the next retry")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "Sync cycle failed; staying offline until the next retry")]
     private static partial void LogSyncCycleFailed(ILogger logger, Exception exception);
 
     public void SignalTableChanged(CacheTable table)

@@ -23,7 +23,7 @@ public sealed class ThemeService
         // The palette dictionary must be in place before ApplicationThemeManager.Changed
         // handlers (MainWindow titlebar/native-border sync) read brushes from it.
         SwapApplicationThemeDictionary(effective);
-        ApplicationThemeManager.Apply(fluentTheme, WindowBackdropType.Mica, updateAccent: false);
+        ApplicationThemeManager.Apply(fluentTheme, WindowBackdropType.None, updateAccent: false);
         ApplicationAccentColorManager.Apply(BrandBlue, fluentTheme, systemGlassColor: false, systemAccentColor: false);
     }
 

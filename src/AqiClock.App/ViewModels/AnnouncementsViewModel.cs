@@ -33,7 +33,7 @@ public partial class AnnouncementsViewModel : ObservableObject, IRecipient<DataC
     public ObservableCollection<AnnouncementDisplay> Items { get; } = [];
 
     public AnnouncementsViewModel(IAnnouncementRepository repository, IAnnouncementReadStore readStore, IProfileRepository profiles, IClock clock, IMessenger messenger)
-        : this(repository, readStore, profiles, clock, messenger, new DeviceAudienceContext())
+        : this(repository, readStore, profiles, clock, messenger, new DeviceAudienceContext(messenger))
     {
     }
 

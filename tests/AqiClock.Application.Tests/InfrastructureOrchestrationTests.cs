@@ -13,6 +13,23 @@ namespace AqiClock.Application.Tests;
 
 public sealed class InfrastructureOrchestrationTests
 {
+    [Fact]
+    public void AudienceMutationsPublishChangedState()
+    {
+        var messenger = new WeakReferenceMessenger();
+        var recipient = new AudienceRecipient();
+        messenger.Register(recipient);
+        var audience = new DeviceAudienceContext(messenger);
+
+        audience.SetStudent([Guid.NewGuid()], [SessionHalfDay.Pm]);
+        audience.SetTeacher(UserRole.Admin);
+        audience.Clear();
+
+        Assert.Equal(
+            [DeviceAudienceRole.StudentDevice, DeviceAudienceRole.Admin, DeviceAudienceRole.Teacher],
+            recipient.States.Select(state => state.Role));
+    }
+
     [Theory]
     [InlineData(0, 0)]
     [InlineData(1, 30)]
@@ -37,7 +54,7 @@ public sealed class InfrastructureOrchestrationTests
     }
 
     [Fact]
-    public async Task SessionRestoreSourcesRoleFromCachedProfile()
+    public async Task SessionRestoreDoesNotElevateFromCachedAdminProfile()
     {
         Guid userId = Guid.NewGuid();
         var store = new FakeSessionStore { Session = new StoredSession("old", "refresh", null) };
@@ -46,8 +63,49 @@ public sealed class InfrastructureOrchestrationTests
 
         await service.RestoreAsync();
 
-        Assert.Equal(UserRole.Admin, service.Current.Role);
+        Assert.Equal(UserRole.Teacher, service.Current.Role);
         Assert.Equal("new", store.Session?.AccessToken);
+    }
+
+    [Fact]
+    public async Task SignInDoesNotElevateFromCachedAdminProfile()
+    {
+        Guid userId = Guid.NewGuid();
+        var gateway = new FakeGateway
+        {
+            RefreshedSession = new AuthenticatedSession(userId, "admin@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1)),
+        };
+        var service = new SessionService(
+            new FakeSessionStore(),
+            gateway,
+            new FakeProfiles(new Profile(userId, "Stale Admin", UserRole.Admin, true)),
+            new FakeCache(),
+            new WeakReferenceMessenger());
+
+        await service.SignInAsync("admin@example.test", "password");
+
+        Assert.Equal(UserRole.Teacher, service.Current.Role);
+    }
+
+    [Fact]
+    public async Task FreshProfileDataElevatesGenuineAdminAfterSignIn()
+    {
+        Guid userId = Guid.NewGuid();
+        var messenger = new WeakReferenceMessenger();
+        var profiles = new MutableProfiles(new Profile(userId, "Admin", UserRole.Admin, true));
+        var gateway = new FakeGateway
+        {
+            RefreshedSession = new AuthenticatedSession(userId, "admin@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1)),
+        };
+        var service = new SessionService(new FakeSessionStore(), gateway, profiles, new FakeCache(), messenger);
+
+        await service.SignInAsync("admin@example.test", "password");
+        Assert.Equal(UserRole.Teacher, service.Current.Role);
+
+        messenger.Send(new AqiClock.Application.Messages.DataChanged(CacheTable.Profiles));
+        await WaitUntilAsync(() => service.Current.Role == UserRole.Admin);
+
+        Assert.Equal(UserRole.Admin, service.Current.Role);
     }
 
     [Fact]
@@ -304,6 +362,15 @@ public sealed class InfrastructureOrchestrationTests
         }
     }
 
+    private sealed class MutableProfiles(Profile? profile = null) : IProfileRepository
+    {
+        public Profile? Value { get; set; } = profile;
+        public Task<IReadOnlyList<Profile>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<Profile>>(Value is null ? [] : [Value]);
+        public Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Value?.Id == id ? Value : null);
+    }
+
     private sealed class CapturingLogger<T> : ILogger<T>
     {
         public List<Exception> Errors { get; } = [];
@@ -313,5 +380,11 @@ public sealed class InfrastructureOrchestrationTests
         {
             if (logLevel >= LogLevel.Error && exception is not null) Errors.Add(exception);
         }
+    }
+
+    public sealed class AudienceRecipient : IRecipient<AqiClock.Application.Messages.AudienceChanged>
+    {
+        public List<DeviceAudience> States { get; } = [];
+        public void Receive(AqiClock.Application.Messages.AudienceChanged message) => States.Add(message.State);
     }
 }

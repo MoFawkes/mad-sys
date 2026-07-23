@@ -54,6 +54,28 @@ public sealed class NotificationSchedulerTests
     }
 
     [Fact]
+    public async Task SameDayMovedBoundaryFiresAfterRestart()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.SetPeriod(Monday.TimeOfDay, TimeSpan.FromMinutes(45));
+        using (NotificationScheduler first = fixture.Create())
+        {
+            await first.StartAsync();
+            await first.ProcessAsync(Monday);
+        }
+
+        fixture.SetPeriod(new TimeSpan(9, 0, 0), TimeSpan.FromMinutes(45));
+        fixture.Clock.Now = Monday.AddMinutes(1);
+        using (NotificationScheduler second = fixture.Create())
+        {
+            await second.StartAsync();
+            await second.ProcessAsync(Monday.AddMinutes(30));
+        }
+
+        Assert.Equal(2, fixture.Presenter.Starts);
+    }
+
+    [Fact]
     public async Task RemovedBoundaryDoesNotFire()
     {
         SchedulerFixture fixture = CreateFixture(Monday.AddMinutes(-1));
@@ -131,6 +153,24 @@ public sealed class NotificationSchedulerTests
     }
 
     [Fact]
+    public async Task AudienceChangeToStudentRebuildsPlanAndDeliversClassBoundary()
+    {
+        DateTime beforeBoundary = Monday.AddMinutes(-1);
+        SchedulerFixture fixture = CreateFixture(beforeBoundary);
+        fixture.SetPeriod(Monday.TimeOfDay, TimeSpan.FromMinutes(45));
+        Guid selectedClass = Guid.NewGuid();
+        fixture.Classes.ClassIds = new HashSet<Guid> { selectedClass };
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync();
+
+        fixture.Audience.SetStudent([selectedClass], []);
+        await WaitUntilAsync(() => fixture.Timetables.Reads >= 2);
+        await scheduler.ProcessAsync(Monday);
+
+        Assert.Equal(1, fixture.Presenter.Starts);
+    }
+
+    [Fact]
     public async Task StudentAnnouncementOptInsAreIndependentOfSelectedClasses()
     {
         Guid selectedClass = Guid.NewGuid();
@@ -174,13 +214,15 @@ public sealed class NotificationSchedulerTests
         public FakePresenter Presenter { get; } = new();
         public FakeSettings Settings { get; } = new();
         public FakeClasses Classes { get; } = new();
-        public DeviceAudienceContext Audience { get; } = new();
+        public WeakReferenceMessenger Messenger { get; } = new();
+        public DeviceAudienceContext Audience { get; }
         public FakeClock Clock { get; }
         public IWeekScheduleRepository Week { get; }
 
         public SchedulerFixture(DateTime now)
         {
             Clock = new FakeClock(now);
+            Audience = new DeviceAudienceContext(Messenger);
             Week = new FakeWeek(new WeekSchedule(new Dictionary<DayOfWeek, Guid?> { [DayOfWeek.Monday] = _timetableId }));
         }
 
@@ -190,10 +232,16 @@ public sealed class NotificationSchedulerTests
             Timetables.Items = [new Timetable(_timetableId, "Normal", false, [new Period(_periodId, "Mathematics", start, start.Add(duration), 1)])];
         }
 
-        public NotificationScheduler Create() => new(Timetables, Week, new FakeOverrides(), Announcements, Classes, Audience, Log, Presenter, Settings, Clock, new WeakReferenceMessenger(), NullLogger<NotificationScheduler>.Instance);
+        public NotificationScheduler Create() => new(Timetables, Week, new FakeOverrides(), Announcements, Classes, Audience, Log, Presenter, Settings, Clock, Messenger, NullLogger<NotificationScheduler>.Instance);
     }
 
-    private sealed class FakeTimetables : ITimetableRepository { public IReadOnlyList<Timetable> Items { get; set; } = []; public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items); }
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        while (!condition()) await Task.Delay(10, timeout.Token);
+    }
+
+    private sealed class FakeTimetables : ITimetableRepository { public int Reads { get; private set; } public IReadOnlyList<Timetable> Items { get; set; } = []; public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) { Reads++; return Task.FromResult(Items); } }
     private sealed class FakeWeek(WeekSchedule value) : IWeekScheduleRepository { public Task<WeekSchedule> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(value); }
     private sealed class FakeOverrides : IDateOverrideRepository { public Task<IReadOnlyList<DateOverride>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<DateOverride>>([]); }
     private sealed class FakeClasses : IClassRepository

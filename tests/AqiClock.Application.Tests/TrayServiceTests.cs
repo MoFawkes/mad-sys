@@ -1,12 +1,24 @@
 using System.Drawing;
 using System.Windows;
 using AqiClock.App.Services;
+using AqiClock.Application.Abstractions;
 using H.NotifyIcon;
 
 namespace AqiClock.Application.Tests;
 
 public sealed class TrayServiceTests
 {
+    [Fact]
+    public void TrayIsVisibleForSignedInAndStudentSessionsOnly()
+    {
+        DeviceAudience teacher = new(DeviceAudienceRole.Teacher, new HashSet<Guid>(), new HashSet<SessionHalfDay>());
+        DeviceAudience student = new(DeviceAudienceRole.StudentDevice, new HashSet<Guid> { Guid.NewGuid() }, new HashSet<SessionHalfDay>());
+
+        Assert.False(TrayService.ShouldShow(SessionState.SignedOut, teacher));
+        Assert.True(TrayService.ShouldShow(SessionState.SignedOut, student));
+        Assert.True(TrayService.ShouldShow(new SessionState(Guid.NewGuid(), "teacher@example.test", AqiClock.Domain.Entities.UserRole.Teacher, true, false), teacher));
+    }
+
     [Fact]
     public async Task SessionTransitionFromWorkerThreadIsMarshalledToStaDispatcher()
     {
