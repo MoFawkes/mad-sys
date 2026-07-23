@@ -85,3 +85,61 @@ jobs:
 
       - name: Run RLS and behavioural matrix
         run: dotnet test tests/AqiClock.SupabaseTests/AqiClock.SupabaseTests.csproj --configuration Release --no-restore
+
+  rehearsal:
+    name: Production-like migration rehearsal
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.checkout_ref || github.ref }}
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Reset to the released v0.9.6 baseline schema
+        run: supabase db reset --local --yes --version 20260716000300
+
+      - name: Load production-like data at the baseline schema
+        shell: bash
+        run: |
+          eval "$(supabase status -o env)"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/rehearsal/production_state.sql
+
+      - name: Apply pending migrations incrementally, as db push will in production
+        run: supabase migration up --local
+
+      - name: Assert migrated schema and data
+        shell: bash
+        run: |
+          eval "$(supabase status -o env)"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/rehearsal/assertions.sql
+
+      - name: Export local Supabase test environment
+        shell: bash
+        run: |
+          eval "$(supabase status -o env)"
+          {
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "SUPABASE_DB_URL=$DB_URL"
+          } >> "$GITHUB_ENV"
+
+      - name: Restore Supabase tests
+        run: dotnet restore tests/AqiClock.SupabaseTests/AqiClock.SupabaseTests.csproj --configfile NuGet.Config
+
+      - name: Run the full matrix against the incrementally migrated database
+        run: dotnet test tests/AqiClock.SupabaseTests/AqiClock.SupabaseTests.csproj --configuration Release --no-restore

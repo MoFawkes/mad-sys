@@ -5,6 +5,33 @@ alter table public.profiles alter column role set default 'teacher';
 alter table public.profiles add constraint profiles_role_check
   check (role in ('teacher', 'admin', 'graduate'));
 
+-- Production already ran the frozen 20260716000300 migration, so the renamed
+-- role wording must arrive as a replace here, not as an edit to that file.
+create or replace function private.guard_profile_columns()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+    if auth.uid() is null or (select private.is_admin()) then
+        return new;
+    end if;
+
+    if old.id <> auth.uid()
+       or new.id is distinct from old.id
+       or new.org_id is distinct from old.org_id
+       or new.role is distinct from old.role
+       or new.is_active is distinct from old.is_active
+       or new.created_at is distinct from old.created_at then
+        raise exception 'Teachers may update only their own display_name'
+            using errcode = '42501';
+    end if;
+
+    return new;
+end;
+$$;
+
 create table public.classes (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations(id) on delete cascade,
