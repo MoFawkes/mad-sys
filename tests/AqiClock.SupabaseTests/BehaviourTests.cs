@@ -69,7 +69,7 @@ public sealed class BehaviourTests(SupabaseFixture fixture)
             "update public.profiles set org_id = $1, role = 'admin' where id = $2", orgId, firstAdmin);
 
         PostgresException demotion = await Assert.ThrowsAsync<PostgresException>(() =>
-            fixture.SqlAsync("update public.profiles set role = 'staff' where id = $1", firstAdmin));
+            fixture.SqlAsync("update public.profiles set role = 'teacher' where id = $1", firstAdmin));
         Assert.Equal("23514", demotion.SqlState);
 
         PostgresException deactivation = await Assert.ThrowsAsync<PostgresException>(() =>
@@ -84,8 +84,8 @@ public sealed class BehaviourTests(SupabaseFixture fixture)
         await fixture.SqlAsync(
             "update public.profiles set org_id = $1, role = 'admin' where id = $2", orgId, secondAdmin);
 
-        await fixture.SqlAsync("update public.profiles set role = 'staff' where id = $1", firstAdmin);
-        Assert.Equal("staff", await fixture.SqlScalarAsync<string>(
+        await fixture.SqlAsync("update public.profiles set role = 'teacher' where id = $1", firstAdmin);
+        Assert.Equal("teacher", await fixture.SqlScalarAsync<string>(
             "select role from public.profiles where id = $1", firstAdmin));
 
         PostgresException secondDeletion = await Assert.ThrowsAsync<PostgresException>(() =>
@@ -200,7 +200,7 @@ public sealed class BehaviourTests(SupabaseFixture fixture)
             "select string_agg(tablename, ',' order by tablename) from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public'");
 
         Assert.Equal(
-            "announcements,date_overrides,periods,profiles,timetables,week_schedule",
+            "announcements,classes,date_overrides,period_classes,periods,profiles,timetables,week_schedule",
             tables);
     }
 }

@@ -25,6 +25,7 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
     public AnnouncementComposeViewModel Announcements { get; }
     public AuditViewModel Audit { get; }
     public UsersViewModel Users { get; }
+    public ClassesViewModel? Classes { get; }
 
     public AdminViewModel(TimetableEditorViewModel timetables, WeekScheduleViewModel weekSchedule, OverridesViewModel overrides, AnnouncementComposeViewModel announcements, AuditViewModel audit, UsersViewModel users, ISyncService sync, IWindowService windows, IMessenger messenger)
     {
@@ -32,9 +33,20 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
         messenger.Register<SessionChanged>(this); messenger.Register<ConnectivityChanged>(this);
     }
 
+    public AdminViewModel(TimetableEditorViewModel timetables, WeekScheduleViewModel weekSchedule, OverridesViewModel overrides, AnnouncementComposeViewModel announcements, AuditViewModel audit, UsersViewModel users, ClassesViewModel classes, ISyncService sync, IWindowService windows, IMessenger messenger)
+    {
+        Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements; Audit = audit; Users = users; Classes = classes; _windows = windows; IsOnline = sync.State == ConnectivityState.Online;
+        messenger.Register<SessionChanged>(this); messenger.Register<ConnectivityChanged>(this);
+    }
+
     partial void OnBannerChanged(string? value) => OnPropertyChanged(nameof(HasBanner));
 
-    public async Task InitializeAsync(CancellationToken token = default) => await Task.WhenAll(Timetables.LoadAsync(token), WeekSchedule.LoadAsync(token), Overrides.LoadAsync(token), Announcements.LoadAsync(token), Audit.LoadAsync(token), Users.LoadAsync(token));
+    public async Task InitializeAsync(CancellationToken token = default)
+    {
+        List<Task> tasks = [Timetables.LoadAsync(token), WeekSchedule.LoadAsync(token), Overrides.LoadAsync(token), Announcements.LoadAsync(token), Audit.LoadAsync(token), Users.LoadAsync(token)];
+        if (Classes is not null) tasks.Add(Classes.LoadAsync(token));
+        await Task.WhenAll(tasks);
+    }
     public void Receive(SessionChanged message) => RunOnUiThread(() =>
     {
         if (message.State.Role != UserRole.Admin)
@@ -212,13 +224,94 @@ public partial class OverridesViewModel(IDateOverrideRepository repository, ITim
 }
 
 public enum ExpiryPreset { EndOfDay, EndOfWeek, Custom, Never }
-public partial class AnnouncementComposeViewModel(ISupabaseGateway gateway, ISyncService sync, ISessionService session, IAnnouncementRepository repository, IWindowService windows) : ObservableObject
+
+public partial class ClassEditorItem : ObservableObject
 {
-    [ObservableProperty] private string _title = string.Empty; [ObservableProperty] private string _body = string.Empty; [ObservableProperty] private ExpiryPreset _expiry = ExpiryPreset.EndOfDay; [ObservableProperty] private DateTime? _customExpiry; [ObservableProperty] private string? _error;
-    public ObservableCollection<Announcement> Items { get; } = []; public IReadOnlyList<ExpiryPreset> Presets { get; } = Enum.GetValues<ExpiryPreset>();
-    public async Task LoadAsync(CancellationToken token = default) { Items.Clear(); foreach (Announcement x in await repository.GetCurrentAsync(DateTimeOffset.Now, token)) Items.Add(x); }
-    [RelayCommand] private async Task PublishAsync(CancellationToken token) { if (Title.Length is 0 or > 200 || Body.Length is 0 or > 2000) { Error = "Title and body are required and must fit the limits."; return; } try { Guid org = await gateway.GetCurrentOrganizationIdAsync(token); Guid actor = session.Current.UserId ?? throw new InvalidOperationException("Sign in required."); DateTimeOffset? expires = ResolveExpiry(Expiry, CustomExpiry, DateTimeOffset.Now); await gateway.InsertAsync(CacheTable.Announcements, new AnnouncementRow(Guid.NewGuid(), org, Title.Trim(), Body.Trim(), expires, actor, DateTimeOffset.Now), token); await sync.SyncTableAsync(CacheTable.Announcements, token); Title = Body = string.Empty; await LoadAsync(token); } catch (ServerDeniedException) { Error = "Your role changed."; windows.CloseAdminWindow(); } }
-    [RelayCommand] private async Task DeleteAsync(Announcement item, CancellationToken token) { if (!windows.Confirm($"Delete the announcement '{item.Title}'?", "Delete announcement")) return; await gateway.DeleteAsync(CacheTable.Announcements, item.Id, token); await sync.SyncTableAsync(CacheTable.Announcements, token); await LoadAsync(token); }
+    public Guid Id { get; init; }
+    [ObservableProperty] private string _name = string.Empty;
+    [ObservableProperty] private int _sortOrder;
+}
+
+public partial class PeriodClassEditorItem : ObservableObject
+{
+    public Guid PeriodId { get; init; }
+    public string PeriodName { get; init; } = string.Empty;
+    [ObservableProperty] private string _classNames = string.Empty;
+    [ObservableProperty] private string? _error;
+}
+
+public partial class ClassesViewModel(IClassRepository repository, ITimetableRepository timetables, ISupabaseGateway gateway, ISyncService sync) : ObservableObject
+{
+    public ObservableCollection<ClassEditorItem> Items { get; } = [];
+    public ObservableCollection<PeriodClassEditorItem> PeriodTags { get; } = [];
+    [ObservableProperty] private string? _error;
+
+    public async Task LoadAsync(CancellationToken token = default)
+    {
+        IReadOnlyList<AqiClock.Domain.Entities.Class> classes = await repository.GetAllAsync(token);
+        Items.Clear(); foreach (var item in classes) Items.Add(new() { Id = item.Id, Name = item.Name, SortOrder = item.SortOrder });
+        PeriodTags.Clear();
+        foreach (Timetable timetable in await timetables.GetAllAsync(token))
+            foreach (Period period in timetable.Periods.OrderBy(x => x.SortOrder))
+            {
+                IReadOnlySet<Guid> ids = await repository.GetClassIdsForPeriodAsync(period.Id, token);
+                PeriodTags.Add(new() { PeriodId = period.Id, PeriodName = $"{timetable.Name} — {period.Name}", ClassNames = string.Join(", ", classes.Where(x => ids.Contains(x.Id)).Select(x => x.Name)) });
+            }
+    }
+
+    [RelayCommand] private void Add() => Items.Add(new() { Id = Guid.NewGuid(), Name = "New class", SortOrder = Items.Count == 0 ? 0 : Items.Max(x => x.SortOrder) + 1 });
+    [RelayCommand] private async Task SaveAsync(ClassEditorItem item, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(item.Name)) { Error = "Class name is required."; return; }
+        try
+        {
+            Guid org = await gateway.GetCurrentOrganizationIdAsync(token);
+            var row = new ClassRow(item.Id, org, item.Name.Trim(), item.SortOrder);
+            if ((await repository.GetAllAsync(token)).Any(x => x.Id == item.Id)) await gateway.UpdateAsync(CacheTable.Classes, item.Id, row, token);
+            else await gateway.InsertAsync(CacheTable.Classes, row, token);
+            await sync.SyncTableAsync(CacheTable.Classes, token); await LoadAsync(token); Error = null;
+        }
+        catch (DuplicateRowException) { Error = "A class already uses that name or sort order."; }
+    }
+    [RelayCommand] private async Task DeleteAsync(ClassEditorItem item, CancellationToken token)
+    {
+        try { await gateway.DeleteAsync(CacheTable.Classes, item.Id, token); await sync.SyncTableAsync(CacheTable.Classes, token); await LoadAsync(token); Error = null; }
+        catch (ReferencedRowException) { Error = "This class is referenced by an announcement. Reassign or delete the announcement first."; }
+    }
+    [RelayCommand] private async Task SaveTagsAsync(PeriodClassEditorItem item, CancellationToken token)
+    {
+        Dictionary<string, Guid> classes = (await repository.GetAllAsync(token)).ToDictionary(x => x.Name, x => x.Id, StringComparer.OrdinalIgnoreCase);
+        string[] names = item.ClassNames.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        string[] unknown = names.Where(name => !classes.ContainsKey(name)).ToArray();
+        if (unknown.Length > 0)
+        {
+            item.Error = $"Unknown: {string.Join(", ", unknown)}";
+            Error = $"Period tags — {item.PeriodName}: unknown class(es) {string.Join(", ", unknown)}";
+            return;
+        }
+        await gateway.SetPeriodClassesAsync(item.PeriodId, names.Select(name => classes[name]).Distinct().ToArray(), token);
+        await sync.SyncTableAsync(CacheTable.PeriodClasses, token); item.Error = null; Error = null;
+    }
+}
+
+public partial class AnnouncementComposeViewModel(ISupabaseGateway gateway, ISyncService sync, ISessionService session, IAnnouncementRepository repository, IClassRepository classRepository, IWindowService windows) : ObservableObject
+{
+    public AnnouncementComposeViewModel(ISupabaseGateway gateway, ISyncService sync, ISessionService session, IAnnouncementRepository repository, IWindowService windows)
+        : this(gateway, sync, session, repository, new EmptyClassRepository(), windows) { }
+    [ObservableProperty] private string _title = string.Empty; [ObservableProperty] private string _body = string.Empty; [ObservableProperty] private ExpiryPreset _expiry = ExpiryPreset.EndOfDay; [ObservableProperty] private DateTime? _customExpiry; [ObservableProperty] private AudienceType _audience = AudienceType.Everyone; [ObservableProperty] private Guid? _audienceClassId; [ObservableProperty] private UpdateType _updateType = UpdateType.General; [ObservableProperty] private DateTime? _publishAt; [ObservableProperty] private string? _eMasjidLink; [ObservableProperty] private string? _error;
+    public ObservableCollection<Announcement> Items { get; } = []; public ObservableCollection<Announcement> History { get; } = []; public ObservableCollection<AqiClock.Domain.Entities.Class> Classes { get; } = [];
+    [ObservableProperty] private string _publishTime = "09:00";
+    public IReadOnlyList<ExpiryPreset> Presets { get; } = Enum.GetValues<ExpiryPreset>(); public IReadOnlyList<AudienceType> Audiences { get; } = Enum.GetValues<AudienceType>().Where(x => x != AudienceType.Graduates).ToArray(); public IReadOnlyList<UpdateType> UpdateTypes { get; } = Enum.GetValues<UpdateType>();
+    public async Task LoadAsync(CancellationToken token = default) { Items.Clear(); foreach (Announcement x in await repository.GetCurrentAsync(DateTimeOffset.Now, token)) Items.Add(x); History.Clear(); foreach (Announcement x in await repository.GetHistoryAsync(token)) History.Add(x); Classes.Clear(); foreach (AqiClock.Domain.Entities.Class x in await classRepository.GetAllAsync(token)) Classes.Add(x); }
+    [RelayCommand] private async Task PublishAsync(CancellationToken token) { if (Title.Length is 0 or > 200 || Body.Length is 0 or > 2000) { Error = "Title and body are required and must fit the limits."; return; } if (Audience == AudienceType.SpecificClass && AudienceClassId is null) { Error = "Choose a class for this audience."; return; } if (!string.IsNullOrWhiteSpace(EMasjidLink) && (!Uri.TryCreate(EMasjidLink, UriKind.Absolute, out Uri? link) || link.Scheme != Uri.UriSchemeHttps)) { Error = "The e-Masjid link must be a valid HTTPS URL."; return; } TimeOnly publishTime = default; if (PublishAt is not null && !TimeOnly.TryParse(PublishTime, CultureInfo.CurrentCulture, DateTimeStyles.None, out publishTime)) { Error = "Enter the publish time as HH:mm."; return; } try { Guid org = await gateway.GetCurrentOrganizationIdAsync(token); Guid actor = session.Current.UserId ?? throw new InvalidOperationException("Sign in required."); DateTimeOffset now = DateTimeOffset.Now; DateTimeOffset? publish = PublishAt is null ? null : new DateTimeOffset(DateOnly.FromDateTime(PublishAt.Value).ToDateTime(publishTime)); string status = publish > now ? "scheduled" : "published"; DateTimeOffset? expires = ResolveExpiry(Expiry, CustomExpiry, publish ?? now); if (publish is not null && expires <= publish) { Error = "Expiry must be later than the publication time."; return; } await gateway.InsertAsync(CacheTable.Announcements, new AnnouncementRow(Guid.NewGuid(), org, Title.Trim(), Body.Trim(), expires, actor, now, Snake(Audience), Audience == AudienceType.SpecificClass ? AudienceClassId : null, Snake(UpdateType), publish, string.IsNullOrWhiteSpace(EMasjidLink) ? null : EMasjidLink.Trim(), status), token); await sync.SyncTableAsync(CacheTable.Announcements, token); Title = Body = string.Empty; PublishAt = null; EMasjidLink = null; Error = null; await LoadAsync(token); } catch (ServerDeniedException) { Error = "Your role changed."; windows.CloseAdminWindow(); } }
+    [RelayCommand] private async Task DeleteAsync(Announcement item, CancellationToken token) { if (!windows.Confirm($"Move the announcement '{item.Title}' to history?", "Delete announcement")) return; await UpdateStateAsync(item, item.Status, item.PublishAt, DateTimeOffset.Now, token); }
+    [RelayCommand] private async Task PublishItemAsync(Announcement item, CancellationToken token)
+    {
+        if (item.DeletedAt is not null) { Error = "Deleted announcements cannot be republished."; return; }
+        await UpdateStateAsync(item, AnnouncementStatus.Published, DateTimeOffset.Now, item.DeletedAt, token);
+    }
+    private async Task UpdateStateAsync(Announcement item, AnnouncementStatus status, DateTimeOffset? publishAt, DateTimeOffset? deletedAt, CancellationToken token) { Guid org = await gateway.GetCurrentOrganizationIdAsync(token); await gateway.UpdateAsync(CacheTable.Announcements, item.Id, new AnnouncementRow(item.Id, org, item.Title, item.Body, item.ExpiresAt, item.CreatedBy, item.CreatedAt, Snake(item.AudienceType), item.AudienceClassId, Snake(item.UpdateType), publishAt, item.EMasjidLink, Snake(status), deletedAt), token); await sync.SyncTableAsync(CacheTable.Announcements, token); await LoadAsync(token); }
+    private static string Snake<T>(T value) where T : struct, Enum => string.Concat(value.ToString().Select((character, index) => char.IsUpper(character) && index > 0 ? "_" + char.ToLowerInvariant(character) : char.ToLowerInvariant(character).ToString()));
     public static DateTimeOffset? ResolveExpiry(ExpiryPreset preset, DateTime? custom, DateTimeOffset now) => preset switch { ExpiryPreset.EndOfDay => new DateTimeOffset(now.Date.AddDays(1).AddTicks(-1), now.Offset), ExpiryPreset.EndOfWeek => new DateTimeOffset(now.Date.AddDays(((int)DayOfWeek.Sunday - (int)now.DayOfWeek + 7) % 7 + 1).AddTicks(-1), now.Offset), ExpiryPreset.Custom => custom is null ? null : new DateTimeOffset(custom.Value), _ => null };
 }
 
@@ -238,11 +331,11 @@ public partial class AuditViewModel(ISupabaseGateway gateway, IProfileRepository
     }
 }
 
-public partial class UserEditorItem : ObservableObject { public Guid Id { get; init; } public string DisplayName { get; init; } = string.Empty; public UserRole OriginalRole { get; set; } public bool OriginalIsActive { get; set; } [ObservableProperty] private UserRole _role; [ObservableProperty] private bool _isActive; [ObservableProperty] private string? _error; public string Email { get; init; } = "Not available"; }
+public partial class UserEditorItem : ObservableObject { public Guid Id { get; init; } public string DisplayName { get; init; } = string.Empty; public UserRole OriginalRole { get; set; } public bool OriginalIsActive { get; set; } public bool IsEditable { get; init; } = true; [ObservableProperty] private UserRole _role; [ObservableProperty] private bool _isActive; [ObservableProperty] private string? _error; public string Email { get; init; } = "Not available"; }
 public partial class UsersViewModel(IProfileRepository profiles, ISupabaseGateway gateway, ISyncService sync, ISessionService session, IWindowService windows) : ObservableObject
 {
     public ObservableCollection<UserEditorItem> Items { get; } = [];
-    public IReadOnlyList<UserRole> Roles { get; } = Enum.GetValues<UserRole>();
-    public async Task LoadAsync(CancellationToken token = default) { Items.Clear(); foreach (Profile p in (await profiles.GetAllAsync(token)).OrderByDescending(x => x.Id == session.Current.UserId).ThenByDescending(x => x.Role == UserRole.Admin).ThenBy(x => x.DisplayName)) Items.Add(new() { Id = p.Id, DisplayName = p.DisplayName, Role = p.Role, OriginalRole = p.Role, IsActive = p.IsActive, OriginalIsActive = p.IsActive, Email = p.Id == session.Current.UserId ? session.Current.Email ?? "Not available" : "Not stored (MVP)" }); }
-    [RelayCommand] private async Task SaveAsync(UserEditorItem item, CancellationToken token) { bool changed = item.Role != item.OriginalRole || item.IsActive != item.OriginalIsActive; if (!changed) return; if (!windows.Confirm($"Apply the role and account-status changes for {item.DisplayName}?", "Update user")) return; try { await gateway.UpdateProfileAsync(item.Id, item.Role == UserRole.Admin ? "admin" : "staff", item.IsActive, token); await sync.SyncTableAsync(CacheTable.Profiles, token); item.OriginalRole = item.Role; item.OriginalIsActive = item.IsActive; item.Error = null; } catch (LastAdminException) { item.Error = "You cannot demote or deactivate the last active admin. Promote someone else first."; } catch (ServerDeniedException) { item.Error = "Your role changed."; windows.CloseAdminWindow("Your role changed. The admin editor has been closed."); } }
+    public IReadOnlyList<UserRole> Roles { get; } = [UserRole.Teacher, UserRole.Admin];
+    public async Task LoadAsync(CancellationToken token = default) { Items.Clear(); foreach (Profile p in (await profiles.GetAllAsync(token)).OrderByDescending(x => x.Id == session.Current.UserId).ThenByDescending(x => x.Role == UserRole.Admin).ThenBy(x => x.DisplayName)) Items.Add(new() { Id = p.Id, DisplayName = p.DisplayName, Role = p.Role, OriginalRole = p.Role, IsActive = p.IsActive, OriginalIsActive = p.IsActive, Email = p.Id == session.Current.UserId ? session.Current.Email ?? "Not available" : "Not stored (MVP)" }); Items.Add(new() { DisplayName = "Graduate profiles — coming soon", Role = UserRole.Graduate, OriginalRole = UserRole.Graduate, IsActive = false, IsEditable = false, Error = "Reserved for a future release." }); }
+    [RelayCommand] private async Task SaveAsync(UserEditorItem item, CancellationToken token) { if (!item.IsEditable) return; bool changed = item.Role != item.OriginalRole || item.IsActive != item.OriginalIsActive; if (!changed) return; if (!windows.Confirm($"Apply the role and account-status changes for {item.DisplayName}?", "Update user")) return; try { await gateway.UpdateProfileAsync(item.Id, item.Role == UserRole.Admin ? "admin" : "teacher", item.IsActive, token); await sync.SyncTableAsync(CacheTable.Profiles, token); item.OriginalRole = item.Role; item.OriginalIsActive = item.IsActive; item.Error = null; } catch (LastAdminException) { item.Error = "You cannot demote or deactivate the last active admin. Promote someone else first."; } catch (ServerDeniedException) { item.Error = "Your role changed."; windows.CloseAdminWindow("Your role changed. The admin editor has been closed."); } }
 }

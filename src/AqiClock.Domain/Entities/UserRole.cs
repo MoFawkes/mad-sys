@@ -2,6 +2,7 @@ namespace AqiClock.Domain.Entities;
 
 public enum UserRole
 {
-    Staff = 0,
+    Teacher = 0,
     Admin = 1,
+    Graduate = 2,
 }

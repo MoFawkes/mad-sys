@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-20 21:18 BST
+Last updated: 2026-07-23 22:40 BST
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -14,11 +14,11 @@ the acceptance script.
 |---|---|
 | Staff pilot | v0.9.2 installed on 3 staff machines |
 | Public release channel | v0.9.6 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main`; v0.9.6 tagged at `d52249f` |
+| Source | `main` at v0.9.6; accepted v0.10.0 candidate in draft PR #1 at `042e1eb` |
 | Production backend | Supabase project active and healthy |
 | Latest release | v0.9.6 — Light/Dark surface consistency fixes |
-| Next release | Audience-aware sign-in and announcements from draft PR #1; version TBD |
-| Candidate CI | PR #1 green at `8ffcf8d` (run `29774052806`) |
+| Next release | v0.10.0 — accepted audience-aware sign-in, classes, announcements, and Navy/Cream theme |
+| Candidate CI | PR #1 green at `042e1eb` (run `30045041244`): Windows, Supabase/RLS, and migration rehearsal |
 | Release workflow | v0.9.6 tag-bound run `29775056726` green |
 
 ## v0.9.3 scope
@@ -154,21 +154,30 @@ Completed:
   tag-bound release run `29775056726` passed. Independently verified the
   public portable digest, full/delta stable index, embedded product version,
   publishable client configuration, live Auth response, and updater target.
+- Added the production-like migration rehearsal as a third CI job
+  (`40624aa`): reset to the released v0.9.6 baseline, load production-like
+  staff/announcement data, apply the pending audience migration incrementally
+  as `db push` will in production, assert the migrated schema/data, then run
+  the full RLS/behaviour matrix against the upgraded database. Release tags
+  require it automatically through the existing `needs: gates` chain.
+- Fixed frozen-migration drift found while building the rehearsal: the
+  Teacher-rename click-through had edited the already-applied
+  `20260716000300` trigger migration, which production would never re-run.
+  The frozen file is reverted and the renamed guard wording now ships in the
+  audience migration via `create or replace`.
 
 In progress / next:
 
-- Architecture: close the crash task and perform the post-release Google Tasks
-  synchronization now that v0.9.5 is public. The pre-release pinned status,
-  matrix, crash, and round-trip task updates were already complete.
 - Finish the hands-on System and 150% DPI portions of the UI/DPI matrix.
 - Perform the v0.9.2 → v0.9.5 auto-update check on a pilot machine.
 - Complete the installer/update/uninstaller round trip and record results in
   `docs/MANUAL-TESTS.md`.
-- Require green candidate CI and owner acceptance before merging and tagging
-  the audience-aware release.
-- Owner decision 2026-07-20: v0.9.6 ships the already-accepted surface fixes
-  independently. The audience-aware rewrite ships as a later version after
-  its manual UX/theme checklist and production-like migration rehearsal pass.
+- Merge accepted draft PR #1, tag the merged commit as v0.10.0, monitor the
+  tag-bound release workflow, and verify the public stable-channel assets.
+- Track the pre-existing timetable-editor period-cell commit quirk as
+  post-v0.10.0 backlog; it is not an audience-aware release blocker.
+- After publication, synchronize release trackers/status and retain the
+  remaining System/150% DPI and pilot update checks as post-publication work.
 
 ## Release gates
 
@@ -204,8 +213,8 @@ In progress / next:
 | v0.9.6 candidate main CI | Engineering | Complete |
 | v0.9.6 tag and public assets | Engineering | Complete |
 | Audience-aware PR #1 automated CI | Engineering | Complete |
-| Audience-aware manual UX/theme acceptance | Owner | Pending |
-| Audience-aware production-like migration rehearsal | Owner / Engineering | Pending |
+| Audience-aware manual UX/theme acceptance | Owner | **Complete 2026-07-23 ~22:30** — final five-item re-check passed after fix round 2 (`a4bdfee`); one pre-existing timetable-editor grid quirk logged as follow-up backlog; see `docs/MANUAL-TESTS.md` final verdict |
+| Audience-aware production-like migration rehearsal | Engineering | Complete — CI job `rehearsal`, run `30028621145` |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
 | v0.9.2 → v0.9.5 pilot auto-update | Owner / Engineering | Pending |
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
@@ -307,6 +316,52 @@ In progress / next:
   reports `0.9.6+d52249f218f82c4e652fa2361903dc1d31dce2ae`; packaged Supabase
   configuration uses HTTPS and a publishable key whose Auth settings endpoint
   returned HTTP 200; and the updater targets `MoFawkes/aqi-clock-releases`.
+- 2026-07-23 — Architecture rebased `feature/audience-aware-app` onto the
+  post-release `main` (docs-only divergence) and gitignored the local
+  `supabase/snippets/` Studio scratch directory.
+- 2026-07-23 — Architecture implemented the production-like migration
+  rehearsal as CI job `rehearsal` and it passed in run `30028621145`
+  alongside both existing jobs at `40624aa`. While building it, found and
+  fixed frozen-migration drift: the Teacher-rename had edited the
+  already-applied `20260716000300` trigger migration, so production would
+  have kept the old `guard_profile_columns` wording while fresh databases
+  got the new one. The frozen file is restored and the change now travels
+  in the audience migration via `create or replace`. The rehearsal gate is
+  Complete; the audience-aware release now waits only on the owner's manual
+  UX/theme acceptance and the version-number decision.
+- 2026-07-23 late evening — Second guided re-check after Sol's verified fix
+  round (`23e9b5f`/`2168066`) plus live session fixes by Fable 5 (Fluent
+  window full-bleed palette + titlebars, DWM caption/border colors + retry
+  + backdrop strip, Graduate placeholder row disabled, sync-failure debug
+  log). Result: the sync lifecycle, palette, dark Admin, scheduling/label,
+  student reader filtering, System theme, and Compact all pass; five items
+  remain open and block the v0.10.0 tag — theme-change border, class-B
+  student period-toast delivery (regression suspect, `notification_log`
+  evidence captured), teacher-role UI gating (server role verified
+  correct), missing student-session exit path, and a lesson-card state
+  oddity under rapid retimes. v0.10.0 is prepared (changelog `2168066`)
+  but NOT tagged. Full record in `docs/MANUAL-TESTS.md`.
+- 2026-07-23 ~22:30 — Owner completed the focused five-item re-check after
+  `a4bdfee`. Theme switching, fresh Teacher/Admin role gating, moved-boundary
+  student delivery, the four-action student tray, and lesson-card consistency
+  passed; cached-admin elevation and class-A suppression retain focused unit
+  coverage. Local verification passed 146 tests with 15 environment-gated
+  skips, and PR run `30045041244` passed Windows, Supabase/RLS, and the
+  production-like migration rehearsal. v0.10.0 is accepted for merge, tag,
+  and publication. The timetable-editor period-cell commit quirk is recorded
+  as non-blocking follow-up.
+- 2026-07-23 — Owner ran the audience-aware click-through live against a
+  local stack, guided by Fable 5. Functional sections largely passed:
+  sign-in fork, student sessions with class/Naseehah filtering (all five
+  audience-visibility outcomes correct, scheduled announcement arrived on
+  time, toast routing correct, restart wipe correct), class management, and
+  the full announcements suite. Two defects were diagnosed, fixed, and
+  re-verified during the session (DataGrid edits never committed on Save;
+  Classes-tab error message had no visible element). Three merge-blockers
+  remain for engineering: dead sync after sign-out/sign-in cycles, the
+  unapplied Navy/Cream palette on FluentWindows plus the Dark frame ring,
+  and the invisible unknown-class tag error. Full pass/fail record and
+  owner-ratification observations are in `docs/MANUAL-TESTS.md`.
 
 ## Handoff rules
 

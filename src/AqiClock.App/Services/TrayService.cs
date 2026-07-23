@@ -12,33 +12,39 @@ using H.NotifyIcon;
 
 namespace AqiClock.App.Services;
 
-public sealed class TrayService : IRecipient<SessionChanged>, IDisposable
+public sealed class TrayService : IRecipient<SessionChanged>, IRecipient<AudienceChanged>, IDisposable
 {
     private readonly MainViewModel _main;
     private readonly ISessionService _session;
     private readonly ISyncService _sync;
     private readonly IWindowService _windows;
+    private readonly IDeviceAudienceContext _audience;
     private readonly Dispatcher _dispatcher;
     private TaskbarIcon? _icon;
     private bool _disposed;
 
-    public TrayService(MainViewModel main, ISessionService session, ISyncService sync, IWindowService windows, IMessenger messenger)
+    public TrayService(MainViewModel main, ISessionService session, ISyncService sync, IWindowService windows, IDeviceAudienceContext audience, IMessenger messenger)
     {
-        _main = main; _session = session; _sync = sync; _windows = windows;
+        _main = main; _session = session; _sync = sync; _windows = windows; _audience = audience;
         _dispatcher = System.Windows.Application.Current.Dispatcher;
-        messenger.Register(this);
+        messenger.RegisterAll(this);
         main.Clock.PropertyChanged += OnClockChanged;
     }
 
     public void Start()
     {
-        if (_session.Current.UserId is not null) Show();
+        if (ShouldShow(_session.Current, _audience.Current)) Show();
     }
 
     public void Receive(SessionChanged message)
     {
-        Dispatch(_dispatcher, message.State.UserId is null ? Hide : Show);
+        Dispatch(_dispatcher, ShouldShow(message.State, _audience.Current) ? Show : Hide);
     }
+    public void Receive(AudienceChanged message) =>
+        Dispatch(_dispatcher, ShouldShow(_session.Current, message.State) ? Show : Hide);
+
+    internal static bool ShouldShow(SessionState session, DeviceAudience audience) =>
+        session.UserId is not null || audience.Role == DeviceAudienceRole.StudentDevice;
 
     internal static void Dispatch(Dispatcher dispatcher, Action action)
     {
@@ -74,13 +80,19 @@ public sealed class TrayService : IRecipient<SessionChanged>, IDisposable
     {
         menu.Items.Clear();
         menu.Items.Add(Item("Open", (_, _) => _windows.ShowMainWindow()));
+        menu.Items.Add(Item($"Announcements ({_main.Announcements.UnreadCount})", (_, _) => _windows.ShowAnnouncements()));
+        if (_audience.Current.Role == DeviceAudienceRole.StudentDevice && _session.Current.UserId is null)
+        {
+            menu.Items.Add(Item("End student session", (_, _) => { _audience.Clear(); _windows.ShowRoleChoiceWindow(); }));
+            menu.Items.Add(Item("Exit", (_, _) => _windows.ExitApplication()));
+            return;
+        }
         menu.Items.Add(Item("Compact mode", (_, _) => _main.ToggleDisplayModeCommand.Execute(null), _main.DisplayMode == DisplayMode.Compact, checkable: true));
         menu.Items.Add(Item("Always on top", (_, _) => _main.TogglePinCommand.Execute(null), _main.AlwaysOnTop, checkable: true));
-        menu.Items.Add(Item($"Announcements ({_main.Announcements.UnreadCount})", (_, _) => _windows.ShowAnnouncements()));
         menu.Items.Add(Item("Sync now", async (_, _) => await _sync.SyncAllAsync(), enabled: _main.IsOnline));
         menu.Items.Add(new Separator());
         menu.Items.Add(Item("Settings", (_, _) => _windows.ShowSettingsWindow()));
-        menu.Items.Add(Item("Sign out", async (_, _) => { await _session.SignOutAsync(); _windows.ShowSignInWindow(); }));
+        menu.Items.Add(Item("Sign out", async (_, _) => { await _session.SignOutAsync(); _windows.ShowRoleChoiceWindow(); }));
         menu.Items.Add(Item("Exit", (_, _) => _windows.ExitApplication()));
     }
 

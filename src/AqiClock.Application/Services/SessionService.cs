@@ -12,14 +12,21 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>
     private readonly IProfileRepository _profiles;
     private readonly ILocalCache _cache;
     private readonly IMessenger _messenger;
+    private readonly IDeviceAudienceContext _audience;
 
     public SessionService(ISessionStore sessionStore, ISupabaseGateway gateway, IProfileRepository profiles, ILocalCache cache, IMessenger messenger)
+        : this(sessionStore, gateway, profiles, cache, messenger, new DeviceAudienceContext(messenger))
+    {
+    }
+
+    public SessionService(ISessionStore sessionStore, ISupabaseGateway gateway, IProfileRepository profiles, ILocalCache cache, IMessenger messenger, IDeviceAudienceContext audience)
     {
         _sessionStore = sessionStore;
         _gateway = gateway;
         _profiles = profiles;
         _cache = cache;
         _messenger = messenger;
+        _audience = audience;
         messenger.Register(this);
     }
 
@@ -64,7 +71,7 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>
         finally
         {
             await _sessionStore.ClearAsync(CancellationToken.None).ConfigureAwait(false);
-            await _cache.WipeAsync(CancellationToken.None).ConfigureAwait(false);
+            _audience.Clear();
             SetState(SessionState.SignedOut);
         }
     }
@@ -73,7 +80,9 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>
     {
         await _sessionStore.SaveAsync(new StoredSession(session.AccessToken, session.RefreshToken, session.ExpiresAt), cancellationToken).ConfigureAwait(false);
         Profile? profile = await _profiles.GetByIdAsync(session.UserId, cancellationToken).ConfigureAwait(false);
-        SetState(new SessionState(session.UserId, session.Email, profile?.Role, profile?.IsActive ?? false, false));
+        UserRole? initialRole = profile?.Role == UserRole.Admin ? UserRole.Teacher : profile?.Role;
+        _audience.SetTeacher(initialRole ?? UserRole.Teacher);
+        SetState(new SessionState(session.UserId, session.Email, initialRole, profile?.IsActive ?? false, false));
     }
 
     private void SetState(SessionState state)
@@ -92,6 +101,7 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>
         Profile? profile = await _profiles.GetByIdAsync(userId).ConfigureAwait(false);
         if (profile is not null && Current.UserId == userId)
         {
+            _audience.SetTeacher(profile.Role);
             SetState(Current with { Role = profile.Role, IsActive = profile.IsActive });
         }
     }

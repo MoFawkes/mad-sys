@@ -48,19 +48,68 @@ public sealed class SqliteAnnouncementRepository(SqliteCacheDatabase database) :
         var result = new List<Announcement>();
         await using SqliteConnection connection = await database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using SqliteCommand command = connection.CreateCommand();
-        command.CommandText = "SELECT id,title,body,created_at,created_by,expires_at FROM announcements WHERE expires_at IS NULL OR expires_at>$now ORDER BY created_at DESC;";
+        command.CommandText = "SELECT id,title,body,created_at,created_by,expires_at,audience_type,audience_class_id,update_type,publish_at,e_masjid_link,status,deleted_at FROM announcements WHERE deleted_at IS NULL AND status<>'draft' AND (publish_at IS NULL OR publish_at<=$now) AND (expires_at IS NULL OR expires_at>$now) ORDER BY COALESCE(publish_at,created_at) DESC;";
         command.Parameters.AddWithValue("$now", Format(now));
         await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            result.Add(new Announcement(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetString(2), ParseInstant(reader.GetString(3)), Guid.Parse(reader.GetString(4)), reader.IsDBNull(5) ? null : ParseInstant(reader.GetString(5))));
+            result.Add(Map(reader));
         }
 
         return result;
     }
 
+    public async Task<IReadOnlyList<Announcement>> GetHistoryAsync(CancellationToken cancellationToken = default)
+    {
+        var result = new List<Announcement>();
+        await using SqliteConnection connection = await database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
+        command.CommandText = "SELECT id,title,body,created_at,created_by,expires_at,audience_type,audience_class_id,update_type,publish_at,e_masjid_link,status,deleted_at FROM announcements ORDER BY created_at DESC;";
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) result.Add(Map(reader));
+        return result;
+    }
+
+    private static Announcement Map(SqliteDataReader reader) => new(
+        Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetString(2),
+        ParseInstant(reader.GetString(3)), Guid.Parse(reader.GetString(4)),
+        reader.IsDBNull(5) ? null : ParseInstant(reader.GetString(5)),
+        ParseEnum<AudienceType>(reader.GetString(6)), reader.IsDBNull(7) ? null : Guid.Parse(reader.GetString(7)),
+        ParseEnum<UpdateType>(reader.GetString(8)), reader.IsDBNull(9) ? null : ParseInstant(reader.GetString(9)),
+        reader.IsDBNull(10) ? null : reader.GetString(10), ParseEnum<AnnouncementStatus>(reader.GetString(11)),
+        reader.IsDBNull(12) ? null : ParseInstant(reader.GetString(12)));
+
     private static DateTimeOffset ParseInstant(string value) => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
     private static string Format(DateTimeOffset value) => value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+    private static T ParseEnum<T>(string value) where T : struct, Enum =>
+        Enum.Parse<T>(string.Concat(value.Split('_').Select(static part => char.ToUpperInvariant(part[0]) + part[1..])), true);
+}
+
+public sealed class SqliteClassRepository(SqliteCacheDatabase database) : IClassRepository
+{
+    public async Task<IReadOnlyList<AqiClock.Domain.Entities.Class>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        var result = new List<AqiClock.Domain.Entities.Class>();
+        await using SqliteConnection connection = await database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
+        command.CommandText = "SELECT id,name,sort_order FROM classes ORDER BY sort_order,name;";
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            result.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetInt32(2)));
+        return result;
+    }
+
+    public async Task<IReadOnlySet<Guid>> GetClassIdsForPeriodAsync(Guid periodId, CancellationToken cancellationToken = default)
+    {
+        var result = new HashSet<Guid>();
+        await using SqliteConnection connection = await database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
+        command.CommandText = "SELECT class_id FROM period_classes WHERE period_id=$period;";
+        command.Parameters.AddWithValue("$period", periodId);
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) result.Add(Guid.Parse(reader.GetString(0)));
+        return result;
+    }
 }
 
 public sealed class SqliteWeekScheduleRepository(SqliteCacheDatabase database) : IWeekScheduleRepository
@@ -125,7 +174,7 @@ public sealed class SqliteProfileRepository(SqliteCacheDatabase database) : IPro
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? Map(reader) : null;
     }
 
-    private static Profile Map(SqliteDataReader reader) => new(Guid.Parse(reader.GetString(0)), reader.GetString(1), string.Equals(reader.GetString(2), "admin", StringComparison.OrdinalIgnoreCase) ? UserRole.Admin : UserRole.Staff, reader.GetInt64(3) != 0);
+    private static Profile Map(SqliteDataReader reader) => new(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetString(2).ToLowerInvariant() switch { "admin" => UserRole.Admin, "graduate" => UserRole.Graduate, _ => UserRole.Teacher }, reader.GetInt64(3) != 0);
 }
 
 public sealed class SqliteNotificationLogStore(SqliteCacheDatabase database) : INotificationLogStore

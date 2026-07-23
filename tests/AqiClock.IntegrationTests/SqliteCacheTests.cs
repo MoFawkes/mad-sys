@@ -15,7 +15,7 @@ public sealed class SqliteCacheTests : IDisposable
         await database.InitializeAsync();
         await database.InitializeAsync();
 
-        Assert.Equal("1", await database.GetMetaAsync("schema_version"));
+        Assert.Equal("2", await database.GetMetaAsync("schema_version"));
     }
 
     [Fact]
@@ -28,7 +28,7 @@ public sealed class SqliteCacheTests : IDisposable
 
         await database.InitializeAsync();
 
-        Assert.Equal("1", await database.GetMetaAsync("schema_version"));
+        Assert.Equal("2", await database.GetMetaAsync("schema_version"));
     }
 
     [Fact]
@@ -38,8 +38,8 @@ public sealed class SqliteCacheTests : IDisposable
         await database.InitializeAsync();
         var repository = new SqliteProfileRepository(database);
         Guid organizationId = Guid.NewGuid();
-        ProfileRow[] oldRows = Enumerable.Range(0, 25).Select(index => new ProfileRow(Guid.NewGuid(), organizationId, $"Old {index}", "staff", true)).ToArray();
-        ProfileRow[] newRows = Enumerable.Range(0, 50).Select(index => new ProfileRow(Guid.NewGuid(), organizationId, $"New {index}", "staff", true)).ToArray();
+        ProfileRow[] oldRows = Enumerable.Range(0, 25).Select(index => new ProfileRow(Guid.NewGuid(), organizationId, $"Old {index}", "teacher", true)).ToArray();
+        ProfileRow[] newRows = Enumerable.Range(0, 50).Select(index => new ProfileRow(Guid.NewGuid(), organizationId, $"New {index}", "teacher", true)).ToArray();
         await database.ReplaceSnapshotAsync(Snapshot(CacheTable.Profiles, oldRows));
 
         Task replace = database.ReplaceSnapshotAsync(Snapshot(CacheTable.Profiles, newRows));

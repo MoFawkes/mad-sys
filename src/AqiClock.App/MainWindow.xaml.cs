@@ -1,7 +1,9 @@
 using System.ComponentModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using AqiClock.App.ViewModels;
 using AqiClock.App.Services;
@@ -14,6 +16,9 @@ namespace AqiClock.App;
 
 public partial class MainWindow : Window
 {
+    private const int DwmwaBorderColor = 34;
+    private const int DwmwaCaptionColor = 35;
+    private const int DwmwaTextColor = 36;
     private readonly MainViewModel _viewModel;
     private readonly ISettingsService _settings;
     private readonly ILogger<MainWindow> _logger;
@@ -50,6 +55,28 @@ public partial class MainWindow : Window
         if (theme == ApplicationTheme.Dark) WindowBackgroundManager.ApplyDarkThemeToWindow(this);
         else WindowBackgroundManager.RemoveDarkThemeFromWindow(this);
         SetResourceReference(BackgroundProperty, "WindowBrush");
+        ApplyNativeBorderColor();
+    }
+
+    private void ApplyNativeBorderColor()
+    {
+        if (WindowStyle == WindowStyle.None || TryFindResource("WindowBrush") is not SolidColorBrush brush) return;
+        nint handle = new WindowInteropHelper(this).Handle;
+        if (handle == 0) return;
+        Color color = brush.Color;
+        int colorReference = color.R | color.G << 8 | color.B << 16;
+        _ = DwmSetWindowAttribute(handle, DwmwaBorderColor, ref colorReference, sizeof(int));
+        _ = DwmSetWindowAttribute(handle, DwmwaCaptionColor, ref colorReference, sizeof(int));
+        if (TryFindResource("TextBrush") is SolidColorBrush textBrush)
+        {
+            Color text = textBrush.Color;
+            int textReference = text.R | text.G << 8 | text.B << 16;
+            _ = DwmSetWindowAttribute(handle, DwmwaTextColor, ref textReference, sizeof(int));
+        }
+
+        // The colors only take effect once the non-client frame is refreshed.
+        _ = SetWindowPos(handle, 0, 0, 0, 0, 0,
+            SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
     }
     private void OnClosed(object? sender, EventArgs e)
         => ApplicationThemeManager.Changed -= OnApplicationThemeChanged;
@@ -113,4 +140,16 @@ public partial class MainWindow : Window
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Could not persist window placement")]
     private static partial void LogPlacementSaveFailed(ILogger logger, Exception exception);
+
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoZOrder = 0x0004;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpFrameChanged = 0x0020;
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(nint windowHandle, int attribute, ref int value, int valueSize);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(nint windowHandle, nint insertAfter, int x, int y, int width, int height, uint flags);
 }

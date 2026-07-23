@@ -143,6 +143,8 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
             CacheTable.Profiles => DeserializeRows<ProfileRow>(document),
             CacheTable.Timetables => DeserializeRows<TimetableRow>(document),
             CacheTable.Periods => DeserializeRows<PeriodRow>(document),
+            CacheTable.Classes => DeserializeRows<ClassRow>(document),
+            CacheTable.PeriodClasses => DeserializeRows<PeriodClassRow>(document),
             CacheTable.WeekSchedule => DeserializeRows<WeekScheduleRow>(document),
             CacheTable.DateOverrides => DeserializeRows<DateOverrideRow>(document),
             CacheTable.Announcements => DeserializeRows<AnnouncementRow>(document),
@@ -164,6 +166,17 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         if (role is not null) row["role"] = role;
         if (isActive is not null) row["is_active"] = isActive.Value;
         return SendRequestExpectingOneAsync(HttpMethod.Patch, $"rest/v1/profiles?id=eq.{id}", row, cancellationToken);
+    }
+
+    public async Task SetPeriodClassesAsync(Guid periodId, IReadOnlyCollection<Guid> classIds, CancellationToken cancellationToken = default)
+    {
+        using (HttpRequestMessage delete = CreateRequest(HttpMethod.Delete, $"rest/v1/period_classes?period_id=eq.{periodId}"))
+        {
+            using HttpResponseMessage response = await _httpClient.SendAsync(delete, cancellationToken).ConfigureAwait(false);
+            await EnsureWriteSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+        }
+        foreach (Guid classId in classIds)
+            await SendWriteAsync(HttpMethod.Post, CacheTable.PeriodClasses, null, new PeriodClassRow(periodId, classId), cancellationToken).ConfigureAwait(false);
     }
 
     public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default)
@@ -200,6 +213,8 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         {
             await SubscribeTableAsync<RealtimeTimetable>(CacheTable.Timetables, onChange).ConfigureAwait(false),
             await SubscribeTableAsync<RealtimePeriod>(CacheTable.Periods, onChange).ConfigureAwait(false),
+            await SubscribeTableAsync<RealtimeClass>(CacheTable.Classes, onChange).ConfigureAwait(false),
+            await SubscribeTableAsync<RealtimePeriodClass>(CacheTable.PeriodClasses, onChange).ConfigureAwait(false),
             await SubscribeTableAsync<RealtimeWeekSchedule>(CacheTable.WeekSchedule, onChange).ConfigureAwait(false),
             await SubscribeTableAsync<RealtimeDateOverride>(CacheTable.DateOverrides, onChange).ConfigureAwait(false),
             await SubscribeTableAsync<RealtimeAnnouncement>(CacheTable.Announcements, onChange).ConfigureAwait(false),
@@ -323,13 +338,13 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
 
     private static void EnsureEditable(CacheTable table)
     {
-        if (table is not (CacheTable.Timetables or CacheTable.Periods or CacheTable.WeekSchedule or CacheTable.DateOverrides or CacheTable.Announcements))
+        if (table is not (CacheTable.Timetables or CacheTable.Periods or CacheTable.Classes or CacheTable.PeriodClasses or CacheTable.WeekSchedule or CacheTable.DateOverrides or CacheTable.Announcements))
             throw new InvalidOperationException($"{table} is not editable through the client gateway.");
     }
 
     private static string TableName(CacheTable table) => table switch
     {
-        CacheTable.Organizations => "organizations", CacheTable.Profiles => "profiles", CacheTable.Timetables => "timetables", CacheTable.Periods => "periods", CacheTable.WeekSchedule => "week_schedule", CacheTable.DateOverrides => "date_overrides", CacheTable.Announcements => "announcements", _ => throw new ArgumentOutOfRangeException(nameof(table)),
+        CacheTable.Organizations => "organizations", CacheTable.Profiles => "profiles", CacheTable.Timetables => "timetables", CacheTable.Periods => "periods", CacheTable.Classes => "classes", CacheTable.PeriodClasses => "period_classes", CacheTable.WeekSchedule => "week_schedule", CacheTable.DateOverrides => "date_overrides", CacheTable.Announcements => "announcements", _ => throw new ArgumentOutOfRangeException(nameof(table)),
     };
 
     private sealed record AuthResponse([property: JsonPropertyName("access_token")] string AccessToken, [property: JsonPropertyName("refresh_token")] string RefreshToken, [property: JsonPropertyName("expires_in")] int ExpiresIn, AuthUser User);
@@ -347,6 +362,8 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
 
     [Table("timetables")] private sealed class RealtimeTimetable : BaseModel;
     [Table("periods")] private sealed class RealtimePeriod : BaseModel;
+    [Table("classes")] private sealed class RealtimeClass : BaseModel;
+    [Table("period_classes")] private sealed class RealtimePeriodClass : BaseModel;
     [Table("week_schedule")] private sealed class RealtimeWeekSchedule : BaseModel;
     [Table("date_overrides")] private sealed class RealtimeDateOverride : BaseModel;
     [Table("announcements")] private sealed class RealtimeAnnouncement : BaseModel;

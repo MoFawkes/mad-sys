@@ -9,13 +9,16 @@ using Microsoft.Extensions.Logging;
 namespace AqiClock.Application.Services;
 
 public sealed partial class NotificationScheduler : INotificationScheduler,
-    IRecipient<ClockTick>, IRecipient<TimeJumped>, IRecipient<DataChanged>, IRecipient<SessionChanged>, IDisposable
+    IRecipient<ClockTick>, IRecipient<TimeJumped>, IRecipient<DataChanged>, IRecipient<SessionChanged>,
+    IRecipient<AudienceChanged>, IDisposable
 {
     private static readonly TimeSpan Grace = TimeSpan.FromSeconds(120);
     private readonly ITimetableRepository _timetables;
     private readonly IWeekScheduleRepository _weekSchedule;
     private readonly IDateOverrideRepository _overrides;
     private readonly IAnnouncementRepository _announcements;
+    private readonly IClassRepository _classes;
+    private readonly IDeviceAudienceContext _audience;
     private readonly INotificationLogStore _log;
     private readonly INotificationPresenter _presenter;
     private readonly ISettingsService _settings;
@@ -39,11 +42,30 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
         IClock clock,
         IMessenger messenger,
         ILogger<NotificationScheduler> logger)
+        : this(timetables, weekSchedule, overrides, announcements, new EmptyClassRepository(), new DeviceAudienceContext(messenger), log, presenter, settings, clock, messenger, logger)
+    {
+    }
+
+    public NotificationScheduler(
+        ITimetableRepository timetables,
+        IWeekScheduleRepository weekSchedule,
+        IDateOverrideRepository overrides,
+        IAnnouncementRepository announcements,
+        IClassRepository classes,
+        IDeviceAudienceContext audience,
+        INotificationLogStore log,
+        INotificationPresenter presenter,
+        ISettingsService settings,
+        IClock clock,
+        IMessenger messenger,
+        ILogger<NotificationScheduler> logger)
     {
         _timetables = timetables;
         _weekSchedule = weekSchedule;
         _overrides = overrides;
         _announcements = announcements;
+        _classes = classes;
+        _audience = audience;
         _log = log;
         _presenter = presenter;
         _settings = settings;
@@ -75,6 +97,10 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
             foreach (NotificationEvent item in rebuilt)
             {
                 if (_knownTriggers.TryGetValue(item.Key, out DateTime oldTrigger) && oldTrigger <= now && item.TriggerTime > now && oldTrigger != item.TriggerTime)
+                    await _log.RemoveAsync(item.Key, cancellationToken).ConfigureAwait(false);
+                else if (item.TriggerTime > now
+                    && await _log.GetAsync(item.Key, cancellationToken).ConfigureAwait(false) is { FiredAt: { } firedAt }
+                    && (firedAt.LocalDateTime - item.TriggerTime).Duration() > Grace)
                     await _log.RemoveAsync(item.Key, cancellationToken).ConfigureAwait(false);
             }
 
@@ -108,6 +134,12 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
                     continue;
                 }
 
+                if (!await AppliesToDeviceAsync(item.Occurrence.Period, cancellationToken).ConfigureAwait(false))
+                {
+                    await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
                 if (item.Kind == NotificationEventKind.EndWarning && await SuppressEndWarningAsync(item, now, cancellationToken).ConfigureAwait(false))
                 {
                     await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
@@ -132,7 +164,11 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
         finally { _gate.Release(); }
     }
 
-    public void Receive(ClockTick message) => RunSafely(() => ProcessAsync(message.Now));
+    public void Receive(ClockTick message) => RunSafely(async () =>
+    {
+        await ProcessAsync(message.Now).ConfigureAwait(false);
+        await ProcessAnnouncementsAsync(message.Now).ConfigureAwait(false);
+    });
     public void Receive(TimeJumped message) => RunSafely(async () => { await RebuildAsync(message.Current).ConfigureAwait(false); await ProcessAsync(message.Current).ConfigureAwait(false); });
     public void Receive(DataChanged message)
     {
@@ -145,6 +181,11 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
     {
         if (message.State.UserId is not null) RunSafely(() => RebuildAsync(_clock.Now));
     }
+    public void Receive(AudienceChanged message) => RunSafely(async () =>
+    {
+        await RebuildAsync(_clock.Now).ConfigureAwait(false);
+        await ProcessAnnouncementsAsync(_clock.Now).ConfigureAwait(false);
+    });
 
     private bool IsEnabled(NotificationEventKind kind) => kind == NotificationEventKind.LessonStart
         ? _settings.Current.LessonStartNotifications
@@ -161,7 +202,8 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
     private async Task ProcessAnnouncementsAsync(DateTime now, CancellationToken cancellationToken = default)
     {
         IReadOnlyList<Announcement> items = await _announcements.GetCurrentAsync(new DateTimeOffset(now), cancellationToken).ConfigureAwait(false);
-        foreach (Announcement item in items.Where(item => !item.IsExpiredAt(new DateTimeOffset(now))))
+        DateTimeOffset instant = new(now);
+        foreach (Announcement item in items.Where(item => item.IsPublishedAt(instant) && !item.IsExpiredAt(instant) && _audience.Matches(item)))
         {
             string key = $"announcement:{item.Id:N}";
             if (await _log.ContainsAsync(key, cancellationToken).ConfigureAwait(false)) continue;
@@ -169,6 +211,12 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
                 await _presenter.ShowAnnouncementAsync(item, cancellationToken).ConfigureAwait(false);
             await _log.RecordAsync(key, new DateTimeOffset(now), !_settings.Current.AnnouncementNotifications, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    private async Task<bool> AppliesToDeviceAsync(Period period, CancellationToken cancellationToken)
+    {
+        IReadOnlySet<Guid> periodClasses = await _classes.GetClassIdsForPeriodAsync(period.Id, cancellationToken).ConfigureAwait(false);
+        return _audience.MatchesPeriod(periodClasses);
     }
 
     private void OnSettingsChanged(object? sender, SettingsChanged args) => RunSafely(() => RebuildAsync(_clock.Now));

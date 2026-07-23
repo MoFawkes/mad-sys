@@ -96,8 +96,10 @@ public partial class App : System.Windows.Application, IDisposable
         builder.Services.AddSingleton<INotificationPresenter, ToastPresenter>(); builder.Services.AddSingleton<INotificationScheduler, NotificationScheduler>(); builder.Services.AddSingleton<TrayService>(); builder.Services.AddSingleton<StartupService>(); builder.Services.AddSingleton<IUpdateService, UpdateService>();
         builder.Services.AddSingleton<ClockViewModel>(); builder.Services.AddSingleton<AnnouncementsViewModel>(); builder.Services.AddSingleton<MainViewModel>(); builder.Services.AddTransient<SignInViewModel>(); builder.Services.AddTransient<SettingsViewModel>();
         builder.Services.AddTransient<PasswordRecoveryViewModel>();
-        builder.Services.AddSingleton<TimetableEditorViewModel>(); builder.Services.AddSingleton<WeekScheduleViewModel>(); builder.Services.AddSingleton<OverridesViewModel>(); builder.Services.AddSingleton<AnnouncementComposeViewModel>(); builder.Services.AddSingleton<AuditViewModel>(); builder.Services.AddSingleton<UsersViewModel>(); builder.Services.AddSingleton<AdminViewModel>();
+        builder.Services.AddTransient<StudentClassPickerViewModel>();
+        builder.Services.AddSingleton<TimetableEditorViewModel>(); builder.Services.AddSingleton<WeekScheduleViewModel>(); builder.Services.AddSingleton<OverridesViewModel>(); builder.Services.AddSingleton<ClassesViewModel>(); builder.Services.AddSingleton<AnnouncementComposeViewModel>(); builder.Services.AddSingleton<AuditViewModel>(); builder.Services.AddSingleton<UsersViewModel>(); builder.Services.AddSingleton<AdminViewModel>();
         builder.Services.AddSingleton<MainWindow>(); builder.Services.AddTransient<SignInWindow>(); builder.Services.AddTransient<PasswordRecoveryWindow>(); builder.Services.AddTransient<SettingsWindow>(); builder.Services.AddTransient<AdminWindow>();
+        builder.Services.AddTransient<RoleChoiceWindow>(); builder.Services.AddTransient<StudentClassPickerWindow>();
         return builder.Build();
     }
 
@@ -119,7 +121,7 @@ public partial class App : System.Windows.Application, IDisposable
             if (!_startMinimized && !settings.Current.StartMinimized) windows.ShowMainWindow();
             _ = ObserveStartupSyncAsync(services.GetRequiredService<ISyncService>().StartAsync(), services.GetRequiredService<ILogger<App>>());
         }
-        else windows.ShowSignInWindow();
+        else windows.ShowRoleChoiceWindow();
     }
 
     private static async Task ObserveStartupSyncAsync(Task syncTask, ILogger<App> logger)

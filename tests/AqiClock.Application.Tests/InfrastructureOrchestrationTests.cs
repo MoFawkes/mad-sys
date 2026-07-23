@@ -5,6 +5,7 @@ using AqiClock.Application.Configuration;
 using AqiClock.Domain.Entities;
 using AqiClock.Infrastructure.Supabase;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Supabase.Realtime.Exceptions;
 
@@ -12,6 +13,23 @@ namespace AqiClock.Application.Tests;
 
 public sealed class InfrastructureOrchestrationTests
 {
+    [Fact]
+    public void AudienceMutationsPublishChangedState()
+    {
+        var messenger = new WeakReferenceMessenger();
+        var recipient = new AudienceRecipient();
+        messenger.Register(recipient);
+        var audience = new DeviceAudienceContext(messenger);
+
+        audience.SetStudent([Guid.NewGuid()], [SessionHalfDay.Pm]);
+        audience.SetTeacher(UserRole.Admin);
+        audience.Clear();
+
+        Assert.Equal(
+            [DeviceAudienceRole.StudentDevice, DeviceAudienceRole.Admin, DeviceAudienceRole.Teacher],
+            recipient.States.Select(state => state.Role));
+    }
+
     [Theory]
     [InlineData(0, 0)]
     [InlineData(1, 30)]
@@ -36,7 +54,7 @@ public sealed class InfrastructureOrchestrationTests
     }
 
     [Fact]
-    public async Task SessionRestoreSourcesRoleFromCachedProfile()
+    public async Task SessionRestoreDoesNotElevateFromCachedAdminProfile()
     {
         Guid userId = Guid.NewGuid();
         var store = new FakeSessionStore { Session = new StoredSession("old", "refresh", null) };
@@ -45,8 +63,49 @@ public sealed class InfrastructureOrchestrationTests
 
         await service.RestoreAsync();
 
-        Assert.Equal(UserRole.Admin, service.Current.Role);
+        Assert.Equal(UserRole.Teacher, service.Current.Role);
         Assert.Equal("new", store.Session?.AccessToken);
+    }
+
+    [Fact]
+    public async Task SignInDoesNotElevateFromCachedAdminProfile()
+    {
+        Guid userId = Guid.NewGuid();
+        var gateway = new FakeGateway
+        {
+            RefreshedSession = new AuthenticatedSession(userId, "admin@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1)),
+        };
+        var service = new SessionService(
+            new FakeSessionStore(),
+            gateway,
+            new FakeProfiles(new Profile(userId, "Stale Admin", UserRole.Admin, true)),
+            new FakeCache(),
+            new WeakReferenceMessenger());
+
+        await service.SignInAsync("admin@example.test", "password");
+
+        Assert.Equal(UserRole.Teacher, service.Current.Role);
+    }
+
+    [Fact]
+    public async Task FreshProfileDataElevatesGenuineAdminAfterSignIn()
+    {
+        Guid userId = Guid.NewGuid();
+        var messenger = new WeakReferenceMessenger();
+        var profiles = new MutableProfiles(new Profile(userId, "Admin", UserRole.Admin, true));
+        var gateway = new FakeGateway
+        {
+            RefreshedSession = new AuthenticatedSession(userId, "admin@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1)),
+        };
+        var service = new SessionService(new FakeSessionStore(), gateway, profiles, new FakeCache(), messenger);
+
+        await service.SignInAsync("admin@example.test", "password");
+        Assert.Equal(UserRole.Teacher, service.Current.Role);
+
+        messenger.Send(new AqiClock.Application.Messages.DataChanged(CacheTable.Profiles));
+        await WaitUntilAsync(() => service.Current.Role == UserRole.Admin);
+
+        Assert.Equal(UserRole.Admin, service.Current.Role);
     }
 
     [Fact]
@@ -127,6 +186,59 @@ public sealed class InfrastructureOrchestrationTests
     }
 
     [Fact]
+    public async Task StopThenStartRestartsHeartbeatAndRealtime()
+    {
+        var gateway = new FakeGateway();
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15));
+
+        await service.StartAsync();
+        await WaitUntilAsync(() => gateway.ActiveSubscriptions == 1);
+        await service.StopAsync();
+        int pullsAfterStop = gateway.PullCounts.Values.Sum();
+        await Task.Delay(60);
+
+        Assert.Equal(0, gateway.ActiveSubscriptions);
+        Assert.Equal(pullsAfterStop, gateway.PullCounts.Values.Sum());
+        Assert.Equal(ConnectivityState.Offline, service.State);
+
+        await service.StartAsync();
+        await WaitUntilAsync(() => gateway.SubscribeCalls >= 2 && service.State == ConnectivityState.Online);
+
+        Assert.Equal(1, gateway.ActiveSubscriptions);
+        Assert.Equal(ConnectivityState.Online, service.State);
+    }
+
+    [Fact]
+    public async Task SignedOutHeartbeatTickDoesNotLogError()
+    {
+        var gateway = new FakeGateway();
+        var logger = new CapturingLogger<SyncService>();
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15), logger: logger);
+        await service.StartAsync();
+        gateway.IsSignedOut = true;
+
+        await WaitUntilAsync(() => service.State == ConnectivityState.Offline);
+        await Task.Delay(50);
+
+        Assert.Empty(logger.Errors);
+    }
+
+    [Fact]
+    public async Task SessionChangedSignedOutStopsSync()
+    {
+        var gateway = new FakeGateway();
+        var messenger = new WeakReferenceMessenger();
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15), messenger);
+        await service.StartAsync();
+        await WaitUntilAsync(() => gateway.ActiveSubscriptions == 1);
+
+        messenger.Send(new AqiClock.Application.Messages.SessionChanged(SessionState.SignedOut));
+        await WaitUntilAsync(() => gateway.ActiveSubscriptions == 0 && service.State == ConnectivityState.Offline);
+
+        Assert.Equal(0, gateway.ActiveSubscriptions);
+    }
+
+    [Fact]
     public void RealtimeUpgradeDoesNotSendPublishableKeyAsBearerHeader()
     {
         using var gateway = new SupabaseGateway(
@@ -150,14 +262,18 @@ public sealed class InfrastructureOrchestrationTests
             value.Contains("sb_publishable_", StringComparison.Ordinal));
     }
 
-    private static SyncService CreateSyncService(FakeGateway gateway, TimeSpan? heartbeatInterval = null) =>
+    private static SyncService CreateSyncService(
+        FakeGateway gateway,
+        TimeSpan? heartbeatInterval = null,
+        IMessenger? messenger = null,
+        ILogger<SyncService>? logger = null) =>
         new(
             gateway,
             new FakeCache(),
-            new WeakReferenceMessenger(),
+            messenger ?? new WeakReferenceMessenger(),
             new DebouncePolicy(TimeSpan.Zero),
             TimeProvider.System,
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance,
+            logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance,
             heartbeatInterval);
 
     private static async Task WaitUntilAsync(Func<bool> condition)
@@ -201,17 +317,21 @@ public sealed class InfrastructureOrchestrationTests
         public Task CompletePasswordRecoveryAsync(string accessToken, string newPassword, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Guid OrganizationId { get; init; } = Guid.NewGuid();
         public Exception? RefreshException { get; init; }
-        public AuthenticatedSession RefreshedSession { get; init; } = new(Guid.NewGuid(), "staff@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1));
+        public AuthenticatedSession RefreshedSession { get; init; } = new(Guid.NewGuid(), "teacher@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1));
         public Dictionary<CacheTable, int> PullCounts { get; } = [];
         public Queue<Exception> SubscriptionFailures { get; } = [];
         public Queue<Exception> PullFailures { get; } = [];
         public int SubscribeCalls { get; private set; }
         public int ActiveSubscriptions { get; private set; }
+        public bool IsSignedOut { get; set; }
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.FromResult(RefreshedSession);
         public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => RefreshException is null ? Task.FromResult(RefreshedSession) : Task.FromException<AuthenticatedSession>(RefreshException);
         public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(OrganizationId);
+        public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) =>
+            IsSignedOut
+                ? Task.FromException<Guid>(new InvalidOperationException("A session is required."))
+                : Task.FromResult(OrganizationId);
         public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default)
         {
             PullCounts[table] = PullCounts.GetValueOrDefault(table) + 1;
@@ -240,5 +360,31 @@ public sealed class InfrastructureOrchestrationTests
             onDispose?.Invoke();
             return ValueTask.CompletedTask;
         }
+    }
+
+    private sealed class MutableProfiles(Profile? profile = null) : IProfileRepository
+    {
+        public Profile? Value { get; set; } = profile;
+        public Task<IReadOnlyList<Profile>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<Profile>>(Value is null ? [] : [Value]);
+        public Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Value?.Id == id ? Value : null);
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<Exception> Errors { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel >= LogLevel.Error && exception is not null) Errors.Add(exception);
+        }
+    }
+
+    public sealed class AudienceRecipient : IRecipient<AqiClock.Application.Messages.AudienceChanged>
+    {
+        public List<DeviceAudience> States { get; } = [];
+        public void Receive(AqiClock.Application.Messages.AudienceChanged message) => States.Add(message.State);
     }
 }

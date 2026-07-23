@@ -35,6 +35,9 @@ public interface IWindowService
 {
     void ShowMainWindow();
     void ShowSignInWindow();
+    void ShowTeacherSignInWindow() => ShowSignInWindow();
+    void ShowRoleChoiceWindow() => ShowSignInWindow();
+    void ShowStudentClassPickerWindow() => ShowSignInWindow();
     void ShowPasswordRecoveryWindow(PasswordRecoveryRequest request);
     void ClosePasswordRecoveryWindow();
     void ShowSettingsWindow();

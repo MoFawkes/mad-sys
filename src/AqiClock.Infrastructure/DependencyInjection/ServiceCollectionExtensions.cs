@@ -42,6 +42,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ILocalCache>(static provider => provider.GetRequiredService<SqliteCacheDatabase>());
         services.AddSingleton<ITimetableRepository, SqliteTimetableRepository>();
         services.AddSingleton<IAnnouncementRepository, SqliteAnnouncementRepository>();
+        services.AddSingleton<IClassRepository, SqliteClassRepository>();
+        services.AddSingleton<IDeviceAudienceContext, DeviceAudienceContext>();
         services.AddSingleton<IWeekScheduleRepository, SqliteWeekScheduleRepository>();
         services.AddSingleton<IDateOverrideRepository, SqliteDateOverrideRepository>();
         services.AddSingleton<IProfileRepository, SqliteProfileRepository>();

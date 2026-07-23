@@ -9,7 +9,7 @@ namespace AqiClock.Infrastructure.Cache;
 
 public sealed class SqliteCacheDatabase : ILocalCache, IDisposable
 {
-    private const int CurrentSchemaVersion = 1;
+    private const int CurrentSchemaVersion = 2;
     private readonly IReadOnlyList<string> _migrationScripts;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
@@ -181,12 +181,16 @@ public sealed class SqliteCacheDatabase : ILocalCache, IDisposable
                 sql = "INSERT INTO timetables VALUES($id,$name,$archived);"; values = [("$id", x.Id), ("$name", x.Name), ("$archived", x.IsArchived ? 1 : 0)]; break;
             case (CacheTable.Periods, PeriodRow x):
                 sql = "INSERT INTO periods VALUES($id,$timetable,$name,$start,$end,$sort,$lesson);"; values = [("$id", x.Id), ("$timetable", x.TimetableId), ("$name", x.Name), ("$start", x.StartTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture)), ("$end", x.EndTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture)), ("$sort", x.SortOrder), ("$lesson", x.IsLesson ? 1 : 0)]; break;
+            case (CacheTable.Classes, ClassRow x):
+                sql = "INSERT INTO classes VALUES($id,$name,$sort);"; values = [("$id", x.Id), ("$name", x.Name), ("$sort", x.SortOrder)]; break;
+            case (CacheTable.PeriodClasses, PeriodClassRow x):
+                sql = "INSERT INTO period_classes VALUES($period,$class);"; values = [("$period", x.PeriodId), ("$class", x.ClassId)]; break;
             case (CacheTable.WeekSchedule, WeekScheduleRow x):
                 sql = "INSERT INTO week_schedule VALUES($weekday,$timetable);"; values = [("$weekday", x.Weekday), ("$timetable", x.TimetableId)]; break;
             case (CacheTable.DateOverrides, DateOverrideRow x):
                 sql = "INSERT INTO date_overrides VALUES($id,$date,$timetable,$note);"; values = [("$id", x.Id), ("$date", x.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)), ("$timetable", x.TimetableId), ("$note", x.Note)]; break;
             case (CacheTable.Announcements, AnnouncementRow x):
-                sql = "INSERT INTO announcements VALUES($id,$title,$body,$expires,$creator,$created);"; values = [("$id", x.Id), ("$title", x.Title), ("$body", x.Body), ("$expires", x.ExpiresAt is null ? null : Format(x.ExpiresAt.Value)), ("$creator", x.CreatedBy), ("$created", Format(x.CreatedAt))]; break;
+                sql = "INSERT INTO announcements VALUES($id,$title,$body,$expires,$creator,$created,$audience,$class,$type,$publish,$link,$status,$deleted);"; values = [("$id", x.Id), ("$title", x.Title), ("$body", x.Body), ("$expires", x.ExpiresAt is null ? null : Format(x.ExpiresAt.Value)), ("$creator", x.CreatedBy), ("$created", Format(x.CreatedAt)), ("$audience", x.AudienceType), ("$class", x.AudienceClassId), ("$type", x.UpdateType), ("$publish", x.PublishAt is null ? null : Format(x.PublishAt.Value)), ("$link", x.EMasjidLink), ("$status", x.Status), ("$deleted", x.DeletedAt is null ? null : Format(x.DeletedAt.Value))]; break;
             default: throw new ArgumentException($"Row type {row.GetType().Name} is invalid for {table}.", nameof(row));
         }
 
@@ -212,6 +216,8 @@ public sealed class SqliteCacheDatabase : ILocalCache, IDisposable
         CacheTable.Profiles => "profiles",
         CacheTable.Timetables => "timetables",
         CacheTable.Periods => "periods",
+        CacheTable.Classes => "classes",
+        CacheTable.PeriodClasses => "period_classes",
         CacheTable.WeekSchedule => "week_schedule",
         CacheTable.DateOverrides => "date_overrides",
         CacheTable.Announcements => "announcements",

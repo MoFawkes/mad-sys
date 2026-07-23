@@ -44,7 +44,8 @@ public sealed class Phase5ViewModelTests
     public void ClosingSignInExitsOnlyWhileSignedOut()
     {
         Assert.True(WindowLifecycle.ShouldExitAfterSignInClose(SessionState.SignedOut));
-        Assert.False(WindowLifecycle.ShouldExitAfterSignInClose(new SessionState(Guid.NewGuid(), "staff@example.test", UserRole.Staff, true, false)));
+        Assert.False(WindowLifecycle.ShouldExitAfterSignInClose(SessionState.SignedOut, returnToRoleChoice: true));
+        Assert.False(WindowLifecycle.ShouldExitAfterSignInClose(new SessionState(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false)));
     }
 
     [Fact]
@@ -52,8 +53,9 @@ public sealed class Phase5ViewModelTests
     {
         Assert.Equal(ActivationTarget.SignIn, WindowLifecycle.TargetForActivation(SessionState.SignedOut, false));
         Assert.Equal(ActivationTarget.PasswordRecovery, WindowLifecycle.TargetForActivation(SessionState.SignedOut, true));
+        Assert.Equal(ActivationTarget.Main, WindowLifecycle.TargetForActivation(SessionState.SignedOut, false, studentSessionActive: true));
         Assert.Equal(ActivationTarget.Main, WindowLifecycle.TargetForActivation(
-            new SessionState(Guid.NewGuid(), "staff@example.test", UserRole.Staff, true, false), false));
+            new SessionState(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false), false));
     }
 
     [Theory]
@@ -96,7 +98,7 @@ public sealed class Phase5ViewModelTests
     public async Task UnexpectedLocalPersistenceFailureIsShownInWindow()
     {
         var vm = CreateSignInViewModel(new SessionStub(new IOException("disk unavailable")), new SyncStub());
-        vm.Email = "staff@example.test"; vm.Password = "not-empty";
+        vm.Email = "teacher@example.test"; vm.Password = "not-empty";
 
         await vm.SignInCommand.ExecuteAsync(null);
 
@@ -107,7 +109,7 @@ public sealed class Phase5ViewModelTests
     public async Task PostAuthenticationSyncFailureIsNotReportedAsBadCredentials()
     {
         var vm = CreateSignInViewModel(new SessionStub(), new SyncStub(new InvalidOperationException("realtime unavailable")));
-        vm.Email = "staff@example.test"; vm.Password = "correct-password";
+        vm.Email = "teacher@example.test"; vm.Password = "correct-password";
 
         await vm.SignInCommand.ExecuteAsync(null);
 
@@ -143,13 +145,63 @@ public sealed class Phase5ViewModelTests
     }
 
     [Fact]
+    public async Task TimetableChangeReloadsLessonCardWithoutWaitingForAnotherTick()
+    {
+        DateTime now = DateTime.Now;
+        Guid timetableId = Guid.NewGuid();
+        Guid periodId = Guid.NewGuid();
+        TimeOnly start = new(0, 0);
+        TimeOnly end = new(23, 59, 59);
+        var repository = new MutableTimetableRepository(
+            new Timetable(timetableId, "Normal", false, [new Period(periodId, "Break", start, end, 0)]));
+        var messenger = new WeakReferenceMessenger();
+        var vm = new ClockViewModel(repository, new WeekRepository(timetableId, now.DayOfWeek), new OverrideRepository(), messenger);
+        await vm.LoadAsync();
+        messenger.Send(new ClockTick(now));
+        Assert.Equal("Break", vm.CurrentLesson);
+
+        repository.Items = [new Timetable(timetableId, "Normal", false, [new Period(periodId, "Lesson", start, end, 0)])];
+        messenger.Send(new DataChanged(CacheTable.Timetables));
+        await WaitUntilAsync(() => vm.CurrentLesson == "Lesson");
+
+        Assert.Equal($"Ends at {end:HH:mm}", vm.CurrentDetail);
+    }
+
+    [Fact]
     public async Task AnnouncementLoadCountsUnreadAndOpenMarksRead()
     {
         Guid author = Guid.NewGuid(); Guid id = Guid.NewGuid();
         var store = new ReadStore();
-        var vm = new AnnouncementsViewModel(new AnnouncementRepository(new Announcement(id, "Meeting", "At 3", DateTimeOffset.Now.AddMinutes(-2), author, null)), store, new ProfileRepository(new Profile(author, "Sam", UserRole.Staff, true)), new FixedClock(DateTime.Now), new WeakReferenceMessenger());
+        var vm = new AnnouncementsViewModel(new AnnouncementRepository(new Announcement(id, "Meeting", "At 3", DateTimeOffset.Now.AddMinutes(-2), author, null)), store, new ProfileRepository(new Profile(author, "Sam", UserRole.Teacher, true)), new FixedClock(DateTime.Now), new WeakReferenceMessenger());
         await vm.LoadAsync(false); Assert.Equal(1, vm.UnreadCount);
         await vm.LoadAsync(true); Assert.Equal(0, vm.UnreadCount); Assert.True(await store.IsReadAsync(id));
+    }
+
+    [Fact]
+    public async Task AnnouncementLoadCarriesEMasjidLinkIntoReaderDisplay()
+    {
+        Guid author = Guid.NewGuid();
+        const string link = "https://example.com/e-masjid";
+        var announcement = new Announcement(
+            Guid.NewGuid(),
+            "Programme",
+            "Details",
+            DateTimeOffset.Now.AddMinutes(-2),
+            author,
+            null,
+            EMasjidLink: link);
+        var vm = new AnnouncementsViewModel(
+            new AnnouncementRepository(announcement),
+            new ReadStore(),
+            new ProfileRepository(new Profile(author, "Sam", UserRole.Teacher, true)),
+            new FixedClock(DateTime.Now),
+            new WeakReferenceMessenger());
+
+        await vm.LoadAsync(false);
+
+        AnnouncementDisplay display = Assert.Single(vm.Items);
+        Assert.Equal(link, display.EMasjidLink);
+        Assert.True(display.HasEMasjidLink);
     }
 
     [Fact]
@@ -205,13 +257,19 @@ public sealed class Phase5ViewModelTests
 
     private sealed class FixedClock(DateTime now) : IClock { public DateTime Now => now; public DateOnly LocalToday => DateOnly.FromDateTime(now); }
     private sealed class TimetableRepository(params Timetable[] rows) : ITimetableRepository { public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Timetable>>(rows); }
+    private sealed class MutableTimetableRepository(params Timetable[] rows) : ITimetableRepository { public IReadOnlyList<Timetable> Items { get; set; } = rows; public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items); }
     private sealed class WeekRepository : IWeekScheduleRepository { private readonly WeekSchedule _value; public WeekRepository() => _value = WeekSchedule.Empty; public WeekRepository(Guid id, DayOfWeek day) => _value = new(new Dictionary<DayOfWeek, Guid?> { [day] = id }); public Task<WeekSchedule> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(_value); }
     private sealed class OverrideRepository : IDateOverrideRepository { public Task<IReadOnlyList<DateOverride>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<DateOverride>>([]); }
     private sealed class AnnouncementRepository(params Announcement[] rows) : IAnnouncementRepository { public Task<IReadOnlyList<Announcement>> GetCurrentAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Announcement>>(rows); }
     private sealed class ProfileRepository(params Profile[] rows) : IProfileRepository { public Task<IReadOnlyList<Profile>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Profile>>(rows); public Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(rows.FirstOrDefault(x => x.Id == id)); }
     private sealed class ReadStore : IAnnouncementReadStore { private readonly HashSet<Guid> _read = []; public Task<bool> IsReadAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(_read.Contains(id)); public Task MarkReadAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default) { _read.Add(id); return Task.CompletedTask; } }
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        while (!condition()) await Task.Delay(10, timeout.Token);
+    }
     private static SignInViewModel CreateSignInViewModel(ISessionService session, ISyncService sync) => new(session, sync, new GatewayStub(), new WindowStub(), NullLogger<SignInViewModel>.Instance);
-    private sealed class SyncStub(Exception? startFailure = null) : ISyncService { public ConnectivityState State { get; private set; } = ConnectivityState.Offline; public DateTimeOffset? LastSyncedAt => null; public Task StartAsync(CancellationToken cancellationToken = default) => startFailure is null ? Task.CompletedTask : Task.FromException(startFailure); public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.CompletedTask; public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
+    private sealed class SyncStub(Exception? startFailure = null) : ISyncService { public ConnectivityState State { get; private set; } = ConnectivityState.Offline; public DateTimeOffset? LastSyncedAt => null; public Task StartAsync(CancellationToken cancellationToken = default) => startFailure is null ? Task.CompletedTask : Task.FromException(startFailure); public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.CompletedTask; public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
     private sealed class SessionStub(Exception? signInFailure = null) : ISessionService { public SessionState Current => SessionState.SignedOut; public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => signInFailure is null ? Task.CompletedTask : Task.FromException(signInFailure); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; }
     private sealed class GatewayStub : ISupabaseGateway
     {

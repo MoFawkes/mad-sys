@@ -10,6 +10,14 @@ public interface ITimetableRepository
 public interface IAnnouncementRepository
 {
     Task<IReadOnlyList<Announcement>> GetCurrentAsync(DateTimeOffset now, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Announcement>> GetHistoryAsync(CancellationToken cancellationToken = default) =>
+        GetCurrentAsync(DateTimeOffset.MaxValue, cancellationToken);
+}
+
+public interface IClassRepository
+{
+    Task<IReadOnlyList<Class>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlySet<Guid>> GetClassIdsForPeriodAsync(Guid periodId, CancellationToken cancellationToken = default);
 }
 
 public interface IWeekScheduleRepository
