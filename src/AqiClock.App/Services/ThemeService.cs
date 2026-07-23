@@ -20,9 +20,11 @@ public sealed class ThemeService
             : theme;
 
         ApplicationTheme fluentTheme = effective == AppTheme.Dark ? ApplicationTheme.Dark : ApplicationTheme.Light;
+        // The palette dictionary must be in place before ApplicationThemeManager.Changed
+        // handlers (MainWindow titlebar/native-border sync) read brushes from it.
+        SwapApplicationThemeDictionary(effective);
         ApplicationThemeManager.Apply(fluentTheme, WindowBackdropType.Mica, updateAccent: false);
         ApplicationAccentColorManager.Apply(BrandBlue, fluentTheme, systemGlassColor: false, systemAccentColor: false);
-        SwapApplicationThemeDictionary(effective);
     }
 
     private static void SwapApplicationThemeDictionary(AppTheme effective)

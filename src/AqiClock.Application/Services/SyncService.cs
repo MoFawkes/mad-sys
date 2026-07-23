@@ -118,6 +118,7 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
         catch (Exception exception) when (exception is HttpRequestException or TimeoutException or IOException or InvalidOperationException)
         {
             _failures++;
+            LogSyncCycleFailed(logger, exception);
             SetState(ConnectivityState.Offline);
         }
         finally
@@ -138,9 +139,13 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
         catch (Exception exception) when (exception is HttpRequestException or TimeoutException or IOException or InvalidOperationException)
         {
             _failures++;
+            LogSyncCycleFailed(logger, exception);
             SetState(ConnectivityState.Offline);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Sync cycle failed; staying offline until the next retry")]
+    private static partial void LogSyncCycleFailed(ILogger logger, Exception exception);
 
     public void SignalTableChanged(CacheTable table)
     {

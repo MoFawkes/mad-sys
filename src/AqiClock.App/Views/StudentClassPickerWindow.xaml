@@ -4,7 +4,10 @@
   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
   Title="Student session" Width="520" Height="650" WindowStartupLocation="CenterScreen"
   ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica" Loaded="OnLoaded">
-  <Grid Margin="28" Background="{DynamicResource WindowBrush}">
+  <Grid Background="{DynamicResource WindowBrush}">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/></Grid.RowDefinitions>
+    <ui:TitleBar Title="Student session"/>
+    <Grid Grid.Row="1" Margin="28,12,28,28">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <StackPanel>
       <TextBlock Text="Choose your class(es)" FontSize="{DynamicResource TitleFontSize}" FontWeight="Bold" Foreground="{DynamicResource HeaderBrush}"/>
@@ -33,5 +36,6 @@
       <TextBlock Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
       <ui:Button Content="Start student session" Appearance="Primary" HorizontalAlignment="Right" Click="OnStart"/>
     </StackPanel>
+    </Grid>
   </Grid>
 </ui:FluentWindow>

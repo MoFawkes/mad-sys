@@ -226,7 +226,7 @@ In progress / next:
 | v0.9.6 candidate main CI | Engineering | Complete |
 | v0.9.6 tag and public assets | Engineering | Complete |
 | Audience-aware PR #1 automated CI | Engineering | Complete |
-| Audience-aware manual UX/theme acceptance | Owner | Attempted 2026-07-23 — functional sections largely pass; **Light/Dark presentation and sync-restart FAILED**; fixes required before re-run |
+| Audience-aware manual UX/theme acceptance | Owner | Re-run 2026-07-23 late evening after fix round — most items now pass (sync cycles, palette, dark admin, scheduling, student filtering); **5 items still open** (theme-change border, student period-toast delivery regression suspect, teacher-role UI gating, student-session exit path, lesson-card state) — see `docs/MANUAL-TESTS.md` |
 | Audience-aware production-like migration rehearsal | Engineering | Complete — CI job `rehearsal`, run `30028621145` |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
 | v0.9.2 → v0.9.5 pilot auto-update | Owner / Engineering | Pending |
@@ -342,6 +342,18 @@ In progress / next:
   in the audience migration via `create or replace`. The rehearsal gate is
   Complete; the audience-aware release now waits only on the owner's manual
   UX/theme acceptance and the version-number decision.
+- 2026-07-23 late evening — Second guided re-check after Sol's verified fix
+  round (`23e9b5f`/`2168066`) plus live session fixes by Fable 5 (Fluent
+  window full-bleed palette + titlebars, DWM caption/border colors + retry
+  + backdrop strip, Graduate placeholder row disabled, sync-failure debug
+  log). Result: the sync lifecycle, palette, dark Admin, scheduling/label,
+  student reader filtering, System theme, and Compact all pass; five items
+  remain open and block the v0.10.0 tag — theme-change border, class-B
+  student period-toast delivery (regression suspect, `notification_log`
+  evidence captured), teacher-role UI gating (server role verified
+  correct), missing student-session exit path, and a lesson-card state
+  oddity under rapid retimes. v0.10.0 is prepared (changelog `2168066`)
+  but NOT tagged. Full record in `docs/MANUAL-TESTS.md`.
 - 2026-07-23 — Owner ran the audience-aware click-through live against a
   local stack, guided by Fable 5. Functional sections largely passed:
   sign-in fork, student sessions with class/Naseehah filtering (all five

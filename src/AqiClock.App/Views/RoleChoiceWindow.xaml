@@ -4,13 +4,14 @@
   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
   Title="Choose how to continue" Width="480" Height="330" WindowStartupLocation="CenterScreen"
   ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica">
-  <Grid Margin="36" Background="{DynamicResource WindowBrush}">
-    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/></Grid.RowDefinitions>
-    <StackPanel>
+  <Grid Background="{DynamicResource WindowBrush}">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition/></Grid.RowDefinitions>
+    <ui:TitleBar Title="AQI Clock"/>
+    <StackPanel Grid.Row="1" Margin="36,24,36,0">
       <TextBlock Text="AQI Clock" FontSize="{DynamicResource TitleFontSize}" FontWeight="Bold" Foreground="{DynamicResource HeaderBrush}"/>
       <TextBlock Text="Choose the audience using this computer." Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,24"/>
     </StackPanel>
-    <Grid Grid.Row="1">
+    <Grid Grid.Row="2" Margin="36,0,36,36">
       <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
       <ui:Button Grid.Column="0" Content="Teacher" Appearance="Primary" FontSize="18" Margin="0,0,8,0" Click="OnTeacher"/>
       <ui:Button Grid.Column="1" Content="Student" FontSize="18" Margin="8,0,0,0" Click="OnStudent"/>

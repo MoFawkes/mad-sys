@@ -158,6 +158,50 @@ The AM/PM and class-overlap scheduler scenarios are also covered by the automate
 
 `HighlightBrush` is defined as gold in both theme dictionaries but is not currently consumed by a control. Its absence on these screens is therefore not a visual failure.
 
+### 2026-07-23 late-evening re-check (after fix commits `23e9b5f`/`2168066` + live session fixes)
+
+**Passed this round:** sync sign-out/sign-in cycles ×2 with quiet logs;
+Dark Admin grids and announcements flyout; Dark and Light Role Choice /
+Student Picker palette after the live full-bleed + `ui:TitleBar` fix;
+System theme; unknown-class error visible in row AND banner, clearing on
+success; Graduate placeholder row disabled after the live `IsEditable`
+binding fix; "Scheduled & history" label with a scheduled announcement
+correctly absent from Active; student-session reader filtering (everyone /
+class-A / e-Masjid items all correct); restart wipe; Compact 320×80
+round-trip; main-window first-show border after the live DWM
+caption/border/backdrop fixes.
+
+**Still open — block the v0.10.0 tag:**
+
+1. **Main-window border after a THEME CHANGE** — first show is clean, but
+   switching themes leaves the mismatched titlebar/border despite color
+   re-application (external `DwmSetWindowAttribute` renders instantly, so
+   WPF-UI's theme pass re-applies a backdrop or resets colors after all
+   our hooks; `WindowBackdrop.RemoveBackdrop` + retries were not enough).
+2. **Class-B period toast NOT delivered to a Class-B student session**
+   (21:50 boundary): `notification_log` has no entry for the boundary at
+   all, while an earlier session (19:20) delivered correctly on the
+   pre-fix build. Suspect: the scheduler's day plan is not rebuilt when a
+   student session starts after launch (possibly interacting with
+   `MainViewModel.InitializeAsync` now running at student start), or
+   boundary dedup after repeated same-day retimes. Needs a scoped repro.
+3. **Teacher sign-in showed admin controls** while
+   `profiles.role='teacher'` is confirmed server-side — client
+   role-resolution bug (server RLS still denies writes). Reproduce with
+   confirmed account identity first.
+4. **No tray icon during student sessions** — students have no Exit path
+   (tray only appears for signed-in users). Decide: show tray for student
+   sessions or provide another exit.
+5. **Current-lesson card mixed state** (screenshot in session notes):
+   card showed "Break / ends 21:42" while the cache correctly held
+   Registration until 21:42 — likely engine day-snapshot staleness under
+   rapid same-day timetable changes; verify under a normal timetable
+   change before treating as a blocker.
+
+**Unverified (retime windows missed):** class-B-tagged period suppression
+for a Class-A session (the announcement-side equivalent passed); the
+teacher regression pass is blocked by item 3.
+
 ### 2026-07-23 session results (owner click-through, local stack)
 
 **This section FAILED.** The five Light/Dark items above remain unticked because:
