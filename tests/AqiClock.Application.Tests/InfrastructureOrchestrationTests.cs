@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using Supabase.Realtime.Exceptions;
 using AqiClock.App.Services;
 using System.Net.Http;
+using System.Windows;
 
 namespace AqiClock.Application.Tests;
 
@@ -60,6 +61,56 @@ public sealed class InfrastructureOrchestrationTests
     {
         WindowPlacement actual = WindowPlacements.Clamp(new WindowPlacement(-500, -300, 1400, 900), 0, 0, 1092, 614, 900, 480);
         Assert.Equal(new WindowPlacement(0, 0, 1092, 614), actual);
+    }
+
+    [Fact]
+    public void SavedAdminPlacementStaysOnSecondaryAndClampsToItsWorkArea()
+    {
+        WindowPlacement actual = WindowPlacements.Clamp(
+            new WindowPlacement(2600, 10, 1120, 780),
+            2560, 0, 1280, 720, 900, 480);
+
+        Assert.Equal(new WindowPlacement(2600, 0, 1120, 720), actual);
+    }
+
+    [Fact]
+    public void SavedAdminPlacementFitsScaledSmallScreenWorkArea()
+    {
+        WindowPlacement actual = WindowPlacements.Clamp(
+            new WindowPlacement(0, 0, 1120, 780),
+            0, 0, 911, 485, 900, 480);
+
+        Assert.Equal(new WindowPlacement(0, 0, 911, 485), actual);
+    }
+
+    [Fact]
+    public void MissingDialogPlacementPreservesCenterOwnerStartupLocation()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new Window { WindowStartupLocation = WindowStartupLocation.CenterOwner };
+                using var controller = new WindowPlacementController(
+                    window,
+                    new SettingsStub(),
+                    settings => settings.AdminPlacement,
+                    (settings, placement) => settings with { AdminPlacement = placement });
+
+                controller.RestorePlacement();
+
+                Assert.Equal(WindowStartupLocation.CenterOwner, window.WindowStartupLocation);
+                Assert.True(double.IsNaN(window.Left));
+                Assert.True(double.IsNaN(window.Top));
+            }
+            catch (Exception exception) { failure = exception; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+
+        Assert.True(thread.Join(TimeSpan.FromSeconds(10)), "Window placement test timed out.");
+        Assert.Null(failure);
     }
 
     [Fact]
@@ -575,6 +626,14 @@ public sealed class InfrastructureOrchestrationTests
             Task.FromResult<IReadOnlyList<Profile>>(Value is null ? [] : [Value]);
         public Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(Value?.Id == id ? Value : null);
+    }
+
+    private sealed class SettingsStub : ISettingsService
+    {
+        public AppSettings Current { get; } = new();
+        public event EventHandler<SettingsChanged>? Changed { add { } remove { } }
+        public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class CapturingLogger<T> : ILogger<T>

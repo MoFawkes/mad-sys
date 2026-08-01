@@ -2,6 +2,8 @@ using AqiClock.Application.Abstractions;
 using System.Windows;
 using System.Windows.Threading;
 using System.IO;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
 
 namespace AqiClock.App.Services;
 
@@ -35,14 +37,17 @@ public sealed class WindowPlacementController : IDisposable
         window.Closed += (_, _) => Dispose();
     }
 
-    private void Restore(object sender, RoutedEventArgs args)
+    private void Restore(object sender, RoutedEventArgs args) => RestorePlacement();
+
+    internal void RestorePlacement()
     {
-        Rect work = SystemParameters.WorkArea;
-        WindowPlacement requested = _read(_settings.Current) ?? new(
-            work.Left + Math.Max(0, (work.Width - _window.Width) / 2),
-            work.Top + Math.Max(0, (work.Height - _window.Height) / 2),
-            _window.Width, _window.Height);
-        WindowPlacement placement = WindowPlacements.ClampToWorkArea(requested, _window.MinWidth, _window.MinHeight);
+        WindowPlacement? requested = _read(_settings.Current);
+        if (requested is null) return;
+
+        Rect work = MonitorWorkAreas.ForPlacement(requested);
+        WindowPlacement placement = WindowPlacements.Clamp(
+            requested, work.Left, work.Top, work.Width, work.Height,
+            _window.MinWidth, _window.MinHeight);
         _window.WindowStartupLocation = WindowStartupLocation.Manual;
         _window.Left = placement.Left; _window.Top = placement.Top;
         _window.Width = placement.Width; _window.Height = placement.Height;
@@ -71,6 +76,69 @@ public sealed class WindowPlacementController : IDisposable
     }
 }
 
+internal static class MonitorWorkAreas
+{
+    private const uint MonitorDefaultToNearest = 2;
+    private const int EffectiveDpi = 0;
+    private const double WpfDpi = 96d;
+
+    internal static Rect ForPlacement(WindowPlacement placement)
+    {
+        var requested = new NativeRect(
+            ToNativeCoordinate(placement.Left),
+            ToNativeCoordinate(placement.Top),
+            ToNativeCoordinate(placement.Left + placement.Width),
+            ToNativeCoordinate(placement.Top + placement.Height));
+        nint monitor = MonitorFromRect(ref requested, MonitorDefaultToNearest);
+        if (monitor == 0) throw new Win32Exception(Marshal.GetLastWin32Error());
+
+        var info = new MonitorInfo { Size = (uint)Marshal.SizeOf<MonitorInfo>() };
+        if (!GetMonitorInfo(monitor, ref info)) throw new Win32Exception(Marshal.GetLastWin32Error());
+
+        int result = GetDpiForMonitor(monitor, EffectiveDpi, out uint dpiX, out uint dpiY);
+        if (result != 0) Marshal.ThrowExceptionForHR(result);
+        if (dpiX == 0 || dpiY == 0) throw new InvalidOperationException("The target monitor reported an invalid effective DPI.");
+
+        double scaleX = WpfDpi / dpiX;
+        double scaleY = WpfDpi / dpiY;
+        return new Rect(
+            info.Work.Left * scaleX,
+            info.Work.Top * scaleY,
+            (info.Work.Right - info.Work.Left) * scaleX,
+            (info.Work.Bottom - info.Work.Top) * scaleY);
+    }
+
+    private static int ToNativeCoordinate(double value) => checked((int)Math.Round(value));
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect(int left, int top, int right, int bottom)
+    {
+        public int Left = left;
+        public int Top = top;
+        public int Right = right;
+        public int Bottom = bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MonitorInfo
+    {
+        public uint Size;
+        public NativeRect Monitor;
+        public NativeRect Work;
+        public uint Flags;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern nint MonitorFromRect(ref NativeRect rectangle, uint flags);
+
+    [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfo(nint monitor, ref MonitorInfo info);
+
+    [DllImport("shcore.dll")]
+    private static extern int GetDpiForMonitor(nint monitor, int dpiType, out uint dpiX, out uint dpiY);
+}
+
 public static class WindowLifecycle
 {
     public static bool ShouldExitAfterSignInClose(SessionState session, bool returnToRoleChoice = false) =>
@@ -92,12 +160,6 @@ public static class WindowPlacements
         double left = Math.Clamp(placement.Left, workLeft, workLeft + workWidth - width);
         double top = Math.Clamp(placement.Top, workTop, workTop + workHeight - height);
         return placement with { Left = left, Top = top, Width = width, Height = height };
-    }
-
-    public static WindowPlacement ClampToWorkArea(WindowPlacement placement, double minimumWidth, double minimumHeight)
-    {
-        System.Windows.Rect work = System.Windows.SystemParameters.WorkArea;
-        return Clamp(placement, work.Left, work.Top, work.Width, work.Height, minimumWidth, minimumHeight);
     }
 
     public static AppSettings Apply(AppSettings settings, DisplayMode mode, WindowPlacement placement)
