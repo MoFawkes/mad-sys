@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-28
+Last updated: 2026-08-01
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -29,7 +29,8 @@ the acceptance script.
 - No store submission has been attempted.
 - The 2026-08-01 desktop follow-up is implemented on `fix/desktop-qol`: staff sessions tolerate boot-time network races and refresh proactively; desktop students use anonymous enrolment with persisted choices and student-scoped sync; Admin/Settings sizing and editor interruptions are corrected.
 - Desktop QoL cannot ship as a standalone release: desktop enrolment requires `enroll_student_device` and the student RLS migrations carried by the v0.11.0 checkpoint. Merge it into v0.11.0, or deploy the v0.11.0 backend first; green desktop CI alone is not a shippable signal.
-- Release remains blocked on hosted Auth dashboard configuration, physical teacher/student/offline passes, and measured Android 13+ notification drift. See `docs/MANUAL-TESTS.md`.
+- Production reconciliation on 2026-08-01 found all seven migration versions and the complete student-device schema already applied. The hosted signup gate was verified against production intent: public email signup returned 403 **Public signup is disabled**, while an anonymous identity enrolled successfully and could select its own `student_devices` row under RLS.
+- Release remains blocked on physical teacher/student/offline passes and measured Android 13+ notification drift. See `docs/MANUAL-TESTS.md`.
 - Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, Android drift, and the desktop untagged-period notification semantic difference.
 
 ## v0.9.3 scope
