@@ -41,15 +41,18 @@ public sealed partial class WindowPlacementController : IDisposable
 
     private void Restore(object sender, RoutedEventArgs args) => RestorePlacement();
 
-    internal void RestorePlacement()
+    internal void RestorePlacement(WindowPlacement? currentPlacement = null, Rect? workArea = null)
     {
-        WindowPlacement? requested = _read(_settings.Current);
-        if (requested is null) return;
+        WindowPlacement requested = _read(_settings.Current) ?? new WindowPlacement(
+            currentPlacement?.Left ?? _window.Left,
+            currentPlacement?.Top ?? _window.Top,
+            currentPlacement?.Width ?? _window.ActualWidth,
+            currentPlacement?.Height ?? _window.ActualHeight);
 
         WindowPlacement placement;
         try
         {
-            Rect work = MonitorWorkAreas.ForPlacement(requested);
+            Rect work = workArea ?? MonitorWorkAreas.ForPlacement(requested);
             placement = WindowPlacements.Clamp(
                 requested, work.Left, work.Top, work.Width, work.Height,
                 _window.MinWidth, _window.MinHeight);

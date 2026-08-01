@@ -83,8 +83,22 @@ public sealed class InfrastructureOrchestrationTests
         Assert.Equal(new WindowPlacement(0, 0, 911, 485), actual);
     }
 
+    [Theory]
+    [InlineData(1120, 780)]
+    [InlineData(700, 780)]
+    public void FirstRunDialogPlacementFitsMeasuredSmallScreen(double width, double height)
+    {
+        WindowPlacement actual = WindowPlacements.Clamp(
+            new WindowPlacement(80, 0, width, height),
+            0, 0, 1280, 720, 560, 420);
+
+        Assert.True(actual.Height <= 720);
+        Assert.InRange(actual.Left, 0, 1280 - actual.Width);
+        Assert.InRange(actual.Top, 0, 720 - actual.Height);
+    }
+
     [Fact]
-    public void MissingDialogPlacementPreservesCenterOwnerStartupLocation()
+    public void MissingDialogPlacementUsesCurrentBoundsAndClampsToFit()
     {
         Exception? failure = null;
         var thread = new Thread(() =>
@@ -99,11 +113,15 @@ public sealed class InfrastructureOrchestrationTests
                     (settings, placement) => settings with { AdminPlacement = placement },
                     Microsoft.Extensions.Logging.Abstractions.NullLogger<WindowPlacementController>.Instance);
 
-                controller.RestorePlacement();
+                controller.RestorePlacement(
+                    new WindowPlacement(80, 0, 1120, 780),
+                    new Rect(0, 0, 1280, 720));
 
-                Assert.Equal(WindowStartupLocation.CenterOwner, window.WindowStartupLocation);
-                Assert.True(double.IsNaN(window.Left));
-                Assert.True(double.IsNaN(window.Top));
+                Assert.Equal(WindowStartupLocation.Manual, window.WindowStartupLocation);
+                Assert.Equal(80, window.Left);
+                Assert.Equal(0, window.Top);
+                Assert.Equal(1120, window.Width);
+                Assert.Equal(720, window.Height);
             }
             catch (Exception exception) { failure = exception; }
         });
@@ -373,7 +391,7 @@ public sealed class InfrastructureOrchestrationTests
     {
         var gateway = new FakeGateway();
         gateway.SubscriptionFailures.Enqueue(new RealtimeException("temporary 403"));
-        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15));
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(50));
 
         await service.StartAsync();
         await WaitUntilAsync(() => gateway.SubscribeCalls >= 2 && gateway.ActiveSubscriptions == 1);
@@ -412,6 +430,27 @@ public sealed class InfrastructureOrchestrationTests
         await WaitUntilAsync(() => session.Calls >= 2 && gateway.PullCounts.Values.Sum() > initialPulls);
 
         Assert.Equal(ConnectivityState.Online, service.State);
+    }
+
+    [Fact]
+    public async Task HeartbeatSurvivesThrowingConnectivityRecipient()
+    {
+        var gateway = new FakeGateway();
+        var messenger = new WeakReferenceMessenger();
+        var recipient = new ThrowingConnectivityRecipient();
+        var logger = new CapturingLogger<SyncService>();
+        messenger.Register(recipient);
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(50), messenger, logger);
+
+        await service.StartAsync();
+        int initialPulls = gateway.PullCounts.Values.Sum();
+        await WaitUntilAsync(() =>
+            gateway.PullCounts.Values.Sum() > initialPulls &&
+            service.State == ConnectivityState.Online);
+
+        Assert.Equal(ConnectivityState.Online, service.State);
+        Assert.True(recipient.Calls >= 3);
+        Assert.Contains(logger.Errors, exception => exception is InvalidOperationException);
     }
 
     [Fact]
@@ -707,5 +746,15 @@ public sealed class InfrastructureOrchestrationTests
     {
         public List<DeviceAudience> States { get; } = [];
         public void Receive(AqiClock.Application.Messages.AudienceChanged message) => States.Add(message.State);
+    }
+
+    public sealed class ThrowingConnectivityRecipient : IRecipient<AqiClock.Application.Messages.ConnectivityChanged>
+    {
+        public int Calls { get; private set; }
+        public void Receive(AqiClock.Application.Messages.ConnectivityChanged message)
+        {
+            Calls++;
+            throw new InvalidOperationException("UI recipient failed");
+        }
     }
 }

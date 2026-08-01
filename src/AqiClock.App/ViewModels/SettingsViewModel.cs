@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using AqiClock.App.Services;
 using AqiClock.Application.Messages;
 using CommunityToolkit.Mvvm.Messaging;
+using System.Windows.Threading;
 
 namespace AqiClock.App.ViewModels;
 
@@ -18,6 +19,8 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     private readonly IWindowService _windows;
     private readonly INotificationPresenter _notifications;
     private readonly IUpdateService _updates;
+    private readonly IMessenger? _messenger;
+    private readonly Dispatcher _dispatcher;
     private bool _disposed;
     [ObservableProperty] private bool _startWithWindows;
     [ObservableProperty] private bool _startMinimized;
@@ -37,9 +40,13 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     public string Version { get { _ = _updates.Current; return AppVersion.Current; } }
 
     public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications, IUpdateService updates, IMessenger? messenger = null)
-    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; _updates = updates; UpdateStatus = updates.Current.DisplayText; updates.StateChanged += OnUpdateStateChanged; messenger?.Register(this); Copy(settings.Current); }
+    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; _updates = updates; _messenger = messenger; _dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher; UpdateStatus = updates.Current.DisplayText; updates.StateChanged += OnUpdateStateChanged; messenger?.Register(this); Copy(settings.Current); }
 
-    public void Receive(ConnectivityChanged message) => SyncNowCommand.NotifyCanExecuteChanged();
+    public void Receive(ConnectivityChanged message)
+    {
+        if (_dispatcher.CheckAccess()) SyncNowCommand.NotifyCanExecuteChanged();
+        else _ = _dispatcher.BeginInvoke(SyncNowCommand.NotifyCanExecuteChanged);
+    }
 
     [RelayCommand]
     private Task SaveAsync(CancellationToken token) => _settings.SaveAsync(new AppSettings
@@ -60,14 +67,15 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
 
     private void OnUpdateStateChanged(object? sender, UpdateState state)
     {
-        if (System.Windows.Application.Current.Dispatcher.CheckAccess()) UpdateStatus = state.DisplayText;
-        else _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() => UpdateStatus = state.DisplayText);
+        if (_dispatcher.CheckAccess()) UpdateStatus = state.DisplayText;
+        else _ = _dispatcher.BeginInvoke(() => UpdateStatus = state.DisplayText);
     }
 
     public void Dispose()
     {
         if (_disposed) return;
         _updates.StateChanged -= OnUpdateStateChanged;
+        _messenger?.UnregisterAll(this);
         _disposed = true;
         GC.SuppressFinalize(this);
     }

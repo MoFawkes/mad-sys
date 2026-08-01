@@ -322,10 +322,14 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
     [LoggerMessage(Level = LogLevel.Error, Message = "Sync background operation {OperationName} failed")]
     private static partial void LogBackgroundSyncFailed(ILogger logger, string operationName, Exception exception);
 
+    [LoggerMessage(Level = LogLevel.Error, Message = "A connectivity state recipient failed")]
+    private static partial void LogConnectivityRecipientFailed(ILogger logger, Exception exception);
+
     private void SetState(ConnectivityState state)
     {
         State = state;
-        messenger.Send(new ConnectivityChanged(state, LastSyncedAt));
+        try { messenger.Send(new ConnectivityChanged(state, LastSyncedAt)); }
+        catch (Exception exception) { LogConnectivityRecipientFailed(logger, exception); }
     }
 
     private void OnRealtimeClosed(object? sender, EventArgs e)
