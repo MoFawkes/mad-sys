@@ -101,5 +101,25 @@ Production Supabase endpoints must use HTTPS/WSS as required by SECURITY.md §5.
 
 ---
 
+## ADR-020: Personal student audience on mobile
+**Accepted** 2026-07-28.
+The mobile student session persists its selected classes and independent Naseehah AM/PM choices locally, unlike the shared-PC desktop mode which asks again on every launch. The mobile clock is also a personal timetable: periods tagged only for other classes are omitted from its current, next, and daily views. Untagged periods are school-wide and always remain visible, covering breaks, assemblies, Jumu'ah, and installations whose optional class tagging is incomplete. Notifications use the same predicate. This intentionally diverges from the desktop clock, which displays the full school day and applies class selection only to notifications. Rejected: copying the shared-device restart behavior to a personal phone, and treating untagged periods as matching no students.
+
+## ADR-021: Reconcile OS-scheduled notifications on mobile
+**Accepted** 2026-07-28.
+The mobile client derives a desired set of future lesson notifications from its SQLite snapshot and reconciles that set with notifications scheduled by the operating system. Event keys are used as stable identifiers, so timetable edits cancel or move stale requests without creating duplicates. Reconciliation runs after relevant syncs, on foreground, after audience or notification-setting changes, and through a best-effort six-hour background task. The seven-day horizon is sorted and capped at 60 requests to stay below iOS's 64-pending-notification limit. This supersedes ADR-009 on mobile only: the tray-resident Windows client keeps its one-second tick and SQLite firing log. Android delivery is intentionally inexact because AQI Clock is not eligible for Play-restricted exact-alarm permissions; measured Android 13+ drift remains a release gate, with server push deferred unless that drift is unacceptable.
+
+## ADR-022: Keep the Expo companion in this repository
+**Accepted** 2026-07-28.
+The Expo SDK 54 application lives under `mobile/` beside the Windows client, Supabase migrations, and shared documentation. The schedule engine is a pure TypeScript semantic port with case-for-case tests; platform I/O stays in data, notification, and UI layers. One repository keeps backend-policy changes, desktop compatibility, mobile behavior, and release gates reviewable together. The mobile CI job is additive and does not path-filter the existing required checks. Rejected: a separate repository that could deploy against incompatible migrations, and sharing runtime code across C# and TypeScript through generated bindings.
+
+## ADR-023: Enrol anonymous student devices with server-filtered announcements
+**Accepted** 2026-07-28.
+Personal student phones receive anonymous Supabase Auth identities and join one organisation through a long random code and the `enroll_student_device` SECURITY DEFINER RPC. Anonymous identities never receive profiles; student RLS is additive, read-only, excludes staff/audit data, and removes confidential announcement audiences server-side. GoTrue requires global signup for anonymous creation, so a fail-closed Before User Created hook rejects public non-anonymous signup while Admin API teacher provisioning continues. This is weaker than a disabled global flag if the hook is absent, so the migration, hosted hook configuration, and signup matrix are release gates. Rejected: embedding teacher credentials, exposing broad unauthenticated reads, or relying solely on client-side announcement filtering.
+
+## ADR-024: Distribute student join codes through an isolated secret table
+**Accepted** 2026-07-28.
+Student join codes live in `organization_join_codes`, an RLS-enabled table with no Data API grants or policies. Only admin-gated SECURITY DEFINER RPCs can reveal or mutate them. This preserves the shipped desktop client's `organizations?select=*` sync: column-level grants were rejected because PostgreSQL then refuses wildcard selects. A trigger assigns a code after every organisation insert without granting callers access to the generator. The Windows admin workspace displays and QR-encodes the code; verified mobile admins may share it but cannot rotate or revoke from the phone. Rotation stops future enrolments while existing devices continue; revocation separately removes every enrolled device. Neither operation writes the code to audit history. Rejected: keeping the secret on `organizations`, column grants that break deployed clients, and combining routine rotation with destructive device revocation.
+
 ## Open items awaiting owner input (not architectural blockers)
 See SPECIFICATION.md §5 (B-1 … B-8): timezone, school week, default warning minutes, account model, audit retention, Supabase tier, update hosting, branding.

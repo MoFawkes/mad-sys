@@ -1,6 +1,6 @@
 # AQI Clock — Application Architecture
 
-Status: Draft 1.0 (planning) · Last updated: 2026-07-15
+Status: Implemented desktop + v0.11 mobile companion · Last updated: 2026-07-28
 
 ---
 
@@ -203,3 +203,28 @@ CI (GitHub Actions): build + unit tests on `windows-latest`; Supabase integratio
 - App data locations: settings JSON + SQLite + logs in `%LOCALAPPDATA%\AqiClock\` — survives updates, removed only by explicit uninstall cleanup prompt.
 - Code signing: unsigned for the pilot (SmartScreen warning on first install, documented for IT); purchase an OV/EV cert before wide rollout — flagged as pre-rollout task in TASKS.md.
 - MSIX was rejected: store/signing friction, awkward HKCU Run-key startup, and Velopack's update UX is better for a small IT-light org.
+
+---
+
+## 11. Expo mobile companion
+
+`mobile/` is an Expo SDK 54, React Native 0.81, TypeScript application using expo-router. It shares the backend and schedule semantics with Windows but is independently packaged through EAS.
+
+```text
+mobile/app/                 routes and tab screens
+mobile/src/domain/          pure TypeScript schedule/audience rules; no React Native imports
+mobile/src/data/            Supabase session, SQLite cache, repositories, snapshot sync
+mobile/src/notifications/   permissions, desired-set planner, reconciliation, background task
+mobile/src/ui/              provider, components, Navy/Cream theme
+mobile/__tests__/           Jest unit and data-layer tests
+```
+
+The mobile data path is always `Postgres → snapshot replacement → SQLite → repositories → domain engine → screen`. Realtime payloads are signals only. Foreground, reconnect, Realtime, and pull-to-refresh replace the desktop heartbeat.
+
+Teachers use invited credentials. Student phones use anonymous Auth plus `enroll_student_device`, then persist their selected classes and independent AM/PM choices locally. The student clock is personal: periods tagged only for other classes are filtered, while untagged periods are school-wide.
+
+Join codes live outside `organizations` in an ungranted table. Admin-gated RPCs feed the desktop QR/code surface and the mobile admin share row. Rotation affects future joins; revocation removes existing device rows. A revoked phone detects its missing own row before snapshot sync, clears its cache, and returns to setup with an explicit explanation.
+
+Mobile cannot use ADR-009's resident one-second notification tick. It derives seven days of desired events, filters by audience/settings, orders them, caps the set at 60, and reconciles it against OS-scheduled requests using the desktop-compatible event key as identifier. Reconciliation runs on foreground, relevant syncs, audience/settings changes, and a best-effort six-hour background task. Announcement notification keys remain SQLite-deduplicated; the first complete announcements snapshot is baselined as skipped to prevent a fresh-install burst.
+
+EAS provides internal development/preview APK profiles and a production profile. v0.11 creates build configuration only; it does not submit to either store.

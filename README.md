@@ -1,18 +1,20 @@
 # AQI Clock
 
-AQI Clock is a Windows desktop application (WPF, .NET 8) that shows staff the current time, the current lesson, time remaining, and the next lesson, driven by a centrally managed timetable. Administrators edit timetables and post announcements in Supabase-backed storage; every staff machine updates in near-real-time, works offline from a local SQLite cache, and raises native Windows notifications at lesson boundaries.
+AQI Clock is a Windows tray application with an Expo mobile companion. Teachers and students see the current lesson, time remaining, next lesson, today's timetable, and targeted announcements from a centrally managed Supabase schedule. Both clients render from local SQLite snapshots and remain useful offline.
 
 The desktop presentation uses WPF-UI Fluent controls, light/dark/system themes, a navy brand accent, Mica-capable window chrome on Windows 11, and PerMonitorV2 scaling. MainWindow intentionally retains native WPF chrome switching so its accepted 320×80 frameless compact mode remains stable.
 
-**Status:** Phases 1–7 are complete and acceptance-green. Phase 8 packaging and release engineering is implemented; the production Supabase project, public release channel, and branded application icon are configured. Final installer acceptance and the pilot-machine rollout remain. See [`PROJECT-STATUS.md`](PROJECT-STATUS.md) for the live Fable 5 / Engineering handoff, [`TASKS.md`](TASKS.md) for the phased plan, and [`docs/MANUAL-TESTS.md`](docs/MANUAL-TESTS.md) for Windows integration acceptance.
+**Status:** Windows v0.10.0 is live. The v0.11.0 Expo companion is implemented and awaits physical-device/manual acceptance; Android notification drift and hosted Auth configuration are release gates. See [`PROJECT-STATUS.md`](PROJECT-STATUS.md) and [`docs/MANUAL-TESTS.md`](docs/MANUAL-TESTS.md).
 
-## Key capabilities (planned MVP)
+## Key capabilities
 
 - Desktop clock with current lesson, countdown, and next lesson
 - Compact always-on-top mode, system tray residence, automatic Windows startup
 - Multiple timetable types, weekly schedule, and date-specific overrides
-- Native Windows toast notifications (lesson start, end warning, announcements)
-- Admin editing with role-based permissions and server-side audit history; staff read-only
+- Native Windows notifications and OS-scheduled mobile lesson notifications
+- Teacher and personal student-phone paths with targeted announcements
+- Admin editing with role-based permissions and server-side audit history
+- Admin-only student join-code distribution with desktop QR, rotation, and device revocation
 - Full offline operation with automatic resynchronisation via Supabase Realtime
 
 ## Documentation
@@ -38,20 +40,27 @@ src/
   AqiClock.Infrastructure/  SQLite cache, Supabase client, DPAPI sessions, sync
   AqiClock.App/             WPF composition root, views, ViewModels, settings and themes
 tests/                      Domain, Application, and integration test projects
+mobile/                     Expo SDK 54 companion, SQLite cache, notifications, Jest tests
 docs/                       Planning and architecture documentation
-supabase/                   (Phase 3) SQL migrations and seed — source of truth for the server schema
+supabase/                   SQL migrations and seed — source of truth for the server schema
 ```
 
 ## Prerequisites
 
 - Windows 10 (1809+) or Windows 11
 - .NET 8 SDK
+- Node.js 20.19.x for the Expo app
 
 ## Build and test
 
 ```powershell
 dotnet build AqiClock.sln
 dotnet test AqiClock.sln --no-build
+cd mobile
+npm ci
+npm test -- --runInBand
+npx tsc --noEmit
+npx eslint .
 ```
 
 ## Supabase integration tests
@@ -83,7 +92,7 @@ Without these overrides, the checked-in placeholder configuration intentionally 
 
 ## Configuration
 
-Copy `.env.example` values into your preferred local environment-variable mechanism. The application reads variables prefixed with `AQICLOCK_`; use a double underscore for nested configuration keys. Only the Supabase project URL and **anon** key belong in client configuration — never commit credentials, and never place the service-role key anywhere in this repository or the app (see `docs/SECURITY.md`).
+Mobile preview builds load the hosted project URL and client-safe publishable key from `mobile/.env`; these `EXPO_PUBLIC_*` values are intentionally embedded in the APK. Desktop uses the `AQICLOCK_` names. Never place a service-role/secret key in either client or `.env` file.
 
 ## Pilot installation and updates
 
@@ -98,11 +107,12 @@ The production project was bootstrapped on 2026-07-17 using this runbook:
 1. Run `npx supabase login`, create the Free-tier project, then `npx supabase link --project-ref <ref>`.
 2. Run `npx supabase db push` to apply the frozen migrations.
 3. In the dashboard SQL editor, insert the production organisation row (do not run the local fixture seed wholesale).
-4. Disable public signups, invite the first administrator under Authentication, then set the generated profile's role to `admin` in the SQL editor.
+4. Enable global signup and anonymous sign-ins, register `private.before_user_created` as the Before User Created hook, and verify public email signup is rejected. Keep the email provider enabled.
 5. Add the public project URL and anon key as repository variables `CLOUD_SUPABASE_URL` and `CLOUD_SUPABASE_ANON_KEY`. Never provide a service-role key.
-6. Under Authentication → URL Configuration, add the exact redirect URL `aqiclock://reset-password`. Keep the Email provider enabled while global self-signup remains disabled.
+6. Under Authentication → URL Configuration, add both `aqiclock://reset-password` and `aqiclock-mobile://reset-password`.
+7. Create the first administrator through the Admin API/dashboard, then set the generated profile role to `admin`.
 
-For the current Free-tier pilot, leaked-password protection remains unavailable and is tracked for the post-pilot Supabase Pro review. Global and email signup are disabled, the minimum password length is 10, and anonymous Data API access was verified to fail closed.
+For the current Free-tier pilot, leaked-password protection remains unavailable. The signup hook replaces the old disabled-global-signup control and is release-gated by integration tests. Unenrolled anonymous users read no application rows.
 
 The release workflow also requires a fine-grained Actions secret named `RELEASES_TOKEN`, limited to contents-write access on `MoFawkes/aqi-clock-releases`. GitHub's source-repository token cannot publish into a different repository. This CI credential is never bundled into the client.
 

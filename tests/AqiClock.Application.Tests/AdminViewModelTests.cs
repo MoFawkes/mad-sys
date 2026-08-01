@@ -100,7 +100,7 @@ public sealed class AdminViewModelTests
                 overrideCombo.SelectedIndex = 0; window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.DataBind);
                 Assert.Equal(timetableId, admin.Overrides.Items[0].TimetableId);
 
-                tabs.SelectedIndex = 6; window.UpdateLayout();
+                tabs.SelectedIndex = 7; window.UpdateLayout();
                 DataGrid users = FindVisualChild<DataGrid>((DependencyObject)tabs.SelectedContent) ?? throw new InvalidOperationException("Users grid did not render.");
                 UserEditorItem current = admin.Users.Items[0]; users.ScrollIntoView(current); window.UpdateLayout();
                 Assert.Equal("Current Admin", ((TextBlock?)users.Columns[0].GetCellContent(current))?.Text);

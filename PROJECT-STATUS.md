@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-23 23:25 BST
+Last updated: 2026-07-28
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -17,9 +17,18 @@ the acceptance script.
 | Source | `main`; v0.10.0 tagged at merge commit `15ecb86` |
 | Production backend | Supabase project active and healthy |
 | Latest release | v0.10.0 — audience-aware sign-in, classes, announcements, and Navy/Cream theme |
-| Next release | Post-v0.10.0 backlog; scope/version not yet selected |
+| Next release | v0.11.0 Expo mobile companion; implementation complete, manual/device acceptance pending |
 | Candidate CI | Merged-main run `30048989635` green at `15ecb86` |
 | Release workflow | v0.10.0 tag-bound run `30049223114` green; public assets verified |
+
+## v0.11.0 mobile state
+
+- Phases 0–10 are implemented: the original mobile scope, visual alignment, isolated/admin-distributed join codes with desktop QR and mobile sharing, revoked-device recovery, and desktop-brand icon parity.
+- The additive student-device migration and signup hook are covered by the release-gating Supabase matrix; the existing staff/admin matrix remains in scope.
+- Mobile automated gates are Jest, TypeScript, and ESLint in their own CI job. Existing .NET and Supabase required checks remain unfiltered.
+- No store submission has been attempted.
+- Release remains blocked on hosted Auth dashboard configuration, physical teacher/student/offline passes, and measured Android 13+ notification drift. See `docs/MANUAL-TESTS.md`.
+- Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, Android drift, and the desktop untagged-period notification semantic difference.
 
 ## v0.9.3 scope
 

@@ -318,3 +318,32 @@ the audience-aware work in PR #1 will ship as v0.10.0. After architect diff
 verification, the open re-check boxes plus the four still-untested items are
 the remaining owner acceptance before tagging; the production-like migration
 rehearsal runs automatically in CI.
+
+## v0.11.0 mobile notification checks
+
+- [ ] Visual alignment: compare all seven native routes with `mobile/design/` at the target phone size. Confirm no hamburger on tab roots, no tabs in setup, Settings retains tabs, and the clock list scrolls fully clear of its status strip.
+- [ ] Clock composition: confirm NOW contains the remaining-time pill, end time, progress, and next lesson; past rows dim and the active Today row has its left marker.
+- [ ] Announcements composition: confirm category, relative timestamp, unread dot, two-line body clamp, and standalone eMasjid row without clipping at large text sizes.
+- [ ] Class picker: confirm classes and independent optional AM/PM choices remain visually separate and the validation state still says **Select at least one class.**
+- [ ] Teacher: sign in with an invited active account, compare the mobile and desktop current/next lesson against the same wall clock, and verify pull-to-refresh plus Settings → Sync now.
+- [ ] Inactive teacher: deactivate the account, sync, and confirm the clock shows **Your account is inactive; contact an administrator** rather than an empty timetable.
+- [ ] Teacher sign-out: confirm the session, SQLite cache, announcement/read state, and pending lesson notifications are removed.
+- [ ] Student fresh install: sign in anonymously, enter the join code, select at least one class plus AM only, and confirm the choices survive an app restart.
+- [ ] Student audience: confirm other-class periods/notifications are absent, untagged breaks/assemblies remain visible, a PM announcement is hidden, and a teachers announcement is absent from the API response.
+- [ ] Student settings: confirm there is no role switch or teacher-only surface, **Change my classes** reopens the picker, and **End student session** clears selection/session/cache.
+- [ ] Admin join-code distribution: open desktop **Student devices**, confirm the grouped code and QR render, scan with the phone camera, and confirm `/student-setup` opens prefilled without auto-submitting.
+- [ ] Enter the same code manually with spaces and confirm enrolment succeeds. Verify lowercase and dash-separated input also work.
+- [ ] Rotate the code on desktop: the old code cannot enrol a new phone, the new code can, and an already-enrolled phone continues syncing.
+- [ ] Remove all student devices on desktop: the phone routes to setup with **This device is no longer enrolled. Ask for a new join code.**
+- [ ] Sign in as a non-admin teacher: the desktop tab and mobile section are absent, and a direct admin RPC call is refused.
+- [ ] App icon: rebuild/install the preview APK and inspect launcher circle/squircle masks and navy splash at device size for clipping or aliasing.
+- [ ] Settings: verify all three notification toggles persist, end-warning clamps at 0 and 15, About reports v0.11.0, and the tab label is **Announcements** with no tab-screen back arrows.
+- [ ] On a physical Android 13+ device, set a lesson start at least 10 minutes ahead, background the app, and record scheduled time, delivered time, and drift.
+- [ ] Repeat the drift measurement for a 2-minute end warning.
+- [ ] Move a period from the desktop, foreground the phone, and confirm the old pending notifications are removed and replacements use the new time.
+- [ ] Deny notification permission and confirm the clock, sync, and announcements screens continue working.
+- [ ] Leave the phone offline overnight and confirm the next day's previously scheduled notifications still arrive.
+- [ ] Background/close the app for three days without opening it and confirm the best-effort background task keeps extending the pending notification window.
+- [ ] Offline day: after a complete sync, enable airplane mode overnight; confirm the next morning's timetable renders, the offline last-sync banner is correct, and the previously scheduled notifications still fire.
+
+**Android drift result:** Not yet measured — no physical Android device was connected during implementation. This remains a release-blocking manual measurement; emulator timing is not accepted as evidence. The app intentionally does not request `USE_EXACT_ALARM` or `SCHEDULE_EXACT_ALARM`.

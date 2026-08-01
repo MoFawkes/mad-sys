@@ -13,11 +13,16 @@ artifacts/
 .env
 .env.*
 !.env.example
+!mobile/.env
 *.db
 *.db-shm
 *.db-wal
 logs/
 node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/ios/
+mobile/android/
 supabase/.temp/
 supabase/.branches/
 supabase/snippets/

@@ -133,6 +133,29 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         return rows[0].GetProperty("org_id").GetGuid();
     }
 
+    public async Task<string> GetStudentJoinCodeAsync(CancellationToken cancellationToken = default)
+    {
+        using JsonDocument document = await PostRpcAsync(
+            "admin_student_join_code", cancellationToken).ConfigureAwait(false);
+        return document.RootElement.GetString()
+            ?? throw new ServerWriteException("The server returned an empty student join code.", null);
+    }
+
+    public async Task<string> RotateStudentJoinCodeAsync(CancellationToken cancellationToken = default)
+    {
+        using JsonDocument document = await PostRpcAsync(
+            "rotate_student_join_code", cancellationToken).ConfigureAwait(false);
+        return document.RootElement.GetString()
+            ?? throw new ServerWriteException("The server returned an empty student join code.", null);
+    }
+
+    public async Task<int> RevokeStudentDevicesAsync(CancellationToken cancellationToken = default)
+    {
+        using JsonDocument document = await PostRpcAsync(
+            "revoke_student_devices", cancellationToken).ConfigureAwait(false);
+        return document.RootElement.GetInt32();
+    }
+
     public async Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default)
     {
         string tableName = TableName(table);
@@ -291,6 +314,20 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         response.EnsureSuccessStatusCode();
         await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<JsonDocument> PostRpcAsync(string functionName, CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = CreateRequest(
+            HttpMethod.Post, $"rest/v1/rpc/{functionName}");
+        request.Content = JsonContent.Create(new { });
+        using HttpResponseMessage response = await _httpClient.SendAsync(
+            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+        CheckClockSkew(response);
+        await EnsureWriteSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+        await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        return await JsonDocument.ParseAsync(
+            stream, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string path)

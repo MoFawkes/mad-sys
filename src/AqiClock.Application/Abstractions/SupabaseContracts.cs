@@ -22,6 +22,12 @@ public interface ISupabaseGateway
     Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default);
     Task SetPeriodClassesAsync(Guid periodId, IReadOnlyCollection<Guid> classIds, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
+    Task<string> GetStudentJoinCodeAsync(CancellationToken cancellationToken = default) =>
+        Task.FromException<string>(new NotSupportedException());
+    Task<string> RotateStudentJoinCodeAsync(CancellationToken cancellationToken = default) =>
+        Task.FromException<string>(new NotSupportedException());
+    Task<int> RevokeStudentDevicesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromException<int>(new NotSupportedException());
     Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default);
     Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default);
 }

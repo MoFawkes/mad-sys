@@ -1,167 +1,77 @@
 # AQI Clock — Database Design
 
-Status: Draft 1.0 (planning) · Last updated: 2026-07-15
+Status: Implemented · Last updated: 2026-07-28
 
-Two databases: **Supabase Postgres** (source of truth) and **SQLite** (per-machine read cache). Server schema lives in `supabase/migrations/*.sql` and is the single source of truth; the SQLite schema mirrors a subset of it.
+Supabase Postgres is the source of truth. The Windows and Expo clients keep disposable SQLite read caches; neither client renders a network response directly.
 
----
+## Supabase schema
 
-## 1. Supabase Postgres schema
+All organisation-owned tables use UUID keys and server timestamps. Period times are PostgreSQL `time` values representing local wall-clock time.
 
-All tables: `id uuid primary key default gen_random_uuid()`, `created_at timestamptz default now()`, `updated_at timestamptz` maintained by a shared `set_updated_at()` trigger. All org data carries `org_id` even though MVP has one organisation (future-proofing without cost — DECISIONS.md ADR-003).
+| Table | Purpose and important columns |
+|---|---|
+| `organizations` | `name` and informational IANA `timezone`; contains no student credential |
+| `organization_join_codes` | One ungranted 16-character code per organisation, plus rotation timestamp/actor; accessible only through admin RPCs |
+| `profiles` | One row per non-anonymous staff user: `org_id`, `display_name`, `role` (`teacher`, `admin`, or reserved `graduate`), `is_active` |
+| `timetables` | Named day template with `is_archived` |
+| `periods` | Timetable periods with `start_time`, `end_time`, `sort_order`, and `is_lesson`; `end_time > start_time` |
+| `classes` | Organisation-scoped class/audience names and sort order |
+| `period_classes` | Many-to-many class tags for periods |
+| `week_schedule` | One row per organisation/weekday; `0 = Monday … 6 = Sunday`; nullable timetable means no school |
+| `date_overrides` | Date-specific timetable or a closed day when `timetable_id` is null |
+| `announcements` | Content, expiry, audience, update type, publication time/status, optional HTTPS eMasjid link, and soft-deletion timestamp |
+| `student_devices` | Anonymous Auth user to organisation enrolment: `user_id`, `org_id`, `created_at`, `last_seen_at` |
+| `audit_log` | Trigger-written before/after history; no client write path |
 
-### 1.1 `organizations`
-| Column | Type | Notes |
-|---|---|---|
-| id | uuid PK | |
-| name | text not null | "AQI" |
-| timezone | text not null default 'Europe/London' | IANA id; informational for clients (B-1) |
+Announcement audiences are `everyone`, `teachers`, `graduates`, `am`, `pm`, and `specific_class`. A specific-class row must have `audience_class_id`; other audiences must not. Update types are `general`, `class_starts`, `naseehah`, `monthly_programme`, and `yearly_programme`. Status is `draft`, `scheduled`, or `published`.
 
-MVP: exactly one row, inserted by seed script.
+The `auth.users` trigger creates profiles only for non-anonymous identities. Anonymous identities remain outside `profiles` and gain an organisation only through `enroll_student_device(join_code)`.
 
-### 1.2 `profiles`
-One row per auth user. Created by an `on_auth_user_created` trigger on `auth.users`.
+Join codes are assigned by `private.assign_join_code()` after organisation insertion. `enroll_student_device` normalises spaces, dashes, and case before lookup. Admin-only RPCs reveal or rotate the code and separately revoke existing devices; the code table itself has no Data API grants or policies.
 
-| Column | Type | Notes |
-|---|---|---|
-| id | uuid PK, FK → auth.users(id) on delete cascade | |
-| org_id | uuid not null FK → organizations | |
-| display_name | text not null | Defaults to email local-part; editable by admin |
-| role | text not null default 'staff' | CHECK in ('staff','admin') |
-| is_active | boolean not null default true | Soft-disable without deleting auth user |
+## Relationships
 
-### 1.3 `timetables`
-A named single-day template.
+```text
+organizations
+├── profiles
+├── student_devices
+├── timetables ── periods ── period_classes ── classes
+├── week_schedule ── timetables
+├── date_overrides ── timetables
+└── announcements ── profiles (created_by)
+                  └── classes (specific audience, optional)
 
-| Column | Type | Notes |
-|---|---|---|
-| id | uuid PK | |
-| org_id | uuid not null FK | |
-| name | text not null | UNIQUE (org_id, name) |
-| is_archived | boolean not null default false | Archived timetables hidden from pickers, kept for history |
-
-### 1.4 `periods`
-| Column | Type | Notes |
-|---|---|---|
-| id | uuid PK | |
-| timetable_id | uuid not null FK → timetables on delete cascade | |
-| name | text not null | UNIQUE (timetable_id, name) |
-| start_time | time not null | Local wall-clock (ADR-006) |
-| end_time | time not null | CHECK (end_time > start_time) — no midnight crossing |
-| sort_order | int not null | UNIQUE (timetable_id, sort_order) |
-| is_lesson | boolean not null default true | false = break/assembly/salah (display styling only) |
-
-Overlap between periods is allowed by the DB (warned in UI) — runtime rule in ARCHITECTURE.md §4 resolves it.
-
-### 1.5 `week_schedule`
-Default timetable per weekday.
-
-| Column | Type | Notes |
-|---|---|---|
-| id | uuid PK | |
-| org_id | uuid not null FK | |
-| weekday | smallint not null | 0=Monday … 6=Sunday; UNIQUE (org_id, weekday) |
-| timetable_id | uuid null FK → timetables on delete **restrict** | null = no school |
-
-Seed creates 7 rows (all null) so the app always finds a complete week.
-
-### 1.6 `date_overrides`
-| Column | Type | Notes |
-|---|---|---|
-| id | uuid PK | |
-| org_id | uuid not null FK | |
-| date | date not null | UNIQUE (org_id, date) |
-| timetable_id | uuid null FK → timetables on delete **restrict** | null = closed (holiday) |
-| note | text | e.g. "Eid holiday", "Mock exams" |
-
-### 1.7 `announcements`
-| Column | Type | Notes |
-|---|---|---|
-| id | uuid PK | |
-| org_id | uuid not null FK | |
-| title | text not null | ≤ 200 chars (CHECK) |
-| body | text not null | ≤ 2000 chars (CHECK) |
-| expires_at | timestamptz null | null = until deleted |
-| created_by | uuid not null FK → profiles | |
-
-### 1.8 `audit_log`
-Written **only** by triggers (SECURITY DEFINER function); no client insert/update/delete.
-
-| Column | Type | Notes |
-|---|---|---|
-| id | bigint identity PK | |
-| org_id | uuid null | Null only for system/bootstrap audit events where neither the changed row nor actor resolves an organisation. |
-| actor_id | uuid null | `auth.uid()` at time of change; null for service-role/seed changes |
-| action | text not null | 'insert' / 'update' / 'delete' |
-| entity_type | text not null | table name |
-| entity_id | uuid not null | |
-| before | jsonb null | old row (update/delete) |
-| after | jsonb null | new row (insert/update) |
-| created_at | timestamptz default now() | |
-
-Audit triggers attach to: `timetables`, `periods`, `week_schedule`, `date_overrides`, `announcements`, `profiles` (role changes).
-
-### 1.9 Relationships (summary)
-
-```
-organizations 1--* profiles
-organizations 1--* timetables 1--* periods
-organizations 1--* week_schedule *--1 timetables (nullable, RESTRICT)
-organizations 1--* date_overrides *--1 timetables (nullable, RESTRICT)
-organizations 1--* announcements *--1 profiles (created_by)
-audit_log — soft references only (survives entity deletion)
+audit_log uses soft references so history survives entity deletion.
 ```
 
-Indexes beyond PK/unique: `periods(timetable_id)`, `date_overrides(org_id, date)`, `announcements(org_id, expires_at)`, `audit_log(org_id, created_at desc)`.
+## RLS and callable functions
 
----
+RLS is enabled on every public table.
 
-## 2. Row Level Security approach
+- Active teachers may read their organisation. Administrators additionally receive the existing write policies. Graduates remain reserved and do not gain new capabilities.
+- Enrolled anonymous devices may read only their organisation's `organizations`, `timetables`, `periods`, `classes`, `period_classes`, `week_schedule`, `date_overrides`, and eligible `announcements`.
+- Student devices cannot read `profiles` or `audit_log` and have no insert, update, or delete policy.
+- Student announcement RLS excludes deleted rows, drafts, future publications, and `teachers`/`graduates` audiences. Expiry and class/AM/PM selection remain client display predicates.
+- Unenrolled anonymous users resolve no device organisation and read no rows.
 
-Full policy detail in SECURITY.md §3; design summary:
+`private.current_org_id()` and `private.is_admin()` serve staff policies. `private.current_device_org_id()` serves student-device policies. `public.enroll_student_device(text)` is the first exposed PostgREST RPC; it accepts only an authenticated anonymous JWT and raises `42501` for invalid enrolment.
 
-- RLS **enabled on every table**; no table readable without an authenticated JWT.
-- Helper functions `current_org_id()` and `is_admin()` (SECURITY DEFINER, reading `profiles` by `auth.uid()`) keep policies one-liners and consistent.
-- Read policies: any active member of the org can `SELECT` all org rows (staff need timetables, announcements, profile display names for audit/announcement attribution).
-- Write policies: `INSERT/UPDATE/DELETE` require `is_admin()` and row `org_id = current_org_id()`.
-- `profiles`: users can update **only** their own `display_name`; `role`/`is_active`/`org_id` changes require admin (enforced by a separate column-guard trigger, since RLS is row-level not column-level).
-- `audit_log`: `SELECT` for admins only; no write policies at all (trigger writes bypass RLS via SECURITY DEFINER).
-- Realtime respects RLS automatically (Supabase Realtime authorization), so staff receive change events only for rows they can read — which is everything in their org, so no special handling.
-- The migration explicitly adds `timetables`, `periods`, `week_schedule`, `date_overrides`, `announcements`, and `profiles` to the `supabase_realtime` publication.
+The release-gating Supabase test matrix covers all staff roles, cross-organisation access, enrolled/unenrolled devices, announcement visibility, signup gating, and device write denial.
 
----
+## SQLite caches
 
-## 3. SQLite cache schema
+Both clients mirror the eight synchronized tables: `timetables`, `periods`, `week_schedule`, `date_overrides`, `announcements`, `profiles`, `classes`, and `period_classes`. Every table refresh is a transactional snapshot replacement followed by a `sync_state` update.
 
-File: `%LOCALAPPDATA%\AqiClock\cache.db` (WAL mode). Purpose: read cache + local notification dedup. **Never** the source of truth; safe to delete (app re-syncs).
+Local-only state includes:
 
-Mirror tables — same columns as server minus what the client doesn't need:
-
-```sql
-organizations (id TEXT PK, name TEXT, timezone TEXT)
-profiles      (id TEXT PK, display_name TEXT, role TEXT, is_active INTEGER)
-timetables    (id TEXT PK, name TEXT, is_archived INTEGER)
-periods       (id TEXT PK, timetable_id TEXT, name TEXT,
-               start_time TEXT, end_time TEXT, sort_order INTEGER, is_lesson INTEGER)
-week_schedule (weekday INTEGER PK, timetable_id TEXT NULL)
-date_overrides(id TEXT PK, date TEXT, timetable_id TEXT NULL, note TEXT)
-announcements (id TEXT PK, title TEXT, body TEXT, expires_at TEXT NULL,
-               created_by TEXT, created_at TEXT)
+```text
+sync_state
+notification_log
+announcement_read
+meta
+student_preferences     # mobile only
 ```
 
-Conventions: uuids as TEXT; times/timestamps as ISO-8601 TEXT; booleans as INTEGER. `org_id` is dropped — the cache holds exactly one org's data; if the signed-in user's org ever differs from the cached org (`meta.org_id`), the cache is wiped and re-pulled.
+The Expo cache uses ordered `PRAGMA user_version` migrations and WAL mode. UUIDs, dates, times, and timestamps are stored as text; booleans are integers. Mobile auth sessions live in chunked SecureStore storage, not SQLite. Signing out or ending a mobile student session wipes the cache and local selection.
 
-Local-only tables:
-
-```sql
-meta             (key TEXT PK, value TEXT)          -- schema_version, org_id, current_user_id
-sync_state       (table_name TEXT PK, last_synced_at TEXT)
-notification_log (event_key TEXT PK, fired_at TEXT NULL, skipped INTEGER NOT NULL DEFAULT 0)
-announcement_read(announcement_id TEXT PK, read_at TEXT)
-```
-
-Snapshot replace: each table refresh = `BEGIN; DELETE FROM x; INSERT …; UPDATE sync_state; COMMIT;` so readers never see a partially synced table.
-
-Migrations: `meta.schema_version` + ordered embedded SQL scripts. On migration failure or corruption (`PRAGMA integrity_check`), delete and recreate the cache — it is disposable by design.
-
-Not in SQLite: user settings (JSON file), auth session (DPAPI-encrypted file), logs (files). Audit log is not cached — the admin audit screen is online-only (trivial data, avoids syncing an append-only table).
+The Windows cache additionally supports the shared-PC student mode described in `SECURITY.md`; it deliberately survives a teacher sign-out because that desktop mode has no backend identity.
