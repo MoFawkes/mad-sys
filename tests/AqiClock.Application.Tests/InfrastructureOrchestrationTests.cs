@@ -439,6 +439,7 @@ public sealed class InfrastructureOrchestrationTests
     [InlineData("refresh_token_not_found")]
     [InlineData("refresh_token_already_used")]
     [InlineData("invalid_grant")]
+    [InlineData("validation_failed")]
     public void ModernGoTrueRefreshErrorCodesRequireReauthentication(string errorCode)
     {
         var method = typeof(SupabaseGateway).GetMethod("IsRejectedRefresh", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);

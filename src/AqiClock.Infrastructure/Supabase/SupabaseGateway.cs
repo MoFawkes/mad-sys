@@ -399,6 +399,7 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         statusCode == System.Net.HttpStatusCode.Unauthorized || errorCode is
             "invalid_grant" or
             "invalid_refresh_token" or
+            "validation_failed" or
             "refresh_token_expired" or
             "refresh_token_not_found" or
             "refresh_token_already_used";
