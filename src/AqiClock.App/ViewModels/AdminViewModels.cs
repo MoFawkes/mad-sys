@@ -21,7 +21,10 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
 {
     private readonly IWindowService _windows;
     [ObservableProperty] private bool _isOnline;
+    [ObservableProperty] private bool _isEditable;
     [ObservableProperty] private string? _banner;
+    private string? _roleBanner;
+    private string? _offlineBanner;
     public bool HasBanner => !string.IsNullOrWhiteSpace(Banner);
     public TimetableEditorViewModel Timetables { get; }
     public WeekScheduleViewModel WeekSchedule { get; }
@@ -34,19 +37,19 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
 
     public AdminViewModel(TimetableEditorViewModel timetables, WeekScheduleViewModel weekSchedule, OverridesViewModel overrides, AnnouncementComposeViewModel announcements, AuditViewModel audit, UsersViewModel users, ISyncService sync, IWindowService windows, IMessenger messenger)
     {
-        Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements; Audit = audit; Users = users; _windows = windows; IsOnline = sync.State == ConnectivityState.Online;
+        Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements; Audit = audit; Users = users; _windows = windows; InitializeConnectivity(sync.State);
         messenger.Register<SessionChanged>(this); messenger.Register<ConnectivityChanged>(this);
     }
 
     public AdminViewModel(TimetableEditorViewModel timetables, WeekScheduleViewModel weekSchedule, OverridesViewModel overrides, AnnouncementComposeViewModel announcements, AuditViewModel audit, UsersViewModel users, ClassesViewModel classes, ISyncService sync, IWindowService windows, IMessenger messenger)
     {
-        Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements; Audit = audit; Users = users; Classes = classes; _windows = windows; IsOnline = sync.State == ConnectivityState.Online;
+        Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements; Audit = audit; Users = users; Classes = classes; _windows = windows; InitializeConnectivity(sync.State);
         messenger.Register<SessionChanged>(this); messenger.Register<ConnectivityChanged>(this);
     }
 
     public AdminViewModel(TimetableEditorViewModel timetables, WeekScheduleViewModel weekSchedule, OverridesViewModel overrides, AnnouncementComposeViewModel announcements, AuditViewModel audit, UsersViewModel users, ClassesViewModel classes, StudentDevicesViewModel studentDevices, ISyncService sync, IWindowService windows, IMessenger messenger)
     {
-        Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements; Audit = audit; Users = users; Classes = classes; StudentDevices = studentDevices; _windows = windows; IsOnline = sync.State == ConnectivityState.Online;
+        Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements; Audit = audit; Users = users; Classes = classes; StudentDevices = studentDevices; _windows = windows; InitializeConnectivity(sync.State);
         messenger.Register<SessionChanged>(this); messenger.Register<ConnectivityChanged>(this);
     }
 
@@ -64,15 +67,28 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
         if (message.State.Role != UserRole.Admin)
         {
             const string reason = "Your role changed. The admin editor has been closed.";
-            Banner = reason;
+            _roleBanner = reason;
+            UpdateBanner();
         }
     });
 
     public void Receive(ConnectivityChanged message) => RunOnUiThread(() =>
     {
         IsOnline = message.State == ConnectivityState.Online;
-        Banner = IsOnline ? null : "Editing is unavailable while offline.";
+        IsEditable = message.State != ConnectivityState.Offline;
+        _offlineBanner = message.State == ConnectivityState.Offline ? "Editing is unavailable while offline." : null;
+        UpdateBanner();
     });
+
+    private void InitializeConnectivity(ConnectivityState state)
+    {
+        IsOnline = state == ConnectivityState.Online;
+        IsEditable = state != ConnectivityState.Offline;
+        _offlineBanner = state == ConnectivityState.Offline ? "Editing is unavailable while offline." : null;
+        UpdateBanner();
+    }
+
+    private void UpdateBanner() => Banner = _roleBanner ?? _offlineBanner;
 
     private static void RunOnUiThread(Action action)
     {

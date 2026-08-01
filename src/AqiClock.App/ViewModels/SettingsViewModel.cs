@@ -5,10 +5,12 @@ using AqiClock.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AqiClock.App.Services;
+using AqiClock.Application.Messages;
+using CommunityToolkit.Mvvm.Messaging;
 
 namespace AqiClock.App.ViewModels;
 
-public partial class SettingsViewModel : ObservableObject, IDisposable
+public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipient<ConnectivityChanged>
 {
     private readonly ISettingsService _settings;
     private readonly ISessionService _session;
@@ -34,12 +36,14 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     public IReadOnlyList<AppTheme> Themes { get; } = Enum.GetValues<AppTheme>();
     public string Version { get { _ = _updates.Current; return AppVersion.Current; } }
 
-    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications, IUpdateService updates)
-    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; _updates = updates; UpdateStatus = updates.Current.DisplayText; updates.StateChanged += OnUpdateStateChanged; Copy(settings.Current); }
+    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications, IUpdateService updates, IMessenger? messenger = null)
+    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; _updates = updates; UpdateStatus = updates.Current.DisplayText; updates.StateChanged += OnUpdateStateChanged; messenger?.Register(this); Copy(settings.Current); }
+
+    public void Receive(ConnectivityChanged message) => SyncNowCommand.NotifyCanExecuteChanged();
 
     [RelayCommand]
     private Task SaveAsync(CancellationToken token) => _settings.SaveAsync(new AppSettings
-    { StartWithWindows = StartWithWindows, StartMinimized = StartMinimized, CloseToTray = CloseToTray, Theme = Theme, AlwaysOnTop = AlwaysOnTop, CompactOnLaunch = CompactOnLaunch, LessonStartNotifications = LessonStartNotifications, EndWarningNotifications = EndWarningNotifications, EndWarningMinutes = EndWarningMinutes, AnnouncementNotifications = AnnouncementNotifications, NormalPlacement = _settings.Current.NormalPlacement, CompactPlacement = _settings.Current.CompactPlacement }, token);
+    { StartWithWindows = StartWithWindows, StartMinimized = StartMinimized, CloseToTray = CloseToTray, Theme = Theme, AlwaysOnTop = AlwaysOnTop, CompactOnLaunch = CompactOnLaunch, LessonStartNotifications = LessonStartNotifications, EndWarningNotifications = EndWarningNotifications, EndWarningMinutes = EndWarningMinutes, AnnouncementNotifications = AnnouncementNotifications, NormalPlacement = _settings.Current.NormalPlacement, CompactPlacement = _settings.Current.CompactPlacement, AdminPlacement = _settings.Current.AdminPlacement, SettingsPlacement = _settings.Current.SettingsPlacement }, token);
 
     [RelayCommand(CanExecute = nameof(CanSync))] private Task SyncNowAsync(CancellationToken token) => _sync.SyncAllAsync(token);
     [RelayCommand] private Task SendTestNotificationAsync(CancellationToken token) => _notifications.ShowTestAsync(token);

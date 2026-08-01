@@ -1,6 +1,7 @@
 using AqiClock.App.ViewModels;
 using AqiClock.App.Views;
 using AqiClock.Application.Abstractions;
+using AqiClock.Application.Configuration;
 using AqiClock.Application.Messages;
 using AqiClock.Application.Sync;
 using AqiClock.Domain.Entities;
@@ -14,6 +15,19 @@ namespace AqiClock.Application.Tests;
 
 public sealed class AdminViewModelTests
 {
+    [Fact]
+    public async Task TeacherSessionDoesNotCountAsEnrolledStudentDevice()
+    {
+        var cache = new Cache();
+        var audience = new DeviceAudienceContext(new WeakReferenceMessenger(), cache);
+        var viewModel = new StudentClassPickerViewModel(new Classes(), cache, audience, new Session(), new Sync());
+
+        await viewModel.LoadAsync();
+
+        Assert.False(viewModel.IsEnrolled);
+        Assert.True(viewModel.NeedsEnrollment);
+    }
+
     [Fact]
     public async Task TimetableValidationBlocksInvalidAndDuplicateNamesButOnlyWarnsOverlap()
     {
@@ -84,7 +98,7 @@ public sealed class AdminViewModelTests
                 var gateway = new Gateway(); var sync = new Sync(); var windows = new Windows(); var timetables = new Timetables(timetable); var week = new Week();
                 var overrides = new Overrides(new DateOverride(Guid.NewGuid(), DateOnly.FromDateTime(DateTime.Today), null, null));
                 var admin = new AdminViewModel(new(gateway, sync, timetables, week, overrides, windows, messenger), new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, session, new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, session, windows), sync, windows, messenger);
-                var window = new AdminWindow(admin);
+                var window = new AdminWindow(admin, new Settings());
                 WpfUiTestResources.Attach(window);
                 window.Show();
                 window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
@@ -144,6 +158,21 @@ public sealed class AdminViewModelTests
         var messenger = new WeakReferenceMessenger(); var windows = new Windows(); Gateway gateway = new(); Sync sync = new(); Timetables timetables = new(); Week week = new(); Overrides overrides = new(); Profiles profiles = new(); Session session = new();
         var admin = new AdminViewModel(new(gateway, sync, timetables, week, overrides, windows, messenger), new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, session, new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, session, windows), sync, windows, messenger);
         messenger.Send(new SessionChanged(new SessionState(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false)));
+        Assert.Contains("role changed", admin.Banner, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void SyncingKeepsAdminEditableAndRoleBannerSurvivesOnline()
+    {
+        var messenger = new WeakReferenceMessenger(); var windows = new Windows(); Gateway gateway = new(); Sync sync = new(); Timetables timetables = new(); Week week = new(); Overrides overrides = new(); Profiles profiles = new(); Session session = new();
+        var admin = new AdminViewModel(new(gateway, sync, timetables, week, overrides, windows, messenger), new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, session, new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, session, windows), sync, windows, messenger);
+
+        messenger.Send(new ConnectivityChanged(ConnectivityState.Syncing, null));
+        Assert.True(admin.IsEditable);
+        Assert.Null(admin.Banner);
+        messenger.Send(new SessionChanged(new SessionState(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false)));
+        messenger.Send(new ConnectivityChanged(ConnectivityState.Online, DateTimeOffset.UtcNow));
+
         Assert.Contains("role changed", admin.Banner, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -305,6 +334,16 @@ public sealed class AdminViewModelTests
     private sealed class Announcements(params Announcement[] rows) : IAnnouncementRepository { public Task<IReadOnlyList<Announcement>> GetCurrentAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Announcement>>(rows); }
     private sealed class Profiles(params Profile[] rows) : IProfileRepository { public Task<IReadOnlyList<Profile>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Profile>>(rows); public Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(rows.FirstOrDefault(x => x.Id == id)); }
     private sealed class Classes(params AqiClock.Domain.Entities.Class[] rows) : IClassRepository { public Task<IReadOnlyList<AqiClock.Domain.Entities.Class>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AqiClock.Domain.Entities.Class>>(rows); public Task<IReadOnlySet<Guid>> GetClassIdsForPeriodAsync(Guid periodId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>()); }
+    private sealed class Cache : ILocalCache
+    {
+        public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task WipeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task ReplaceSnapshotAsync(CacheSnapshot snapshot, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<string?> GetMetaAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
+        public Task SetMetaAsync(string key, string value, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<DateTimeOffset?> GetLastSyncedAtAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.FromResult<DateTimeOffset?>(null);
+    }
+    private sealed class Settings : ISettingsService { public AppSettings Current => new(); public event EventHandler<SettingsChanged>? Changed { add { } remove { } } public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask; }
     private sealed class Session(Guid? id = null) : ISessionService { public SessionState Current { get; } = new(id ?? Guid.NewGuid(), "admin@example.test", UserRole.Admin, true, false); public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; }
     private sealed class Sync : ISyncService { public ConnectivityState State { get; set; } = ConnectivityState.Online; public DateTimeOffset? LastSyncedAt => DateTimeOffset.UtcNow; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.CompletedTask; public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
     private sealed class EchoSync(IMessenger messenger) : ISyncService { public ConnectivityState State => ConnectivityState.Online; public DateTimeOffset? LastSyncedAt => DateTimeOffset.UtcNow; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) { messenger.Send(new DataChanged(table)); return Task.CompletedTask; } public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
