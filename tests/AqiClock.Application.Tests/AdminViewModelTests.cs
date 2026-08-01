@@ -98,7 +98,7 @@ public sealed class AdminViewModelTests
                 var gateway = new Gateway(); var sync = new Sync(); var windows = new Windows(); var timetables = new Timetables(timetable); var week = new Week();
                 var overrides = new Overrides(new DateOverride(Guid.NewGuid(), DateOnly.FromDateTime(DateTime.Today), null, null));
                 var admin = new AdminViewModel(new(gateway, sync, timetables, week, overrides, windows, messenger), new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, session, new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, session, windows), sync, windows, messenger);
-                var window = new AdminWindow(admin, new Settings());
+                var window = new AdminWindow(admin, new Settings(), Microsoft.Extensions.Logging.Abstractions.NullLogger<AqiClock.App.Services.WindowPlacementController>.Instance);
                 WpfUiTestResources.Attach(window);
                 window.Show();
                 window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);

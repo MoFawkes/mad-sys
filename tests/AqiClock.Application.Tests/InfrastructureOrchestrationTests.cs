@@ -96,7 +96,8 @@ public sealed class InfrastructureOrchestrationTests
                     window,
                     new SettingsStub(),
                     settings => settings.AdminPlacement,
-                    (settings, placement) => settings with { AdminPlacement = placement });
+                    (settings, placement) => settings with { AdminPlacement = placement },
+                    Microsoft.Extensions.Logging.Abstractions.NullLogger<WindowPlacementController>.Instance);
 
                 controller.RestorePlacement();
 
@@ -111,6 +112,50 @@ public sealed class InfrastructureOrchestrationTests
 
         Assert.True(thread.Join(TimeSpan.FromSeconds(10)), "Window placement test timed out.");
         Assert.Null(failure);
+    }
+
+    [Fact]
+    public void OverflowingDialogPlacementFallsBackToCenterOwnerWithoutThrowing()
+    {
+        Exception? failure = null;
+        var logger = new WarningLogger<WindowPlacementController>();
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new Window
+                {
+                    Width = 1120,
+                    Height = 780,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                };
+                var settings = new SettingsStub(new AppSettings
+                {
+                    AdminPlacement = new WindowPlacement(1e18, 1e18, 1120, 780),
+                });
+                using var controller = new WindowPlacementController(
+                    window,
+                    settings,
+                    value => value.AdminPlacement,
+                    (value, placement) => value with { AdminPlacement = placement },
+                    logger);
+
+                controller.RestorePlacement();
+
+                Assert.Equal(WindowStartupLocation.CenterOwner, window.WindowStartupLocation);
+                Assert.True(double.IsNaN(window.Left));
+                Assert.True(double.IsNaN(window.Top));
+                Assert.Equal(1120, window.Width);
+                Assert.Equal(780, window.Height);
+            }
+            catch (Exception exception) { failure = exception; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+
+        Assert.True(thread.Join(TimeSpan.FromSeconds(10)), "Corrupt placement test timed out.");
+        Assert.Null(failure);
+        Assert.Equal(1, logger.WarningCount);
     }
 
     [Fact]
@@ -628,12 +673,23 @@ public sealed class InfrastructureOrchestrationTests
             Task.FromResult(Value?.Id == id ? Value : null);
     }
 
-    private sealed class SettingsStub : ISettingsService
+    private sealed class SettingsStub(AppSettings? settings = null) : ISettingsService
     {
-        public AppSettings Current { get; } = new();
+        public AppSettings Current { get; } = settings ?? new();
         public event EventHandler<SettingsChanged>? Changed { add { } remove { } }
         public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class WarningLogger<T> : ILogger<T>
+    {
+        public int WarningCount { get; private set; }
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning) WarningCount++;
+        }
     }
 
     private sealed class CapturingLogger<T> : ILogger<T>

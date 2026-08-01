@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using System.IO;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 
 namespace AqiClock.App.Services;
 
@@ -19,17 +20,18 @@ public static class WindowLayouts
     };
 }
 
-public sealed class WindowPlacementController : IDisposable
+public sealed partial class WindowPlacementController : IDisposable
 {
     private readonly Window _window;
     private readonly ISettingsService _settings;
     private readonly Func<AppSettings, WindowPlacement?> _read;
     private readonly Func<AppSettings, WindowPlacement, AppSettings> _write;
+    private readonly ILogger<WindowPlacementController> _logger;
     private readonly DispatcherTimer _timer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(350) };
 
-    public WindowPlacementController(Window window, ISettingsService settings, Func<AppSettings, WindowPlacement?> read, Func<AppSettings, WindowPlacement, AppSettings> write)
+    public WindowPlacementController(Window window, ISettingsService settings, Func<AppSettings, WindowPlacement?> read, Func<AppSettings, WindowPlacement, AppSettings> write, ILogger<WindowPlacementController> logger)
     {
-        _window = window; _settings = settings; _read = read; _write = write;
+        _window = window; _settings = settings; _read = read; _write = write; _logger = logger;
         _timer.Tick += Save;
         window.Loaded += Restore;
         window.LocationChanged += Queue;
@@ -44,10 +46,20 @@ public sealed class WindowPlacementController : IDisposable
         WindowPlacement? requested = _read(_settings.Current);
         if (requested is null) return;
 
-        Rect work = MonitorWorkAreas.ForPlacement(requested);
-        WindowPlacement placement = WindowPlacements.Clamp(
-            requested, work.Left, work.Top, work.Width, work.Height,
-            _window.MinWidth, _window.MinHeight);
+        WindowPlacement placement;
+        try
+        {
+            Rect work = MonitorWorkAreas.ForPlacement(requested);
+            placement = WindowPlacements.Clamp(
+                requested, work.Left, work.Top, work.Width, work.Height,
+                _window.MinWidth, _window.MinHeight);
+        }
+        catch (Exception exception) when (exception is OverflowException or Win32Exception or COMException or InvalidOperationException)
+        {
+            LogPlacementRestoreFailed(_logger, exception);
+            return;
+        }
+
         _window.WindowStartupLocation = WindowStartupLocation.Manual;
         _window.Left = placement.Left; _window.Top = placement.Top;
         _window.Width = placement.Width; _window.Height = placement.Height;
@@ -74,6 +86,9 @@ public sealed class WindowPlacementController : IDisposable
         _window.Loaded -= Restore; _window.LocationChanged -= Queue; _window.SizeChanged -= Queue;
         GC.SuppressFinalize(this);
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not restore saved window placement; using window defaults")]
+    private static partial void LogPlacementRestoreFailed(ILogger logger, Exception exception);
 }
 
 internal static class MonitorWorkAreas
