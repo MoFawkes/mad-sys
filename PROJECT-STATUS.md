@@ -30,7 +30,7 @@ the acceptance script.
 - The 2026-08-01 desktop follow-up is merged on `main`: staff sessions tolerate boot-time network races and refresh proactively; desktop students use anonymous enrolment with persisted choices and student-scoped sync; Admin/Settings sizing and editor interruptions are corrected.
 - EAS preview build `f2b8871d-919f-41df-96e6-104b621cbee4` was produced from `357e48f` with both Supabase client variables loaded. Its merged manifest includes `POST_NOTIFICATIONS` and `RECEIVE_BOOT_COMPLETED`, but neither exact-alarm permission.
 - Production reconciliation on 2026-08-01 found all seven migration versions and the complete student-device schema already applied. The hosted signup gate was verified against production intent: public email signup returned 403 **Public signup is disabled**, while an anonymous identity enrolled successfully and could select its own `student_devices` row under RLS.
-- Release remains blocked on the 26 physical Android checks and measured Android 13+ notification drift. The overnight offline and notification passes plus the three-day background pass impose a roughly four-day wall-clock acceptance floor from the start of device testing. See `docs/MANUAL-TESTS.md`.
+- Release remains blocked on the physical Android checklist and measured Android 13+ notification drift. The overnight offline and notification passes plus the three-day background pass impose a roughly four-day wall-clock acceptance floor from the start of device testing. See `docs/MANUAL-TESTS.md`.
 - Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, Android drift, and the desktop untagged-period notification semantic difference.
 
 ## v0.9.3 scope

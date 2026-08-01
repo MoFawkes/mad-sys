@@ -336,7 +336,9 @@ rehearsal runs automatically in CI.
 version 0.11.0, and both preview Supabase client variables loaded. The merged
 manifest targets Android API 36 and contains `POST_NOTIFICATIONS` and
 `RECEIVE_BOOT_COMPLETED`; it contains neither `SCHEDULE_EXACT_ALARM` nor
-`USE_EXACT_ALARM`. Keep the exact-alarm decision open until the two physical
+`USE_EXACT_ALARM`. The downloaded APK SHA-256 is
+`30A9D1A401060811669DED527733CF1186657F251A8CD5C3485515DEF24B9866`.
+Keep the exact-alarm decision open until the two physical
 drift measurements below are recorded. The Lessons channel is configured as
 `HIGH` in source, but heads-up behavior and the installed channel importance
 still require device verification.
