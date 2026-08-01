@@ -330,6 +330,17 @@ rehearsal runs automatically in CI.
 
 ## v0.11.0 mobile notification checks
 
+**Preview APK evidence (2026-08-01):** EAS build
+`f2b8871d-919f-41df-96e6-104b621cbee4` was built from merged `main` commit
+`357e48f` with the `preview` profile (internal Android APK), SDK 54,
+version 0.11.0, and both preview Supabase client variables loaded. The merged
+manifest targets Android API 36 and contains `POST_NOTIFICATIONS` and
+`RECEIVE_BOOT_COMPLETED`; it contains neither `SCHEDULE_EXACT_ALARM` nor
+`USE_EXACT_ALARM`. Keep the exact-alarm decision open until the two physical
+drift measurements below are recorded. The Lessons channel is configured as
+`HIGH` in source, but heads-up behavior and the installed channel importance
+still require device verification.
+
 - [ ] Visual alignment: compare all seven native routes with `mobile/design/` at the target phone size. Confirm no hamburger on tab roots, no tabs in setup, Settings retains tabs, and the clock list scrolls fully clear of its status strip.
 - [ ] Clock composition: confirm NOW contains the remaining-time pill, end time, progress, and next lesson; past rows dim and the active Today row has its left marker.
 - [ ] Announcements composition: confirm category, relative timestamp, unread dot, two-line body clamp, and standalone eMasjid row without clipping at large text sizes.
