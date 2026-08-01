@@ -19,6 +19,8 @@ public sealed record AppSettings
     public bool AnnouncementNotifications { get; init; } = true;
     public WindowPlacement? NormalPlacement { get; init; }
     public WindowPlacement? CompactPlacement { get; init; }
+    public WindowPlacement? AdminPlacement { get; init; }
+    public WindowPlacement? SettingsPlacement { get; init; }
 }
 
 public sealed record SettingsChanged(AppSettings Settings);

@@ -5,10 +5,13 @@ using AqiClock.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AqiClock.App.Services;
+using AqiClock.Application.Messages;
+using CommunityToolkit.Mvvm.Messaging;
+using System.Windows.Threading;
 
 namespace AqiClock.App.ViewModels;
 
-public partial class SettingsViewModel : ObservableObject, IDisposable
+public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipient<ConnectivityChanged>
 {
     private readonly ISettingsService _settings;
     private readonly ISessionService _session;
@@ -16,6 +19,8 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     private readonly IWindowService _windows;
     private readonly INotificationPresenter _notifications;
     private readonly IUpdateService _updates;
+    private readonly IMessenger? _messenger;
+    private readonly Dispatcher _dispatcher;
     private bool _disposed;
     [ObservableProperty] private bool _startWithWindows;
     [ObservableProperty] private bool _startMinimized;
@@ -34,12 +39,18 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     public IReadOnlyList<AppTheme> Themes { get; } = Enum.GetValues<AppTheme>();
     public string Version { get { _ = _updates.Current; return AppVersion.Current; } }
 
-    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications, IUpdateService updates)
-    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; _updates = updates; UpdateStatus = updates.Current.DisplayText; updates.StateChanged += OnUpdateStateChanged; Copy(settings.Current); }
+    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications, IUpdateService updates, IMessenger? messenger = null)
+    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; _updates = updates; _messenger = messenger; _dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher; UpdateStatus = updates.Current.DisplayText; updates.StateChanged += OnUpdateStateChanged; messenger?.Register(this); Copy(settings.Current); }
+
+    public void Receive(ConnectivityChanged message)
+    {
+        if (_dispatcher.CheckAccess()) SyncNowCommand.NotifyCanExecuteChanged();
+        else _ = _dispatcher.BeginInvoke(SyncNowCommand.NotifyCanExecuteChanged);
+    }
 
     [RelayCommand]
     private Task SaveAsync(CancellationToken token) => _settings.SaveAsync(new AppSettings
-    { StartWithWindows = StartWithWindows, StartMinimized = StartMinimized, CloseToTray = CloseToTray, Theme = Theme, AlwaysOnTop = AlwaysOnTop, CompactOnLaunch = CompactOnLaunch, LessonStartNotifications = LessonStartNotifications, EndWarningNotifications = EndWarningNotifications, EndWarningMinutes = EndWarningMinutes, AnnouncementNotifications = AnnouncementNotifications, NormalPlacement = _settings.Current.NormalPlacement, CompactPlacement = _settings.Current.CompactPlacement }, token);
+    { StartWithWindows = StartWithWindows, StartMinimized = StartMinimized, CloseToTray = CloseToTray, Theme = Theme, AlwaysOnTop = AlwaysOnTop, CompactOnLaunch = CompactOnLaunch, LessonStartNotifications = LessonStartNotifications, EndWarningNotifications = EndWarningNotifications, EndWarningMinutes = EndWarningMinutes, AnnouncementNotifications = AnnouncementNotifications, NormalPlacement = _settings.Current.NormalPlacement, CompactPlacement = _settings.Current.CompactPlacement, AdminPlacement = _settings.Current.AdminPlacement, SettingsPlacement = _settings.Current.SettingsPlacement }, token);
 
     [RelayCommand(CanExecute = nameof(CanSync))] private Task SyncNowAsync(CancellationToken token) => _sync.SyncAllAsync(token);
     [RelayCommand] private Task SendTestNotificationAsync(CancellationToken token) => _notifications.ShowTestAsync(token);
@@ -56,14 +67,15 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
 
     private void OnUpdateStateChanged(object? sender, UpdateState state)
     {
-        if (System.Windows.Application.Current.Dispatcher.CheckAccess()) UpdateStatus = state.DisplayText;
-        else _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() => UpdateStatus = state.DisplayText);
+        if (_dispatcher.CheckAccess()) UpdateStatus = state.DisplayText;
+        else _ = _dispatcher.BeginInvoke(() => UpdateStatus = state.DisplayText);
     }
 
     public void Dispose()
     {
         if (_disposed) return;
         _updates.StateChanged -= OnUpdateStateChanged;
+        _messenger?.UnregisterAll(this);
         _disposed = true;
         GC.SuppressFinalize(this);
     }

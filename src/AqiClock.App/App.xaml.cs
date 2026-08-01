@@ -97,7 +97,7 @@ public partial class App : System.Windows.Application, IDisposable
         builder.Services.AddSingleton<ClockViewModel>(); builder.Services.AddSingleton<AnnouncementsViewModel>(); builder.Services.AddSingleton<MainViewModel>(); builder.Services.AddTransient<SignInViewModel>(); builder.Services.AddTransient<SettingsViewModel>();
         builder.Services.AddTransient<PasswordRecoveryViewModel>();
         builder.Services.AddTransient<StudentClassPickerViewModel>();
-        builder.Services.AddSingleton<TimetableEditorViewModel>(); builder.Services.AddSingleton<WeekScheduleViewModel>(); builder.Services.AddSingleton<OverridesViewModel>(); builder.Services.AddSingleton<ClassesViewModel>(); builder.Services.AddSingleton<AnnouncementComposeViewModel>(); builder.Services.AddSingleton<AuditViewModel>(); builder.Services.AddSingleton<UsersViewModel>(); builder.Services.AddSingleton<AdminViewModel>();
+        builder.Services.AddSingleton<TimetableEditorViewModel>(); builder.Services.AddSingleton<WeekScheduleViewModel>(); builder.Services.AddSingleton<OverridesViewModel>(); builder.Services.AddSingleton<ClassesViewModel>(); builder.Services.AddSingleton<AnnouncementComposeViewModel>(); builder.Services.AddSingleton<AuditViewModel>(); builder.Services.AddSingleton<UsersViewModel>(); builder.Services.AddSingleton<StudentDevicesViewModel>(); builder.Services.AddSingleton<AdminViewModel>();
         builder.Services.AddSingleton<MainWindow>(); builder.Services.AddTransient<SignInWindow>(); builder.Services.AddTransient<PasswordRecoveryWindow>(); builder.Services.AddTransient<SettingsWindow>(); builder.Services.AddTransient<AdminWindow>();
         builder.Services.AddTransient<RoleChoiceWindow>(); builder.Services.AddTransient<StudentClassPickerWindow>();
         return builder.Build();
@@ -108,6 +108,7 @@ public partial class App : System.Windows.Application, IDisposable
         IServiceProvider services = _host!.Services;
         ISettingsService settings = services.GetRequiredService<ISettingsService>(); settings.LoadAsync().GetAwaiter().GetResult();
         ThemeService theme = services.GetRequiredService<ThemeService>(); theme.Apply(settings.Current.Theme); settings.Changed += (_, changed) => Dispatcher.Invoke(() => theme.Apply(changed.Settings.Theme));
+        IDeviceAudienceContext audience = services.GetRequiredService<IDeviceAudienceContext>(); audience.RestoreAsync().GetAwaiter().GetResult();
         ISessionService session = services.GetRequiredService<ISessionService>(); session.RestoreAsync().GetAwaiter().GetResult();
         if (session.Current.UserId is not null) services.GetRequiredService<MainViewModel>().InitializeAsync().GetAwaiter().GetResult();
         services.GetRequiredService<StartupService>().Start();
@@ -118,7 +119,10 @@ public partial class App : System.Windows.Application, IDisposable
         IWindowService windows = services.GetRequiredService<IWindowService>();
         if (session.Current.UserId is not null)
         {
-            if (!_startMinimized && !settings.Current.StartMinimized) windows.ShowMainWindow();
+            bool studentReady = audience.Current.Role == DeviceAudienceRole.StudentDevice && audience.Current.SelectedClassIds.Count > 0;
+            bool studentNeedsSelection = audience.Current.Role == DeviceAudienceRole.StudentDevice && !studentReady;
+            if (studentNeedsSelection) windows.ShowStudentClassPickerWindow();
+            else if (WindowLifecycle.ShouldShowMainWindowAtStartup(studentReady, _startMinimized, settings.Current.StartMinimized)) windows.ShowMainWindow();
             _ = ObserveStartupSyncAsync(services.GetRequiredService<ISyncService>().StartAsync(), services.GetRequiredService<ILogger<App>>());
         }
         else windows.ShowRoleChoiceWindow();

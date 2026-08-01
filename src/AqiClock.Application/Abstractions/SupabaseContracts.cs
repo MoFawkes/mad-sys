@@ -4,14 +4,23 @@ using System.Text.Json.Nodes;
 
 public sealed record TableChangeSignal(CacheTable Table);
 
-public interface IRealtimeSubscription : IAsyncDisposable;
+public interface IRealtimeSubscription : IAsyncDisposable
+{
+    bool IsAlive => true;
+    event EventHandler? Closed { add { } remove { } }
+}
 
 public interface ISupabaseGateway
 {
     Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default);
+    Task<AuthenticatedSession> SignInAnonymouslyAsync(CancellationToken cancellationToken = default) =>
+        Task.FromException<AuthenticatedSession>(new NotSupportedException());
+    Task<Guid> EnrollStudentDeviceAsync(string joinCode, CancellationToken cancellationToken = default) =>
+        Task.FromException<Guid>(new NotSupportedException());
     Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default);
     Task CompletePasswordRecoveryAsync(string accessToken, string newPassword, CancellationToken cancellationToken = default);
     Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default);
+    Task RestoreAccessTokenAsync(StoredSession session, CancellationToken cancellationToken = default) => Task.CompletedTask;
     Task SignOutAsync(CancellationToken cancellationToken = default);
     Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default);
     Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default);
@@ -22,6 +31,12 @@ public interface ISupabaseGateway
     Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default);
     Task SetPeriodClassesAsync(Guid periodId, IReadOnlyCollection<Guid> classIds, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
+    Task<string> GetStudentJoinCodeAsync(CancellationToken cancellationToken = default) =>
+        Task.FromException<string>(new NotSupportedException());
+    Task<string> RotateStudentJoinCodeAsync(CancellationToken cancellationToken = default) =>
+        Task.FromException<string>(new NotSupportedException());
+    Task<int> RevokeStudentDevicesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromException<int>(new NotSupportedException());
     Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default);
     Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default);
 }

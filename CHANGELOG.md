@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.11.0 - Unreleased
+
+### Added
+
+- Added an Expo SDK 54 mobile companion for teachers and students with offline SQLite snapshots, live clock/today views, targeted announcements, local read state, and role-aware settings.
+- Added anonymous student-device enrolment, persisted class/Naseehah selection, additive read-only RLS, server-side announcement audience filtering, and release-gating signup/device matrices.
+- Added the same anonymous enrolment and persisted class/Naseehah choices to desktop student installations, with student-scoped snapshot and Realtime sync.
+- Added work-area-aware, persisted Admin and Settings window placement.
+- Added OS-scheduled lesson-start and end-warning reconciliation with a 60-request cap, best-effort background extension, permissions/channel handling, and announcement deduplication.
+- Added EAS development, preview, and production build profiles without store submission.
+- Added the stable Android package id and client-safe hosted Supabase configuration required for installable preview APKs.
+- Aligned all seven mobile routes to the approved visual references, including the integrated NOW card, stateful Today rows, announcement card anatomy, separated class/Naseehah picker sections, and role-correct Settings hierarchy.
+- Added admin-only student join-code distribution on desktop (grouped code, QR, rotation, revocation) and mobile (display/share), with revoked-device recovery and deep-link prefill.
+- Replaced the Expo template artwork with desktop quill-and-inkwell launcher, adaptive, splash, and favicon assets.
+
+### Changed
+
+- Enabled anonymous Auth creation while preserving invite-only teacher accounts through a fail-closed Before User Created hook.
+- Moved join codes out of `organizations` into an ungranted table behind admin-gated RPCs; rotation and device revocation are deliberately separate.
+- Ported the schedule engine to pure TypeScript with desktop-compatible event keys, wall-clock arithmetic, weekday conversion, and case-for-case tests.
+
+### Fixed
+
+- Kept valid staff sessions signed in through transient startup network failures and proactively persisted refreshed access tokens before expiry.
+- Kept the Admin editor usable during healthy `Syncing` transitions and preserved role-change banners.
+- Fixed clipped period-grid order/delete actions and made Admin/Settings usable on scaled 1366×768 displays.
+
+- Prevented anonymous identities from receiving staff profiles.
+- Treated untagged periods as school-wide on mobile so breaks and assemblies remain visible.
+- Baseline existing announcements only after the first complete announcements snapshot, preventing fresh-install notification bursts.
+- Surface inactive teacher accounts explicitly instead of showing an unexplained empty timetable.
+
 ## 0.10.0 - 2026-07-23
 
 ### Added

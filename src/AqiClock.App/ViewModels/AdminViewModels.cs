@@ -2,7 +2,10 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Text.Json.Nodes;
+using System.Windows;
+using System.Windows.Media.Imaging;
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Messages;
 using AqiClock.Application.Sync;
@@ -10,6 +13,7 @@ using AqiClock.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using QRCoder;
 
 namespace AqiClock.App.ViewModels;
 
@@ -17,7 +21,10 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
 {
     private readonly IWindowService _windows;
     [ObservableProperty] private bool _isOnline;
+    [ObservableProperty] private bool _isEditable;
     [ObservableProperty] private string? _banner;
+    private string? _roleBanner;
+    private string? _offlineBanner;
     public bool HasBanner => !string.IsNullOrWhiteSpace(Banner);
     public TimetableEditorViewModel Timetables { get; }
     public WeekScheduleViewModel WeekSchedule { get; }
@@ -26,16 +33,23 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
     public AuditViewModel Audit { get; }
     public UsersViewModel Users { get; }
     public ClassesViewModel? Classes { get; }
+    public StudentDevicesViewModel? StudentDevices { get; }
 
     public AdminViewModel(TimetableEditorViewModel timetables, WeekScheduleViewModel weekSchedule, OverridesViewModel overrides, AnnouncementComposeViewModel announcements, AuditViewModel audit, UsersViewModel users, ISyncService sync, IWindowService windows, IMessenger messenger)
     {
-        Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements; Audit = audit; Users = users; _windows = windows; IsOnline = sync.State == ConnectivityState.Online;
+        Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements; Audit = audit; Users = users; _windows = windows; InitializeConnectivity(sync.State);
         messenger.Register<SessionChanged>(this); messenger.Register<ConnectivityChanged>(this);
     }
 
     public AdminViewModel(TimetableEditorViewModel timetables, WeekScheduleViewModel weekSchedule, OverridesViewModel overrides, AnnouncementComposeViewModel announcements, AuditViewModel audit, UsersViewModel users, ClassesViewModel classes, ISyncService sync, IWindowService windows, IMessenger messenger)
     {
-        Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements; Audit = audit; Users = users; Classes = classes; _windows = windows; IsOnline = sync.State == ConnectivityState.Online;
+        Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements; Audit = audit; Users = users; Classes = classes; _windows = windows; InitializeConnectivity(sync.State);
+        messenger.Register<SessionChanged>(this); messenger.Register<ConnectivityChanged>(this);
+    }
+
+    public AdminViewModel(TimetableEditorViewModel timetables, WeekScheduleViewModel weekSchedule, OverridesViewModel overrides, AnnouncementComposeViewModel announcements, AuditViewModel audit, UsersViewModel users, ClassesViewModel classes, StudentDevicesViewModel studentDevices, ISyncService sync, IWindowService windows, IMessenger messenger)
+    {
+        Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements; Audit = audit; Users = users; Classes = classes; StudentDevices = studentDevices; _windows = windows; InitializeConnectivity(sync.State);
         messenger.Register<SessionChanged>(this); messenger.Register<ConnectivityChanged>(this);
     }
 
@@ -45,6 +59,7 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
     {
         List<Task> tasks = [Timetables.LoadAsync(token), WeekSchedule.LoadAsync(token), Overrides.LoadAsync(token), Announcements.LoadAsync(token), Audit.LoadAsync(token), Users.LoadAsync(token)];
         if (Classes is not null) tasks.Add(Classes.LoadAsync(token));
+        if (StudentDevices is not null) tasks.Add(StudentDevices.LoadAsync(token));
         await Task.WhenAll(tasks);
     }
     public void Receive(SessionChanged message) => RunOnUiThread(() =>
@@ -52,21 +67,158 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
         if (message.State.Role != UserRole.Admin)
         {
             const string reason = "Your role changed. The admin editor has been closed.";
-            Banner = reason;
+            _roleBanner = reason;
+            UpdateBanner();
         }
     });
 
     public void Receive(ConnectivityChanged message) => RunOnUiThread(() =>
     {
         IsOnline = message.State == ConnectivityState.Online;
-        Banner = IsOnline ? null : "Editing is unavailable while offline.";
+        IsEditable = message.State != ConnectivityState.Offline;
+        _offlineBanner = message.State == ConnectivityState.Offline ? "Editing is unavailable while offline." : null;
+        UpdateBanner();
     });
+
+    private void InitializeConnectivity(ConnectivityState state)
+    {
+        IsOnline = state == ConnectivityState.Online;
+        IsEditable = state != ConnectivityState.Offline;
+        _offlineBanner = state == ConnectivityState.Offline ? "Editing is unavailable while offline." : null;
+        UpdateBanner();
+    }
+
+    private void UpdateBanner() => Banner = _roleBanner ?? _offlineBanner;
 
     private static void RunOnUiThread(Action action)
     {
         System.Windows.Threading.Dispatcher? dispatcher = System.Windows.Application.Current?.Dispatcher;
         if (dispatcher is null || !dispatcher.Thread.IsAlive || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished || dispatcher.CheckAccess()) action();
         else _ = dispatcher.BeginInvoke(action);
+    }
+}
+
+public partial class StudentDevicesViewModel(
+    ISupabaseGateway gateway,
+    IWindowService windows) : ObservableObject
+{
+    [ObservableProperty] private string _code = string.Empty;
+    [ObservableProperty] private BitmapImage? _qrCode;
+    [ObservableProperty] private string? _message;
+    [ObservableProperty] private bool _isBusy;
+
+    public string DisplayCode =>
+        string.Join(' ', Enumerable.Range(0, Code.Length / 4).Select(index => Code.Substring(index * 4, 4)));
+    public string EnrollmentLink => string.IsNullOrEmpty(Code)
+        ? string.Empty
+        : $"aqiclock-mobile://student-setup?code={Code}";
+
+    partial void OnCodeChanged(string value)
+    {
+        OnPropertyChanged(nameof(DisplayCode));
+        OnPropertyChanged(nameof(EnrollmentLink));
+        QrCode = string.IsNullOrWhiteSpace(value) ? null : BuildQrCode(EnrollmentLink);
+    }
+
+    public async Task LoadAsync(CancellationToken token = default)
+    {
+        IsBusy = true;
+        try
+        {
+            Code = await gateway.GetStudentJoinCodeAsync(token);
+            Message = null;
+        }
+        catch (ServerDeniedException)
+        {
+            Message = "Your role changed.";
+            windows.CloseAdminWindow("Your role changed. The admin editor has been closed.");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CopyCode()
+    {
+        if (!string.IsNullOrWhiteSpace(DisplayCode)) Clipboard.SetText(DisplayCode);
+    }
+
+    [RelayCommand]
+    private void CopyLink()
+    {
+        if (!string.IsNullOrWhiteSpace(EnrollmentLink)) Clipboard.SetText(EnrollmentLink);
+    }
+
+    [RelayCommand]
+    private async Task RotateAsync(CancellationToken token)
+    {
+        if (!windows.Confirm(
+                "Create a new join code? Phones already enrolled will keep working. The old code will stop accepting new phones.",
+                "Create new student join code"))
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            Code = await gateway.RotateStudentJoinCodeAsync(token);
+            Message = "A new code is ready. Existing student devices remain enrolled.";
+        }
+        catch (ServerDeniedException)
+        {
+            Message = "Your role changed.";
+            windows.CloseAdminWindow("Your role changed. The admin editor has been closed.");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RevokeAsync(CancellationToken token)
+    {
+        if (!windows.Confirm(
+                "Remove every enrolled student device? Their clocks will stop syncing until they enrol again with the current join code.",
+                "Remove all student devices"))
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            int removed = await gateway.RevokeStudentDevicesAsync(token);
+            Message = removed == 1 ? "1 student device removed." : $"{removed} student devices removed.";
+        }
+        catch (ServerDeniedException)
+        {
+            Message = "Your role changed.";
+            windows.CloseAdminWindow("Your role changed. The admin editor has been closed.");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private static BitmapImage BuildQrCode(string content)
+    {
+        using QRCodeData data = QRCodeGenerator.GenerateQrCode(
+            content, QRCodeGenerator.ECCLevel.Q);
+        using var qr = new PngByteQRCode(data);
+        byte[] bytes = qr.GetGraphic(12, drawQuietZones: true);
+        using var stream = new MemoryStream(bytes);
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.StreamSource = stream;
+        image.EndInit();
+        image.Freeze();
+        return image;
     }
 }
 

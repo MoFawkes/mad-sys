@@ -13,6 +13,8 @@ public enum TestPersona
     Admin,
     Deactivated,
     CrossOrg,
+    StudentDevice,
+    UnenrolledStudent,
 }
 
 /// <summary>
@@ -44,6 +46,9 @@ public sealed class SupabaseFixture : IAsyncLifetime, IDisposable
     public Guid StaffUserId { get; private set; }
     public Guid DeactivatedUserId { get; private set; }
     public Guid CrossOrgUserId { get; private set; }
+    public Guid StudentDeviceUserId { get; private set; }
+    public Guid UnenrolledStudentUserId { get; private set; }
+    public string StudentJoinCode { get; private set; } = string.Empty;
     public Guid ProbeAnnouncementId { get; private set; }
     public Guid ProbeDateOverrideId { get; private set; }
 
@@ -79,6 +84,27 @@ public sealed class SupabaseFixture : IAsyncLifetime, IDisposable
         _tokens[TestPersona.Staff] = await SignInAsync(Email("staff1"));
         _tokens[TestPersona.CrossOrg] = await SignInAsync(Email("crossorg1"));
         _tokens[TestPersona.Deactivated] = await SignInAsync(Email("deact1"));
+
+        (StudentDeviceUserId, _tokens[TestPersona.StudentDevice]) =
+            await CreateAnonymousSessionAsync();
+        (UnenrolledStudentUserId, _tokens[TestPersona.UnenrolledStudent]) =
+            await CreateAnonymousSessionAsync();
+        StudentJoinCode = (await SqlScalarAsync<string>(
+            "select code from public.organization_join_codes where org_id = $1",
+            OrgAId))!;
+        using (HttpResponseMessage enrollment = await RestAsync(
+            TestPersona.StudentDevice,
+            HttpMethod.Post,
+            "rpc/enroll_student_device",
+            new JsonObject { ["join_code"] = StudentJoinCode }))
+        {
+            string payload = await enrollment.Content.ReadAsStringAsync();
+            if (!enrollment.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException(
+                    $"Student-device enrollment failed ({(int)enrollment.StatusCode}): {payload}");
+            }
+        }
 
         // Deactivate AFTER sign-in: the matrix must prove a still-valid JWT is useless.
         await SqlAsync(
@@ -175,6 +201,50 @@ public sealed class SupabaseFixture : IAsyncLifetime, IDisposable
     public Task<Guid> CreateUserWithMetadataAsync(string email, string displayName) =>
         CreateUserAsync(email, new JsonObject { ["display_name"] = displayName });
 
+    public async Task<HttpResponseMessage> PublicEmailSignupAsync(string email)
+    {
+        var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"{SupabaseEnvironment.Url}/auth/v1/signup")
+        {
+            Content = JsonContent.Create(new JsonObject
+            {
+                ["email"] = email,
+                ["password"] = Password,
+            }),
+        };
+        request.Headers.Add("apikey", SupabaseEnvironment.AnonKey);
+        return await _http.SendAsync(request);
+    }
+
+    private async Task<(Guid UserId, string AccessToken)> CreateAnonymousSessionAsync()
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"{SupabaseEnvironment.Url}/auth/v1/signup")
+        {
+            Content = JsonContent.Create(new JsonObject
+            {
+                ["data"] = new JsonObject(),
+                ["gotrue_meta_security"] = new JsonObject(),
+            }),
+        };
+        request.Headers.Add("apikey", SupabaseEnvironment.AnonKey);
+
+        HttpResponseMessage response = await _http.SendAsync(request);
+        string payload = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(
+                $"Anonymous sign-in failed ({(int)response.StatusCode}): {payload}");
+        }
+
+        JsonNode document = JsonNode.Parse(payload)!;
+        return (
+            Guid.Parse(document["user"]!["id"]!.GetValue<string>()),
+            document["access_token"]!.GetValue<string>());
+    }
+
     private async Task DeleteUserAsync(Guid userId)
     {
         using var request = new HttpRequestMessage(
@@ -211,6 +281,7 @@ public sealed class SupabaseFixture : IAsyncLifetime, IDisposable
     private async Task DeletePersonaUsersAsync()
     {
         string[] emails = [Email("admin1"), Email("admin2"), Email("staff1"), Email("deact1"), Email("crossorg1")];
+        await SqlAsync("delete from auth.users where is_anonymous");
         await SqlAsync("delete from public.periods where name like 'Matrix period %' or name like 'Disposable %'");
         await SqlAsync("delete from public.date_overrides where note like 'Matrix override %' or note = 'disposable'");
         await SqlAsync("delete from public.timetables where name like 'Matrix timetable %' or name like 'Disposable %' or name like 'Gateway %'");

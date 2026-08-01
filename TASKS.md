@@ -110,6 +110,28 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [ ] Confirm business inputs B-1 … B-8 with owner (defaults accepted; B-8 asset still outstanding).
 - [ ] **Pre-wide-rollout gate:** code-signing certificate acquired and signing wired into the pipeline (ADR-010); Supabase tier reviewed for Realtime connection limits (B-6); .NET upgrade to current LTS scheduled (.NET 8 EOL Nov 2026, ADR-002).
 
+## v0.11.0 — Expo mobile companion
+
+- [x] Desktop QoL follow-up: resilient staff restore, proactive token refresh, anonymous student-device enrolment/sync, persisted student choices, stable Admin connectivity state, adaptive dialog placement, and unclipped grid actions.
+
+- [x] Expo SDK 54 + TypeScript + expo-router scaffold under `mobile/`, with an independent Node 20 CI job.
+- [x] Pure TypeScript schedule engine and audience predicates with weekday, wall-clock, DST, and desktop-compatible key tests.
+- [x] SecureStore session persistence, ordered SQLite migrations, transactional snapshot sync, signal-only Realtime, and offline clock.
+- [x] Teacher sign-in and anonymous student enrolment with persistent personal class/Naseehah choices.
+- [x] Additive student-device RLS, fail-closed signup hook, signup matrix, and server-side confidential-announcement filtering.
+- [x] Read-only announcements with local read state and first-snapshot notification baseline.
+- [x] OS-scheduled lesson notification reconciliation, 60-request cap, permissions/channel setup, and background extension task.
+- [x] Role-aware settings, inactive-account state, cache-wiping exits, and EAS build profiles.
+- [x] Add stable Android package id plus tracked, client-safe mobile Supabase build configuration.
+- [x] Presentation-only alignment of all seven routes to `mobile/design/`, preserving the corrected navigation graph and existing behavior tests.
+- [x] Isolate join codes in an ungranted table; add admin-gated reveal/rotate/revoke RPCs, desktop code/QR controls, mobile share/prefill, and revoked-device recovery.
+- [x] Replace Expo template icons with desktop quill-and-inkwell launcher, adaptive, splash, and favicon artwork.
+- [x] Documentation and v0.11.0 release metadata sweep.
+- [ ] Configure hosted anonymous/global signup toggles, Before User Created hook, and `aqiclock-mobile://reset-password`.
+- [ ] Complete teacher/student physical-device, offline-overnight, three-day horizon, and Android 13+ drift acceptance.
+- [ ] Decide whether measured Android drift requires the separate server-push project.
+- [ ] No store submission in v0.11.0.
+
 ## Post-MVP backlog (unordered — see SPECIFICATION.md §4)
 
 - [ ] Align Settings/Admin fine detail to the approved concept (for example,
@@ -122,3 +144,5 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [ ] Week view, printing, ICS export.
 - [ ] Synced preferences; localisation (Arabic/RTL); kiosk display mode.
 - [ ] Multi-organisation UI.
+- [ ] Align desktop student notification matching for untagged school-wide periods with mobile ADR-020 semantics, or document the intentional difference.
+- [ ] Restrict join-code disclosure and add rotation; maintain student-device liveness and anonymous-user cleanup.

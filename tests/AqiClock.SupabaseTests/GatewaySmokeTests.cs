@@ -17,6 +17,17 @@ public sealed class GatewaySmokeTests(SupabaseFixture fixture)
     }
 
     [SupabaseFact]
+    public async Task WrongPasswordAndRevokedRefreshTokenAreClassifiedSeparately()
+    {
+        using SupabaseGateway gateway = CreateGateway();
+
+        await Assert.ThrowsAsync<CredentialRejectedException>(() =>
+            gateway.SignInAsync(SupabaseFixture.Email("staff1"), "wrong-password"));
+        await Assert.ThrowsAsync<AuthenticationRejectedException>(() =>
+            gateway.RefreshSessionAsync(new StoredSession("unused", "missing-refresh-token", DateTimeOffset.UtcNow)));
+    }
+
+    [SupabaseFact]
     public async Task SignInPullWriteAndRepullUseTheRealDataApi()
     {
         using SupabaseGateway gateway = CreateGateway();

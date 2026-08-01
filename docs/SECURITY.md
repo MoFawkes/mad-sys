@@ -1,77 +1,53 @@
 # AQI Clock — Security Design
 
-Status: Draft 1.0 (planning) · Last updated: 2026-07-15
+Status: Implemented · Last updated: 2026-07-28
 
-Threat model: a small-school internal tool. Primary risks are (1) staff modifying timetable data they shouldn't, (2) leaked credentials/keys, (3) a stolen/shared laptop exposing a session. Not in scope: nation-state attackers, malicious admins (they legitimately hold write access; audit log is the control).
+The primary risks are unauthorised timetable changes, staff-directory disclosure to student devices, leaked credentials or keys, and retained sessions on lost/shared devices. RLS is the authorisation boundary; clients are not trusted to enforce confidentiality.
 
----
+## Authentication and roles
 
-## 1. Authentication
+Teachers and administrators use invited email/password accounts. Profiles store `teacher`, `admin`, or reserved `graduate`; roles are not trusted from JWT user metadata. A restored cached admin is treated as teacher-level until a fresh profiles snapshot confirms it. A successful profiles pull with no own row produces the explicit inactive-account state.
 
-- Supabase Auth, **email + password** only in MVP (no OAuth — school staff may not have Google/Microsoft org accounts; revisit post-MVP).
-- Invite-only: global signups are disabled in Supabase Auth settings; the email provider remains enabled so invited/admin-created users can sign in. Admins create users in the Supabase dashboard (MVP), which fires the invite/confirmation email.
-- Password policy: Supabase minimum length set to 10. Leaked-password protection is required after the post-pilot Pro-plan review; Supabase does not expose it on the Free pilot tier.
-- Password reset: standard Supabase email flow, initiated from the sign-in screen.
-- The app ships only the **anon key** + project URL (safe to embed by design — all authority comes from RLS + the user's JWT). The **service-role key is never** in the client, the repo, or CI variables accessible to the build; it is used only by humans/migration tooling.
+Public email signup remains blocked even though GoTrue's global signup flag must be enabled for anonymous sign-in. The `private.before_user_created` Auth hook allows only payloads positively identified as anonymous and fails closed otherwise. Admin API creation bypasses the hook and remains the teacher-account provisioning path. The hook and signup matrix are release-gating and must also be configured in the hosted Auth dashboard.
 
-## 2. Authorisation model
+Mobile and desktop students sign in anonymously and enrol with a 16-character organisation join code through `public.enroll_student_device`. They have an Auth identity but no profile. Read-only student RLS supplies each enrolled device with its own organisation snapshot and Realtime updates.
 
-- Two roles, `staff` and `admin`, stored in `profiles.role` (Postgres), never in client-editable storage and never trusted from the client.
-- UI hides admin surfaces based on the cached profile, but this is cosmetic; **every** privilege boundary is enforced by RLS server-side.
-- Last-admin protection: a trigger rejects a role change or deactivation that would leave the org with zero active admins.
+The join code is a distributable shared secret stored in the ungranted `organization_join_codes` table. Admin-gated RPCs reveal or rotate it; no persona can read the table through PostgREST. Rotation blocks future use of the old code without removing already-enrolled phones. The separate revocation RPC deletes all device enrolments and is the response to disclosure. Audit rows record rotation time or revoked-device count, never the credential.
 
-## 3. Row Level Security policies (normative)
+## RLS boundaries
 
-Helper functions (SECURITY DEFINER, `stable`):
-```sql
-current_org_id() → (select org_id from profiles where id = auth.uid() and is_active)
-is_admin()       → exists(select 1 from profiles where id = auth.uid() and role='admin' and is_active)
-```
+- Active teachers read their organisation; administrators alone receive normal data write policies.
+- Student devices resolve their organisation through their own `student_devices` row.
+- Student devices can read schedules, classes, and eligible announcements, but never `profiles` or `audit_log`.
+- Student announcement RLS removes drafts, deleted/future rows, and teacher/graduate audiences before data reaches the phone.
+- Client predicates still enforce publication/expiry and the selected AM/PM/class audience. They remain required for teachers, whose broader organisation policy is unchanged.
+- Devices receive no write policy. Existing admin predicates fail because anonymous identities have no profile.
+- `student_devices` is not in the Realtime publication.
 
-| Table | SELECT | INSERT / UPDATE / DELETE |
-|---|---|---|
-| organizations | org members (id = current_org_id()) | none from client (dashboard only) |
-| profiles | org members | UPDATE own row, `display_name` only (column-guard trigger); admin may update role/is_active/display_name of org rows; no client INSERT/DELETE (auth trigger creates rows) |
-| timetables, periods, week_schedule, date_overrides, announcements | org members (org_id = current_org_id(); periods via their timetable's org) | admin only, and `is_active` must be true; new rows forced to `org_id = current_org_id()` via WITH CHECK |
-| audit_log | admin only | **no policies** — writes happen inside SECURITY DEFINER trigger function only |
+All `SECURITY DEFINER` helpers set an empty `search_path`, use explicit schema names, and have narrowly assigned execute grants. The public enrolment RPC verifies both `auth.uid()` and the anonymous JWT claim.
 
-Additional guards:
-- Deactivated users (`is_active = false`): `current_org_id()` returns null → every policy fails → instant lockout even with a valid unexpired JWT.
-- All policies use `WITH CHECK` mirrors of their `USING` clauses so rows cannot be moved across orgs.
-- CHECK constraints (times, text lengths, role values) back up client validation.
-- Realtime: authorization enabled so change events respect RLS.
-- RLS tests are release-blocking in CI (ARCHITECTURE.md §9): for each table × role × (own org / other org) assert allow/deny.
+## Client secrets and storage
 
-Hardening details implemented by the migrations:
-- All `SECURITY DEFINER` helpers live in the unexposed `private` schema and use `set search_path = ''`; names in policies are fully qualified.
-- Default function execution is revoked. Only `authenticated` receives `USAGE` on `private` and `EXECUTE` on the two RLS lookup helpers; trigger functions are not client-callable.
-- Data API table privileges are explicit: `anon` receives none, while `authenticated` receives only the operations for which an RLS policy exists. RLS remains the row-level authority.
-- RLS helper calls are wrapped in scalar `select` expressions so Postgres can cache them per statement.
+Only the project URL and a client-safe publishable key (`sb_publishable_*`) belong in either client. A service-role or secret key must never enter source, EAS variables, binaries, logs, or device storage. No code assumes the publishable key has JWT shape.
 
-## 4. Client-side storage security
+Windows persists the staff session with DPAPI. Mobile uses an atomic generation-switched, chunked Expo SecureStore adapter because a Supabase session exceeds SecureStore's per-value limit. Mobile SQLite contains low-sensitivity timetable and announcement data but no credentials.
 
-| Data | Location | Protection |
-|---|---|---|
-| Supabase session (access + refresh token) | `%LOCALAPPDATA%\AqiClock\session.bin` | Encrypted with **DPAPI, CurrentUser scope** — unreadable by other Windows accounts |
-| Password-recovery access token | Process memory only | Accepted only from the exact `aqiclock://reset-password` recovery URI; never logged or persisted; the temporary refresh session is revoked after the password update and the short-lived access JWT expires normally |
-| SQLite cache | `cache.db` | Not encrypted (timetables/announcements are low-sensitivity); contains no credentials. Accepted risk, revisit if sensitive data is ever cached |
-| Settings | `settings.json` | Plain JSON, nothing sensitive permitted in it |
-| Logs | `logs\` | Serilog scrubbing rule: never log tokens, passwords, or full JWTs; 7-day rolling retention |
+Mobile teacher sign-out and End student session both cancel pending lesson notifications, sign out, clear preferences, and wipe SQLite. Windows sign-out removes the credential and persisted student selection/enrolment while retaining low-sensitivity reference cache data for offline display.
 
-Sign-out wipes `session.bin` only. The shared reference cache (`cache.db` — timetables, classes, periods, announcements) is deliberately left intact: audience-aware Student devices rely on that cache surviving a Teacher/Admin sign-out on the same shared machine (see `feature/audience-aware-app`). Since `cache.db` holds no credentials and is already documented above as low-sensitivity, this does not weaken shared-machine hygiene for the data that actually matters (the session token).
+Recovery uses distinct schemes: `aqiclock://reset-password` on desktop and `aqiclock-mobile://reset-password` on mobile. Both exact redirects must be allow-listed in hosted Supabase Auth. Recovery tokens are handled in memory and never logged.
 
-## 5. Transport and update security
+## Transport, offline use, and privacy
 
-- All Supabase traffic is HTTPS/WSS (client refuses plain HTTP endpoints).
-- Updates: Velopack packages are fetched over HTTPS from the release host; releases are checksummed by Velopack. Code signing (OV cert) is a **pre-rollout requirement** — until then, first-install SmartScreen warnings are documented for IT.
-- Dependencies: NuGet lock files committed; Dependabot/`dotnet list package --vulnerable` in CI.
+Production endpoints require HTTPS/WSS. Loopback HTTP is permitted only for the local Supabase test stack.
 
-## 6. Auditability
+Offline mode is read-only. The UI reads SQLite indefinitely and shows the last complete sync time, escalating after seven days. OS-scheduled mobile lesson notifications continue from the cached plan while offline.
 
-- Server-side trigger-based audit (DATABASE.md §1.8): tamper-resistant from the client, captures actor from `auth.uid()`, before/after images, server timestamps.
-- Audit rows are append-only; no UPDATE/DELETE grants or policies exist for any role including admin (retention/pruning would be a dashboard/service-role operation, B-5).
+The service stores staff identity and role plus anonymous device identifiers and local class preferences. It does not store student names, email addresses, attendance, or other personal student records.
 
-## 7. Privacy
+## Known release risks
 
-- Personal data held: staff name + email + role. No student data anywhere in the system (worth keeping true — it keeps the compliance surface minimal).
-- Data residency: choose the Supabase region nearest the school at project creation (owner input at setup; default `eu-west-2`).
+- `student_devices.last_seen_at` changes only during enrolment/re-enrolment and is not yet a reliable liveness signal.
+- Anonymous Auth users accumulate until a cleanup policy is implemented.
+- Hosted Auth hook, anonymous-signin toggle, signup toggle, and both recovery redirects require dashboard configuration as well as repository configuration.
+- Physical Android 13+ notification drift remains a release-blocking measurement; the app intentionally requests no restricted exact-alarm permission.
+- Supabase tier/realtime-message volume must be reviewed before wide mobile rollout.

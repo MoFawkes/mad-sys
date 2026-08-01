@@ -1,16 +1,16 @@
 -- Post-migration assertions for the incremental-migration rehearsal.
 -- Runs after `supabase migration up` has applied
--- 20260720153657_app_roles_audiences_announcements.sql on top of the
--- production-like baseline loaded by production_state.sql.
+-- the pending v0.10.0 and v0.11.0 migrations on top of the production-like
+-- baseline loaded by production_state.sql.
 -- Every failure raises, which fails the psql run via ON_ERROR_STOP.
 
--- Migration history took the incremental path: all four versions recorded.
+-- Migration history took the incremental path: all seven versions recorded.
 do $$
 declare versions text;
 begin
     select string_agg(version, ',' order by version) into versions
     from supabase_migrations.schema_migrations;
-    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657' then
+    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650' then
         raise exception 'Unexpected migration history: %', versions;
     end if;
 end $$;

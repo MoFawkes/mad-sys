@@ -5,8 +5,9 @@
                  Title="Settings — AQI Clock"
                  Width="700"
                  Height="780"
-                 MinWidth="580"
-                 MinHeight="620"
+                 MinWidth="560"
+                 MinHeight="420"
+                 ResizeMode="CanResizeWithGrip"
                  WindowStartupLocation="CenterOwner"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Mica">

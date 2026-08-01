@@ -1,6 +1,7 @@
 using AqiClock.Domain.Entities;
 using AqiClock.Application.Messages;
 using CommunityToolkit.Mvvm.Messaging;
+using System.Text.Json;
 
 namespace AqiClock.Application.Abstractions;
 
@@ -15,9 +16,12 @@ public sealed record DeviceAudience(
 public interface IDeviceAudienceContext
 {
     DeviceAudience Current { get; }
+    Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     void SetTeacher(UserRole role);
     void SetStudent(IEnumerable<Guid> classIds, IEnumerable<SessionHalfDay> optedHalfDays);
+    Task SetStudentAsync(IEnumerable<Guid> classIds, IEnumerable<SessionHalfDay> optedHalfDays, CancellationToken cancellationToken = default) { SetStudent(classIds, optedHalfDays); return Task.CompletedTask; }
     void Clear();
+    Task ClearAsync(CancellationToken cancellationToken = default) { Clear(); return Task.CompletedTask; }
     bool Matches(Announcement announcement);
     bool MatchesPeriod(IReadOnlySet<Guid> periodClassIds);
 }
@@ -25,8 +29,10 @@ public interface IDeviceAudienceContext
 public sealed class DeviceAudienceContext : IDeviceAudienceContext
 {
     private readonly IMessenger _messenger;
+    private readonly ILocalCache? _cache;
+    private const string PreferencesKey = "student_preferences";
 
-    public DeviceAudienceContext(IMessenger messenger) => _messenger = messenger;
+    public DeviceAudienceContext(IMessenger messenger, ILocalCache? cache = null) { _messenger = messenger; _cache = cache; }
 
     public DeviceAudience Current { get; private set; } =
         new(DeviceAudienceRole.Teacher, new HashSet<Guid>(), new HashSet<SessionHalfDay>());
@@ -36,13 +42,45 @@ public sealed class DeviceAudienceContext : IDeviceAudienceContext
         new HashSet<Guid>(),
         new HashSet<SessionHalfDay>()));
 
-    public void SetStudent(IEnumerable<Guid> classIds, IEnumerable<SessionHalfDay> optedHalfDays) =>
+    public void SetStudent(IEnumerable<Guid> classIds, IEnumerable<SessionHalfDay> optedHalfDays)
+    {
+        if (_cache is not null) throw new InvalidOperationException("Persisted student audiences must be set asynchronously.");
         SetCurrent(new(DeviceAudienceRole.StudentDevice, classIds.ToHashSet(), optedHalfDays.ToHashSet()));
+    }
+
+    public async Task SetStudentAsync(IEnumerable<Guid> classIds, IEnumerable<SessionHalfDay> optedHalfDays, CancellationToken cancellationToken = default)
+    {
+        DeviceAudience state = new(DeviceAudienceRole.StudentDevice, classIds.ToHashSet(), optedHalfDays.ToHashSet());
+        if (_cache is not null)
+        {
+            await _cache.InitializeAsync(cancellationToken).ConfigureAwait(false);
+            await _cache.SetMetaAsync(PreferencesKey, JsonSerializer.Serialize(new StudentPreferences(state.SelectedClassIds.ToArray(), state.OptedHalfDays.ToArray())), cancellationToken).ConfigureAwait(false);
+        }
+        SetCurrent(state);
+    }
+
+    public async Task RestoreAsync(CancellationToken cancellationToken = default)
+    {
+        if (_cache is null) return;
+        await _cache.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        string? json = await _cache.GetMetaAsync(PreferencesKey, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json)) return;
+        StudentPreferences? preferences = JsonSerializer.Deserialize<StudentPreferences>(json);
+        if (preferences is not null) SetCurrent(new(DeviceAudienceRole.StudentDevice, preferences.SelectedClassIds.ToHashSet(), preferences.OptedHalfDays.ToHashSet()));
+    }
 
     public void Clear() => SetCurrent(new(
         DeviceAudienceRole.Teacher,
         new HashSet<Guid>(),
         new HashSet<SessionHalfDay>()));
+
+    public async Task ClearAsync(CancellationToken cancellationToken = default)
+    {
+        if (_cache is not null) await _cache.SetMetaAsync(PreferencesKey, string.Empty, cancellationToken).ConfigureAwait(false);
+        Clear();
+    }
+
+    private sealed record StudentPreferences(Guid[] SelectedClassIds, SessionHalfDay[] OptedHalfDays);
 
     private void SetCurrent(DeviceAudience state)
     {

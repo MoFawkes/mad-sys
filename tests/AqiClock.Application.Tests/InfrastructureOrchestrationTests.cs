@@ -8,6 +8,9 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Supabase.Realtime.Exceptions;
+using AqiClock.App.Services;
+using System.Net.Http;
+using System.Windows;
 
 namespace AqiClock.Application.Tests;
 
@@ -51,6 +54,236 @@ public sealed class InfrastructureOrchestrationTests
 
         Assert.True(service.Current.RequiresSignIn);
         Assert.Equal(0, cache.WipeCount);
+    }
+
+    [Fact]
+    public void OversizedDialogPlacementIsClampedInsideWorkArea()
+    {
+        WindowPlacement actual = WindowPlacements.Clamp(new WindowPlacement(-500, -300, 1400, 900), 0, 0, 1092, 614, 900, 480);
+        Assert.Equal(new WindowPlacement(0, 0, 1092, 614), actual);
+    }
+
+    [Fact]
+    public void SavedAdminPlacementStaysOnSecondaryAndClampsToItsWorkArea()
+    {
+        WindowPlacement actual = WindowPlacements.Clamp(
+            new WindowPlacement(2600, 10, 1120, 780),
+            2560, 0, 1280, 720, 900, 480);
+
+        Assert.Equal(new WindowPlacement(2600, 0, 1120, 720), actual);
+    }
+
+    [Fact]
+    public void SavedAdminPlacementFitsScaledSmallScreenWorkArea()
+    {
+        WindowPlacement actual = WindowPlacements.Clamp(
+            new WindowPlacement(0, 0, 1120, 780),
+            0, 0, 911, 485, 900, 480);
+
+        Assert.Equal(new WindowPlacement(0, 0, 911, 485), actual);
+    }
+
+    [Theory]
+    [InlineData(1120, 780)]
+    [InlineData(700, 780)]
+    public void FirstRunDialogPlacementFitsMeasuredSmallScreen(double width, double height)
+    {
+        WindowPlacement actual = WindowPlacements.Clamp(
+            new WindowPlacement(80, 0, width, height),
+            0, 0, 1280, 720, 560, 420);
+
+        Assert.True(actual.Height <= 720);
+        Assert.InRange(actual.Left, 0, 1280 - actual.Width);
+        Assert.InRange(actual.Top, 0, 720 - actual.Height);
+    }
+
+    [Fact]
+    public void MissingDialogPlacementUsesCurrentBoundsAndClampsToFit()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new Window { WindowStartupLocation = WindowStartupLocation.CenterOwner };
+                using var controller = new WindowPlacementController(
+                    window,
+                    new SettingsStub(),
+                    settings => settings.AdminPlacement,
+                    (settings, placement) => settings with { AdminPlacement = placement },
+                    Microsoft.Extensions.Logging.Abstractions.NullLogger<WindowPlacementController>.Instance);
+
+                controller.RestorePlacement(
+                    new WindowPlacement(80, 0, 1120, 780),
+                    new Rect(0, 0, 1280, 720));
+
+                Assert.Equal(WindowStartupLocation.Manual, window.WindowStartupLocation);
+                Assert.Equal(80, window.Left);
+                Assert.Equal(0, window.Top);
+                Assert.Equal(1120, window.Width);
+                Assert.Equal(720, window.Height);
+            }
+            catch (Exception exception) { failure = exception; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+
+        Assert.True(thread.Join(TimeSpan.FromSeconds(10)), "Window placement test timed out.");
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void OverflowingDialogPlacementFallsBackToCenterOwnerWithoutThrowing()
+    {
+        Exception? failure = null;
+        var logger = new WarningLogger<WindowPlacementController>();
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new Window
+                {
+                    Width = 1120,
+                    Height = 780,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                };
+                var settings = new SettingsStub(new AppSettings
+                {
+                    AdminPlacement = new WindowPlacement(1e18, 1e18, 1120, 780),
+                });
+                using var controller = new WindowPlacementController(
+                    window,
+                    settings,
+                    value => value.AdminPlacement,
+                    (value, placement) => value with { AdminPlacement = placement },
+                    logger);
+
+                controller.RestorePlacement();
+
+                Assert.Equal(WindowStartupLocation.CenterOwner, window.WindowStartupLocation);
+                Assert.True(double.IsNaN(window.Left));
+                Assert.True(double.IsNaN(window.Top));
+                Assert.Equal(1120, window.Width);
+                Assert.Equal(780, window.Height);
+            }
+            catch (Exception exception) { failure = exception; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+
+        Assert.True(thread.Join(TimeSpan.FromSeconds(10)), "Corrupt placement test timed out.");
+        Assert.Null(failure);
+        Assert.Equal(1, logger.WarningCount);
+    }
+
+    [Fact]
+    public async Task SessionRestoreUsesCachedProfileWhenNetworkIsUnavailable()
+    {
+        Guid userId = Guid.NewGuid();
+        var stored = new StoredSession(JwtFor(userId), "refresh", DateTimeOffset.UtcNow.AddMinutes(30));
+        var store = new FakeSessionStore { Session = stored };
+        var gateway = new FakeGateway { RefreshException = new HttpRequestException("offline") };
+        using var service = new SessionService(store, gateway, new FakeProfiles(new Profile(userId, "Teacher", UserRole.Teacher, true)), new FakeCache(), new WeakReferenceMessenger());
+
+        await service.RestoreAsync();
+
+        Assert.Equal(userId, service.Current.UserId);
+        Assert.False(service.Current.RequiresSignIn);
+        Assert.Equal(stored, store.Session);
+        Assert.True(gateway.RestoreCalled);
+    }
+
+    [Fact]
+    public async Task RealGatewayOfflineRestoreStartsFromCachedTokenWithoutSdkRoundTrip()
+    {
+        Guid userId = Guid.NewGuid();
+        var store = new FakeSessionStore { Session = new StoredSession(JwtFor(userId), "refresh", DateTimeOffset.UtcNow.AddMinutes(30)) };
+        using var gateway = new SupabaseGateway(Options.Create(new SupabaseOptions { Url = "http://127.0.0.1:1", AnonKey = "sb_publishable_test" }), Microsoft.Extensions.Logging.Abstractions.NullLogger<SupabaseGateway>.Instance);
+        using var service = new SessionService(store, gateway, new FakeProfiles(new Profile(userId, "Teacher", UserRole.Teacher, true)), new FakeCache(), new WeakReferenceMessenger());
+
+        await service.RestoreAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(userId, service.Current.UserId);
+        Assert.False(service.Current.RequiresSignIn);
+    }
+
+    [Fact]
+    public async Task CorruptCachedAccessTokenRequiresSignInInsteadOfCrashingStartup()
+    {
+        var store = new FakeSessionStore { Session = new StoredSession("not-a-jwt", "refresh", DateTimeOffset.UtcNow.AddMinutes(30)) };
+        var gateway = new FakeGateway { RefreshException = new HttpRequestException("offline") };
+        using var service = new SessionService(store, gateway, new FakeProfiles(), new FakeCache(), new WeakReferenceMessenger());
+
+        await service.RestoreAsync();
+
+        Assert.True(service.Current.RequiresSignIn);
+        Assert.Null(store.Session);
+    }
+
+    [Fact]
+    public async Task EnsureFreshRefreshesAndPersistsOnlyInsideExpiryWindow()
+    {
+        Guid userId = Guid.NewGuid();
+        var store = new FakeSessionStore { Session = new StoredSession(JwtFor(userId), "old-refresh", DateTimeOffset.UtcNow.AddMinutes(4)) };
+        var gateway = new FakeGateway { RefreshedSession = new AuthenticatedSession(userId, "teacher@example.test", "rotated", "rotated-refresh", DateTimeOffset.UtcNow.AddHours(1)) };
+        using var service = new SessionService(store, gateway, new FakeProfiles(new Profile(userId, "Teacher", UserRole.Teacher, true)), new FakeCache(), new WeakReferenceMessenger());
+
+        await service.EnsureFreshAsync();
+        await service.EnsureFreshAsync();
+
+        Assert.Equal(1, gateway.RefreshCalls);
+        Assert.Equal("rotated", store.Session?.AccessToken);
+    }
+
+    [Fact]
+    public async Task AudiencePreferencesRoundTripAndClearThroughCacheMeta()
+    {
+        var cache = new FakeCache();
+        Guid classId = Guid.NewGuid();
+        var first = new DeviceAudienceContext(new WeakReferenceMessenger(), cache);
+        await first.SetStudentAsync([classId], [SessionHalfDay.Am]);
+        var restored = new DeviceAudienceContext(new WeakReferenceMessenger(), cache);
+
+        await restored.RestoreAsync();
+        Assert.Contains(classId, restored.Current.SelectedClassIds);
+        Assert.Contains(SessionHalfDay.Am, restored.Current.OptedHalfDays);
+
+        await restored.ClearAsync();
+        var cleared = new DeviceAudienceContext(new WeakReferenceMessenger(), cache);
+        await cleared.RestoreAsync();
+        Assert.Equal(DeviceAudienceRole.Teacher, cleared.Current.Role);
+    }
+
+    [Fact]
+    public async Task TeacherRestoreClearsStaleStudentAudiencePreferences()
+    {
+        Guid userId = Guid.NewGuid();
+        var cache = new FakeCache();
+        var audience = new DeviceAudienceContext(new WeakReferenceMessenger(), cache);
+        await audience.SetStudentAsync([Guid.NewGuid()], [SessionHalfDay.Pm]);
+        var gateway = new FakeGateway { RefreshedSession = new AuthenticatedSession(userId, "teacher@example.test", JwtFor(userId), "refresh-2", DateTimeOffset.UtcNow.AddHours(1)) };
+        var store = new FakeSessionStore { Session = new StoredSession(JwtFor(userId), "refresh-1", DateTimeOffset.UtcNow.AddMinutes(5)) };
+        using var service = new SessionService(store, gateway, new FakeProfiles(new Profile(userId, "Teacher", UserRole.Teacher, true)), cache, new WeakReferenceMessenger(), audience);
+
+        await service.RestoreAsync();
+
+        Assert.Equal(UserRole.Teacher, service.Current.Role);
+        Assert.Equal(DeviceAudienceRole.Teacher, audience.Current.Role);
+        Assert.Equal(string.Empty, cache.Meta["student_preferences"]);
+    }
+
+    [Fact]
+    public async Task StudentSyncSkipsProfiles()
+    {
+        var gateway = new FakeGateway();
+        var audience = new DeviceAudienceContext(new WeakReferenceMessenger());
+        await audience.SetStudentAsync([Guid.NewGuid()], []);
+        await using var service = new SyncService(gateway, new FakeCache(), new WeakReferenceMessenger(), new DebouncePolicy(TimeSpan.Zero), TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance, audience: audience);
+
+        await service.SyncAllAsync();
+
+        Assert.DoesNotContain(CacheTable.Profiles, gateway.PullCounts.Keys);
+        Assert.Contains(CacheTable.Announcements, gateway.PullCounts.Keys);
     }
 
     [Fact]
@@ -158,7 +391,7 @@ public sealed class InfrastructureOrchestrationTests
     {
         var gateway = new FakeGateway();
         gateway.SubscriptionFailures.Enqueue(new RealtimeException("temporary 403"));
-        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15));
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(50));
 
         await service.StartAsync();
         await WaitUntilAsync(() => gateway.SubscribeCalls >= 2 && gateway.ActiveSubscriptions == 1);
@@ -183,6 +416,58 @@ public sealed class InfrastructureOrchestrationTests
 
         Assert.Equal(ConnectivityState.Online, service.State);
         Assert.True(gateway.PullCounts.Values.Sum() > successfulPulls);
+    }
+
+    [Fact]
+    public async Task HeartbeatSurvivesTransientTokenRefreshFailure()
+    {
+        var gateway = new FakeGateway();
+        var session = new RefreshingSession(new HttpRequestException("offline"));
+        await using var service = new SyncService(gateway, new FakeCache(), new WeakReferenceMessenger(), new DebouncePolicy(TimeSpan.Zero), TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance, TimeSpan.FromMilliseconds(15), session);
+        await service.StartAsync();
+        int initialPulls = gateway.PullCounts.Values.Sum();
+
+        await WaitUntilAsync(() => session.Calls >= 2 && gateway.PullCounts.Values.Sum() > initialPulls);
+
+        Assert.Equal(ConnectivityState.Online, service.State);
+    }
+
+    [Fact]
+    public async Task HeartbeatSurvivesThrowingConnectivityRecipient()
+    {
+        var gateway = new FakeGateway();
+        var messenger = new WeakReferenceMessenger();
+        var recipient = new ThrowingConnectivityRecipient();
+        var logger = new CapturingLogger<SyncService>();
+        messenger.Register(recipient);
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(50), messenger, logger);
+
+        await service.StartAsync();
+        int initialPulls = gateway.PullCounts.Values.Sum();
+        await WaitUntilAsync(() =>
+            gateway.PullCounts.Values.Sum() > initialPulls &&
+            service.State == ConnectivityState.Online);
+
+        Assert.Equal(ConnectivityState.Online, service.State);
+        Assert.True(recipient.Calls >= 3);
+        Assert.Contains(logger.Errors, exception => exception is InvalidOperationException);
+    }
+
+    [Fact]
+    public async Task HeartbeatResubscribesAfterRealtimeSocketDrops()
+    {
+        var gateway = new FakeGateway();
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15));
+
+        await service.StartAsync();
+        await WaitUntilAsync(() => gateway.LatestSubscription is not null && gateway.ActiveSubscriptions == 1);
+        FakeSubscription dropped = gateway.LatestSubscription!;
+        dropped.Drop();
+
+        await WaitUntilAsync(() => gateway.SubscribeCalls >= 2 && gateway.ActiveSubscriptions == 1 && gateway.LatestSubscription != dropped);
+
+        Assert.False(dropped.IsAlive);
+        Assert.True(gateway.LatestSubscription!.IsAlive);
     }
 
     [Fact]
@@ -285,6 +570,34 @@ public sealed class InfrastructureOrchestrationTests
         }
     }
 
+    [Theory]
+    [InlineData("refresh_token_not_found")]
+    [InlineData("refresh_token_already_used")]
+    [InlineData("invalid_grant")]
+    [InlineData("validation_failed")]
+    public void ModernGoTrueRefreshErrorCodesRequireReauthentication(string errorCode)
+    {
+        var method = typeof(SupabaseGateway).GetMethod("IsRejectedRefresh", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Assert.True((bool)method!.Invoke(null, [System.Net.HttpStatusCode.BadRequest, errorCode])!);
+    }
+
+    [Fact]
+    public async Task CachedAccessTokenRestoreDoesNotCreateSdkSessionOrContactServer()
+    {
+        using var gateway = new SupabaseGateway(Options.Create(new SupabaseOptions { Url = "https://127.0.0.1:1", AnonKey = "sb_publishable_test" }), Microsoft.Extensions.Logging.Abstractions.NullLogger<SupabaseGateway>.Instance);
+        await gateway.RestoreAccessTokenAsync(new StoredSession("cached-access", "cached-refresh", DateTimeOffset.UtcNow.AddHours(1))).WaitAsync(TimeSpan.FromSeconds(1));
+        var clientField = typeof(SupabaseGateway).GetField("_client", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var client = Assert.IsType<global::Supabase.Client>(clientField?.GetValue(gateway));
+
+        Assert.Null(client.Auth.CurrentSession);
+    }
+
+    private static string JwtFor(Guid userId)
+    {
+        static string Encode(string value) => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(value)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        return $"{Encode("{\"alg\":\"none\"}")}.{Encode($"{{\"sub\":\"{userId}\"}}")}.signature";
+    }
+
     private sealed class FakeSessionStore : ISessionStore
     {
         public StoredSession? Session { get; set; }
@@ -324,9 +637,13 @@ public sealed class InfrastructureOrchestrationTests
         public int SubscribeCalls { get; private set; }
         public int ActiveSubscriptions { get; private set; }
         public bool IsSignedOut { get; set; }
+        public bool RestoreCalled { get; private set; }
+        public int RefreshCalls { get; private set; }
+        public FakeSubscription? LatestSubscription { get; private set; }
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.FromResult(RefreshedSession);
         public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => RefreshException is null ? Task.FromResult(RefreshedSession) : Task.FromException<AuthenticatedSession>(RefreshException);
+        public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) { RefreshCalls++; return RefreshException is null ? Task.FromResult(RefreshedSession) : Task.FromException<AuthenticatedSession>(RefreshException); }
+        public Task RestoreAccessTokenAsync(StoredSession session, CancellationToken cancellationToken = default) { RestoreCalled = true; return Task.CompletedTask; }
         public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) =>
             IsSignedOut
@@ -349,16 +666,40 @@ public sealed class InfrastructureOrchestrationTests
             SubscribeCalls++;
             if (SubscriptionFailures.TryDequeue(out Exception? exception)) return Task.FromException<IRealtimeSubscription>(exception);
             ActiveSubscriptions++;
-            return Task.FromResult<IRealtimeSubscription>(new FakeSubscription(() => ActiveSubscriptions--));
+            LatestSubscription = new FakeSubscription(() => ActiveSubscriptions--);
+            return Task.FromResult<IRealtimeSubscription>(LatestSubscription);
         }
     }
 
     private sealed class FakeSubscription(Action? onDispose = null) : IRealtimeSubscription
     {
+        private int _isAlive = 1;
+        private int _disposed;
+        public bool IsAlive => Volatile.Read(ref _isAlive) == 1;
+        public event EventHandler? Closed;
+        public void Drop()
+        {
+            if (Interlocked.Exchange(ref _isAlive, 0) == 1) Closed?.Invoke(this, EventArgs.Empty);
+        }
         public ValueTask DisposeAsync()
         {
-            onDispose?.Invoke();
+            Interlocked.Exchange(ref _isAlive, 0);
+            if (Interlocked.Exchange(ref _disposed, 1) == 0) onDispose?.Invoke();
             return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class RefreshingSession(Exception firstFailure) : ISessionService
+    {
+        public int Calls { get; private set; }
+        public SessionState Current => new(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false);
+        public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task EnsureFreshAsync(CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Calls == 1 ? Task.FromException(firstFailure) : Task.CompletedTask;
         }
     }
 
@@ -369,6 +710,25 @@ public sealed class InfrastructureOrchestrationTests
             Task.FromResult<IReadOnlyList<Profile>>(Value is null ? [] : [Value]);
         public Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(Value?.Id == id ? Value : null);
+    }
+
+    private sealed class SettingsStub(AppSettings? settings = null) : ISettingsService
+    {
+        public AppSettings Current { get; } = settings ?? new();
+        public event EventHandler<SettingsChanged>? Changed { add { } remove { } }
+        public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class WarningLogger<T> : ILogger<T>
+    {
+        public int WarningCount { get; private set; }
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning) WarningCount++;
+        }
     }
 
     private sealed class CapturingLogger<T> : ILogger<T>
@@ -386,5 +746,15 @@ public sealed class InfrastructureOrchestrationTests
     {
         public List<DeviceAudience> States { get; } = [];
         public void Receive(AqiClock.Application.Messages.AudienceChanged message) => States.Add(message.State);
+    }
+
+    public sealed class ThrowingConnectivityRecipient : IRecipient<AqiClock.Application.Messages.ConnectivityChanged>
+    {
+        public int Calls { get; private set; }
+        public void Receive(AqiClock.Application.Messages.ConnectivityChanged message)
+        {
+            Calls++;
+            throw new InvalidOperationException("UI recipient failed");
+        }
     }
 }

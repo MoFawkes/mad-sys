@@ -16,6 +16,8 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
     private readonly DebouncePolicy debouncePolicy;
     private readonly TimeProvider timeProvider;
     private readonly ILogger<SyncService> logger;
+    private readonly ISessionService? session;
+    private readonly IDeviceAudienceContext? audience;
     private static readonly CacheTable[] Tables = Enum.GetValues<CacheTable>();
     private readonly ConcurrentDictionary<CacheTable, CancellationTokenSource> _debounces = new();
     private readonly SemaphoreSlim _syncGate = new(1, 1);
@@ -37,7 +39,9 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
         DebouncePolicy debouncePolicy,
         TimeProvider timeProvider,
         ILogger<SyncService> logger,
-        TimeSpan? heartbeatInterval = null)
+        TimeSpan? heartbeatInterval = null,
+        ISessionService? session = null,
+        IDeviceAudienceContext? audience = null)
     {
         this.gateway = gateway;
         this.cache = cache;
@@ -45,6 +49,8 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
         this.debouncePolicy = debouncePolicy;
         this.timeProvider = timeProvider;
         this.logger = logger;
+        this.session = session;
+        this.audience = audience;
         _usesDefaultHeartbeat = heartbeatInterval is null;
         _heartbeatInterval = heartbeatInterval ?? TimeSpan.FromSeconds(30);
         messenger.Register(this);
@@ -106,7 +112,7 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
             }
 
             await cache.SetMetaAsync("org_id", organizationId.ToString(), cancellationToken).ConfigureAwait(false);
-            foreach (CacheTable table in Tables)
+            foreach (CacheTable table in TablesForAudience())
             {
                 await PullAndReplaceAsync(table, cancellationToken).ConfigureAwait(false);
             }
@@ -115,7 +121,7 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
             LastSyncedAt = timeProvider.GetUtcNow();
             SetState(ConnectivityState.Online);
         }
-        catch (Exception exception) when (exception is HttpRequestException or TimeoutException or IOException or InvalidOperationException)
+        catch (Exception exception) when (exception is HttpRequestException or TimeoutException or IOException)
         {
             _failures++;
             LogSyncCycleFailed(logger, exception);
@@ -136,7 +142,7 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
             LastSyncedAt = timeProvider.GetUtcNow();
             SetState(ConnectivityState.Online);
         }
-        catch (Exception exception) when (exception is HttpRequestException or TimeoutException or IOException or InvalidOperationException)
+        catch (Exception exception) when (exception is HttpRequestException or TimeoutException or IOException)
         {
             _failures++;
             LogSyncCycleFailed(logger, exception);
@@ -249,25 +255,24 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
             try
             {
                 await Task.Delay(delay, timeProvider, cancellationToken).ConfigureAwait(false);
+                if (session is not null) await session.EnsureFreshAsync(cancellationToken).ConfigureAwait(false);
                 await EnsureRealtimeSubscribedAsync(cancellationToken).ConfigureAwait(false);
-                try
-                {
-                    await SyncAllAsync(cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    return;
-                }
-                catch (Exception exception)
-                {
-                    _failures++;
-                    SetState(ConnectivityState.Offline);
-                    LogBackgroundSyncFailed(logger, "heartbeat refresh", exception);
-                }
+                await SyncAllAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 return;
+            }
+            catch (InvalidOperationException)
+            {
+                _failures++;
+                SetState(ConnectivityState.Offline);
+            }
+            catch (Exception exception)
+            {
+                _failures++;
+                SetState(ConnectivityState.Offline);
+                LogBackgroundSyncFailed(logger, "heartbeat refresh", exception);
             }
         }
     }
@@ -280,7 +285,10 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
         try
         {
             if (_subscription is not null) return;
-            _subscription = await gateway.SubscribeAsync(OnRealtimeChangeAsync, cancellationToken).ConfigureAwait(false);
+            IRealtimeSubscription subscription = await gateway.SubscribeAsync(OnRealtimeChangeAsync, cancellationToken).ConfigureAwait(false);
+            _subscription = subscription;
+            subscription.Closed += OnRealtimeClosed;
+            if (!subscription.IsAlive) OnRealtimeClosed(subscription, EventArgs.Empty);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -314,9 +322,28 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
     [LoggerMessage(Level = LogLevel.Error, Message = "Sync background operation {OperationName} failed")]
     private static partial void LogBackgroundSyncFailed(ILogger logger, string operationName, Exception exception);
 
+    [LoggerMessage(Level = LogLevel.Error, Message = "A connectivity state recipient failed")]
+    private static partial void LogConnectivityRecipientFailed(ILogger logger, Exception exception);
+
     private void SetState(ConnectivityState state)
     {
         State = state;
-        messenger.Send(new ConnectivityChanged(state, LastSyncedAt));
+        try { messenger.Send(new ConnectivityChanged(state, LastSyncedAt)); }
+        catch (Exception exception) { LogConnectivityRecipientFailed(logger, exception); }
     }
+
+    private void OnRealtimeClosed(object? sender, EventArgs e)
+    {
+        if (sender is not IRealtimeSubscription closed) return;
+        closed.Closed -= OnRealtimeClosed;
+        if (!ReferenceEquals(Interlocked.CompareExchange(ref _subscription, null, closed), closed)) return;
+        _ = ObserveBackgroundAsync(DisposeSubscriptionAsync(closed), "closed realtime subscription");
+    }
+
+    private static async Task DisposeSubscriptionAsync(IRealtimeSubscription subscription) =>
+        await subscription.DisposeAsync().ConfigureAwait(false);
+
+    private CacheTable[] TablesForAudience() => audience?.Current.Role == DeviceAudienceRole.StudentDevice
+        ? [CacheTable.Organizations, CacheTable.Timetables, CacheTable.Periods, CacheTable.Classes, CacheTable.PeriodClasses, CacheTable.WeekSchedule, CacheTable.DateOverrides, CacheTable.Announcements]
+        : Tables;
 }

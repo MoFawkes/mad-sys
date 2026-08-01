@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-07-23 23:25 BST
+Last updated: 2026-08-01
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -17,9 +17,21 @@ the acceptance script.
 | Source | `main`; v0.10.0 tagged at merge commit `15ecb86` |
 | Production backend | Supabase project active and healthy |
 | Latest release | v0.10.0 — audience-aware sign-in, classes, announcements, and Navy/Cream theme |
-| Next release | Post-v0.10.0 backlog; scope/version not yet selected |
+| Next release | v0.11.0 Expo mobile companion; implementation complete, manual/device acceptance pending |
 | Candidate CI | Merged-main run `30048989635` green at `15ecb86` |
 | Release workflow | v0.10.0 tag-bound run `30049223114` green; public assets verified |
+
+## v0.11.0 mobile state
+
+- Phases 0–10 are implemented: the original mobile scope, visual alignment, isolated/admin-distributed join codes with desktop QR and mobile sharing, revoked-device recovery, and desktop-brand icon parity.
+- The additive student-device migration and signup hook are covered by the release-gating Supabase matrix; the existing staff/admin matrix remains in scope.
+- Mobile automated gates are Jest, TypeScript, and ESLint in their own CI job. Existing .NET and Supabase required checks remain unfiltered.
+- No store submission has been attempted.
+- The 2026-08-01 desktop follow-up is implemented on `fix/desktop-qol`: staff sessions tolerate boot-time network races and refresh proactively; desktop students use anonymous enrolment with persisted choices and student-scoped sync; Admin/Settings sizing and editor interruptions are corrected.
+- Desktop QoL cannot ship as a standalone release: desktop enrolment requires `enroll_student_device` and the student RLS migrations carried by the v0.11.0 checkpoint. Merge it into v0.11.0, or deploy the v0.11.0 backend first; green desktop CI alone is not a shippable signal.
+- Production reconciliation on 2026-08-01 found all seven migration versions and the complete student-device schema already applied. The hosted signup gate was verified against production intent: public email signup returned 403 **Public signup is disabled**, while an anonymous identity enrolled successfully and could select its own `student_devices` row under RLS.
+- Release remains blocked on physical teacher/student/offline passes and measured Android 13+ notification drift. See `docs/MANUAL-TESTS.md`.
+- Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, Android drift, and the desktop untagged-period notification semantic difference.
 
 ## v0.9.3 scope
 

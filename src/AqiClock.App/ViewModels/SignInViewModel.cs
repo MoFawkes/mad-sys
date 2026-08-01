@@ -49,6 +49,8 @@ public partial class SignInViewModel(
     private async Task<bool> AuthenticateAsync(CancellationToken cancellationToken)
     {
         try { await session.SignInAsync(Email, Password, cancellationToken); return true; }
+        catch (CredentialRejectedException exception)
+        { LogAuthenticationRejected(logger, exception); ErrorMessage = "Incorrect email or password"; return false; }
         catch (HttpRequestException exception) when (exception.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.Unauthorized)
         { LogAuthenticationRejected(logger, exception); ErrorMessage = "Incorrect email or password"; return false; }
         catch (HttpRequestException exception)
