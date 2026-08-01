@@ -4,7 +4,11 @@ using System.Text.Json.Nodes;
 
 public sealed record TableChangeSignal(CacheTable Table);
 
-public interface IRealtimeSubscription : IAsyncDisposable;
+public interface IRealtimeSubscription : IAsyncDisposable
+{
+    bool IsAlive => true;
+    event EventHandler? Closed { add { } remove { } }
+}
 
 public interface ISupabaseGateway
 {

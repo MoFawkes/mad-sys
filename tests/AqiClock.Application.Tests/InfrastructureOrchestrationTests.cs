@@ -319,6 +319,23 @@ public sealed class InfrastructureOrchestrationTests
     }
 
     [Fact]
+    public async Task HeartbeatResubscribesAfterRealtimeSocketDrops()
+    {
+        var gateway = new FakeGateway();
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15));
+
+        await service.StartAsync();
+        await WaitUntilAsync(() => gateway.LatestSubscription is not null && gateway.ActiveSubscriptions == 1);
+        FakeSubscription dropped = gateway.LatestSubscription!;
+        dropped.Drop();
+
+        await WaitUntilAsync(() => gateway.SubscribeCalls >= 2 && gateway.ActiveSubscriptions == 1 && gateway.LatestSubscription != dropped);
+
+        Assert.False(dropped.IsAlive);
+        Assert.True(gateway.LatestSubscription!.IsAlive);
+    }
+
+    [Fact]
     public async Task StopThenStartRestartsHeartbeatAndRealtime()
     {
         var gateway = new FakeGateway();
@@ -486,6 +503,7 @@ public sealed class InfrastructureOrchestrationTests
         public bool IsSignedOut { get; set; }
         public bool RestoreCalled { get; private set; }
         public int RefreshCalls { get; private set; }
+        public FakeSubscription? LatestSubscription { get; private set; }
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.FromResult(RefreshedSession);
         public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) { RefreshCalls++; return RefreshException is null ? Task.FromResult(RefreshedSession) : Task.FromException<AuthenticatedSession>(RefreshException); }
@@ -512,15 +530,25 @@ public sealed class InfrastructureOrchestrationTests
             SubscribeCalls++;
             if (SubscriptionFailures.TryDequeue(out Exception? exception)) return Task.FromException<IRealtimeSubscription>(exception);
             ActiveSubscriptions++;
-            return Task.FromResult<IRealtimeSubscription>(new FakeSubscription(() => ActiveSubscriptions--));
+            LatestSubscription = new FakeSubscription(() => ActiveSubscriptions--);
+            return Task.FromResult<IRealtimeSubscription>(LatestSubscription);
         }
     }
 
     private sealed class FakeSubscription(Action? onDispose = null) : IRealtimeSubscription
     {
+        private int _isAlive = 1;
+        private int _disposed;
+        public bool IsAlive => Volatile.Read(ref _isAlive) == 1;
+        public event EventHandler? Closed;
+        public void Drop()
+        {
+            if (Interlocked.Exchange(ref _isAlive, 0) == 1) Closed?.Invoke(this, EventArgs.Empty);
+        }
         public ValueTask DisposeAsync()
         {
-            onDispose?.Invoke();
+            Interlocked.Exchange(ref _isAlive, 0);
+            if (Interlocked.Exchange(ref _disposed, 1) == 0) onDispose?.Invoke();
             return ValueTask.CompletedTask;
         }
     }

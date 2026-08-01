@@ -285,7 +285,10 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
         try
         {
             if (_subscription is not null) return;
-            _subscription = await gateway.SubscribeAsync(OnRealtimeChangeAsync, cancellationToken).ConfigureAwait(false);
+            IRealtimeSubscription subscription = await gateway.SubscribeAsync(OnRealtimeChangeAsync, cancellationToken).ConfigureAwait(false);
+            _subscription = subscription;
+            subscription.Closed += OnRealtimeClosed;
+            if (!subscription.IsAlive) OnRealtimeClosed(subscription, EventArgs.Empty);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -324,6 +327,17 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
         State = state;
         messenger.Send(new ConnectivityChanged(state, LastSyncedAt));
     }
+
+    private void OnRealtimeClosed(object? sender, EventArgs e)
+    {
+        if (sender is not IRealtimeSubscription closed) return;
+        closed.Closed -= OnRealtimeClosed;
+        if (!ReferenceEquals(Interlocked.CompareExchange(ref _subscription, null, closed), closed)) return;
+        _ = ObserveBackgroundAsync(DisposeSubscriptionAsync(closed), "closed realtime subscription");
+    }
+
+    private static async Task DisposeSubscriptionAsync(IRealtimeSubscription subscription) =>
+        await subscription.DisposeAsync().ConfigureAwait(false);
 
     private CacheTable[] TablesForAudience() => audience?.Current.Role == DeviceAudienceRole.StudentDevice
         ? [CacheTable.Organizations, CacheTable.Timetables, CacheTable.Periods, CacheTable.Classes, CacheTable.PeriodClasses, CacheTable.WeekSchedule, CacheTable.DateOverrides, CacheTable.Announcements]

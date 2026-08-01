@@ -268,7 +268,7 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
             await SubscribeTableAsync<RealtimeAnnouncement>(CacheTable.Announcements, onChange).ConfigureAwait(false),
             await SubscribeTableAsync<RealtimeProfile>(CacheTable.Profiles, onChange).ConfigureAwait(false),
         };
-        return new RealtimeSubscription(subscriptions);
+        return new RealtimeSubscription(_client.Realtime, subscriptions);
     }
 
     public void Dispose() => _httpClient.Dispose();
@@ -448,11 +448,35 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
     private sealed record PostgrestError(string? Code, string? Message);
     private enum AuthOperation { PasswordSignIn, AnonymousSignIn, Refresh }
 
-    private sealed class RealtimeSubscription(IReadOnlyList<RealtimeChannel> channels) : IRealtimeSubscription
+    private sealed class RealtimeSubscription : IRealtimeSubscription
     {
+        private readonly global::Supabase.Realtime.Interfaces.IRealtimeClient<RealtimeSocket, RealtimeChannel> _client;
+        private readonly IReadOnlyList<RealtimeChannel> _channels;
+        private int _isAlive = 1;
+
+        public RealtimeSubscription(global::Supabase.Realtime.Interfaces.IRealtimeClient<RealtimeSocket, RealtimeChannel> client, IReadOnlyList<RealtimeChannel> channels)
+        {
+            _client = client;
+            _channels = channels;
+            _client.AddStateChangedHandler(OnStateChanged);
+        }
+
+        public bool IsAlive => Volatile.Read(ref _isAlive) == 1;
+        public event EventHandler? Closed;
+
+        private void OnStateChanged(
+            global::Supabase.Realtime.Interfaces.IRealtimeClient<RealtimeSocket, RealtimeChannel> sender,
+            global::Supabase.Realtime.Constants.SocketState state)
+        {
+            if (state is not (global::Supabase.Realtime.Constants.SocketState.Close or global::Supabase.Realtime.Constants.SocketState.Error)) return;
+            if (Interlocked.Exchange(ref _isAlive, 0) == 1) Closed?.Invoke(this, EventArgs.Empty);
+        }
+
         public async ValueTask DisposeAsync()
         {
-            foreach (RealtimeChannel channel in channels) channel.Unsubscribe();
+            _client.RemoveStateChangedHandler(OnStateChanged);
+            Interlocked.Exchange(ref _isAlive, 0);
+            foreach (RealtimeChannel channel in _channels) channel.Unsubscribe();
             await Task.CompletedTask.ConfigureAwait(false);
         }
     }
