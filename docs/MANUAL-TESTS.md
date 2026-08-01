@@ -293,11 +293,9 @@ acceptance; the corresponding `[ ]` re-check boxes remain open.
   **Scheduled & history**.
 - Untagged periods (e.g. Break) do not notify class-filtered student
   sessions. Plausibly intended; document it if so.
-- A signed-out student device cannot pull announcements created after
-  its last signed-in sync (no session for REST/Realtime). The scheduled
-  due-time flip works from cache, but genuinely new server content will
-  not arrive mid-student-session. Decide whether that is acceptable for
-  this release.
+- Resolved 2026-08-01: desktop student devices now use anonymous enrolment,
+  REST snapshot sync, and Realtime, so new announcements arrive without a
+  teacher signing in on that PC.
 - Cold-start close of the sign-in window exited the whole app **once**
   (first run of the evening); it could not be reproduced afterwards —
   the cancel path now reliably returns to the role choice. Watch for
@@ -318,6 +316,17 @@ the audience-aware work in PR #1 will ship as v0.10.0. After architect diff
 verification, the open re-check boxes plus the four still-untested items are
 the remaining owner acceptance before tagging; the production-like migration
 rehearsal runs automatically in CI.
+
+## v0.11.0 desktop QoL checks
+
+- [ ] Sign in as staff, reboot with auto-start and delayed Wi-Fi, and confirm cached signed-in state appears before sync returns to **Synced**.
+- [ ] Leave Admin open for more than one hour and edit a period for at least two minutes; confirm no 30-second banner flash, tab disable, focus loss, or expired-session outage.
+- [ ] Enrol a desktop student device with a join code, choose classes and AM/PM, restart, and confirm it opens on the clock with the same choices and **Synced** status. Publish a teacher announcement and confirm it arrives without a teacher session on that PC.
+- [ ] At 1366×768 and 100%, 125%, and 150% scaling, open, resize, close, and reopen Admin and Settings. Confirm both remain inside the work area and restore their size.
+- [ ] At each scale in Light and Dark, confirm the periods-grid up, down, and red delete buttons are fully visible and clickable.
+- [ ] Choose **End student session** from the tray and confirm both the enrolment/session and saved class choices are removed.
+- [ ] Edit a period on desktop machine A and confirm it reaches machine B through Realtime without restarting either app.
+- [ ] Enter a wrong password and confirm the message is **Incorrect email or password**. Revoke a stored refresh token and confirm restart returns to the sign-in window rather than leaving a silent dead session.
 
 ## v0.11.0 mobile notification checks
 

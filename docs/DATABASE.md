@@ -74,4 +74,4 @@ student_preferences     # mobile only
 
 The Expo cache uses ordered `PRAGMA user_version` migrations and WAL mode. UUIDs, dates, times, and timestamps are stored as text; booleans are integers. Mobile auth sessions live in chunked SecureStore storage, not SQLite. Signing out or ending a mobile student session wipes the cache and local selection.
 
-The Windows cache additionally supports the shared-PC student mode described in `SECURITY.md`; it deliberately survives a teacher sign-out because that desktop mode has no backend identity.
+The Windows cache stores enrolled desktop student class IDs and AM/PM choices as JSON in the existing `meta` table. Desktop students have an anonymous backend identity and sync only the student-readable table subset; ending the student session clears the persisted selection and encrypted Auth session.

@@ -10,7 +10,7 @@ Teachers and administrators use invited email/password accounts. Profiles store 
 
 Public email signup remains blocked even though GoTrue's global signup flag must be enabled for anonymous sign-in. The `private.before_user_created` Auth hook allows only payloads positively identified as anonymous and fails closed otherwise. Admin API creation bypasses the hook and remains the teacher-account provisioning path. The hook and signup matrix are release-gating and must also be configured in the hosted Auth dashboard.
 
-Mobile students use `signInAnonymously()` and enrol with a 16-character organisation join code through `public.enroll_student_device`. They have an Auth identity but no profile. The desktop Student mode remains different: it is a device-local audience over a cache previously populated by a teacher on that shared PC.
+Mobile and desktop students sign in anonymously and enrol with a 16-character organisation join code through `public.enroll_student_device`. They have an Auth identity but no profile. Read-only student RLS supplies each enrolled device with its own organisation snapshot and Realtime updates.
 
 The join code is a distributable shared secret stored in the ungranted `organization_join_codes` table. Admin-gated RPCs reveal or rotate it; no persona can read the table through PostgREST. Rotation blocks future use of the old code without removing already-enrolled phones. The separate revocation RPC deletes all device enrolments and is the response to disclosure. Audit rows record rotation time or revoked-device count, never the credential.
 
@@ -32,7 +32,7 @@ Only the project URL and a client-safe publishable key (`sb_publishable_*`) belo
 
 Windows persists the staff session with DPAPI. Mobile uses an atomic generation-switched, chunked Expo SecureStore adapter because a Supabase session exceeds SecureStore's per-value limit. Mobile SQLite contains low-sensitivity timetable and announcement data but no credentials.
 
-Mobile teacher sign-out and End student session both cancel pending lesson notifications, sign out, clear preferences, and wipe SQLite. Windows teacher sign-out retains its shared reference cache specifically so the shared-PC Student mode can continue offline; it still removes the credential session.
+Mobile teacher sign-out and End student session both cancel pending lesson notifications, sign out, clear preferences, and wipe SQLite. Windows sign-out removes the credential and persisted student selection/enrolment while retaining low-sensitivity reference cache data for offline display.
 
 Recovery uses distinct schemes: `aqiclock://reset-password` on desktop and `aqiclock-mobile://reset-password` on mobile. Both exact redirects must be allow-listed in hosted Supabase Auth. Recovery tokens are handled in memory and never logged.
 

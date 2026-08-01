@@ -112,6 +112,8 @@ Ordered by implementation dependency: each phase builds only on the phases above
 
 ## v0.11.0 — Expo mobile companion
 
+- [x] Desktop QoL follow-up: resilient staff restore, proactive token refresh, anonymous student-device enrolment/sync, persisted student choices, stable Admin connectivity state, adaptive dialog placement, and unclipped grid actions.
+
 - [x] Expo SDK 54 + TypeScript + expo-router scaffold under `mobile/`, with an independent Node 20 CI job.
 - [x] Pure TypeScript schedule engine and audience predicates with weekday, wall-clock, DST, and desktop-compatible key tests.
 - [x] SecureStore session persistence, ordered SQLite migrations, transactional snapshot sync, signal-only Realtime, and offline clock.

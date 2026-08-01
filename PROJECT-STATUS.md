@@ -27,6 +27,8 @@ the acceptance script.
 - The additive student-device migration and signup hook are covered by the release-gating Supabase matrix; the existing staff/admin matrix remains in scope.
 - Mobile automated gates are Jest, TypeScript, and ESLint in their own CI job. Existing .NET and Supabase required checks remain unfiltered.
 - No store submission has been attempted.
+- The 2026-08-01 desktop follow-up is implemented on `fix/desktop-qol`: staff sessions tolerate boot-time network races and refresh proactively; desktop students use anonymous enrolment with persisted choices and student-scoped sync; Admin/Settings sizing and editor interruptions are corrected.
+- Desktop QoL cannot ship as a standalone release: desktop enrolment requires `enroll_student_device` and the student RLS migrations carried by the v0.11.0 checkpoint. Merge it into v0.11.0, or deploy the v0.11.0 backend first; green desktop CI alone is not a shippable signal.
 - Release remains blocked on hosted Auth dashboard configuration, physical teacher/student/offline passes, and measured Android 13+ notification drift. See `docs/MANUAL-TESTS.md`.
 - Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, Android drift, and the desktop untagged-period notification semantic difference.
 
