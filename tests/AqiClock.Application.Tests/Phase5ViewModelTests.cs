@@ -106,6 +106,17 @@ public sealed class Phase5ViewModelTests
     }
 
     [Fact]
+    public async Task RejectedCredentialsShowIncorrectPasswordMessage()
+    {
+        var vm = CreateSignInViewModel(new SessionStub(new CredentialRejectedException("rejected")), new SyncStub());
+        vm.Email = "teacher@example.test"; vm.Password = "wrong-password";
+
+        await vm.SignInCommand.ExecuteAsync(null);
+
+        Assert.Equal("Incorrect email or password", vm.ErrorMessage);
+    }
+
+    [Fact]
     public async Task PostAuthenticationSyncFailureIsNotReportedAsBadCredentials()
     {
         var vm = CreateSignInViewModel(new SessionStub(), new SyncStub(new InvalidOperationException("realtime unavailable")));

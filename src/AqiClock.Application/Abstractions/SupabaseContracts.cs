@@ -9,9 +9,14 @@ public interface IRealtimeSubscription : IAsyncDisposable;
 public interface ISupabaseGateway
 {
     Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default);
+    Task<AuthenticatedSession> SignInAnonymouslyAsync(CancellationToken cancellationToken = default) =>
+        Task.FromException<AuthenticatedSession>(new NotSupportedException());
+    Task<Guid> EnrollStudentDeviceAsync(string joinCode, CancellationToken cancellationToken = default) =>
+        Task.FromException<Guid>(new NotSupportedException());
     Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default);
     Task CompletePasswordRecoveryAsync(string accessToken, string newPassword, CancellationToken cancellationToken = default);
     Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default);
+    Task RestoreAccessTokenAsync(StoredSession session, CancellationToken cancellationToken = default) => Task.CompletedTask;
     Task SignOutAsync(CancellationToken cancellationToken = default);
     Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default);
     Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default);

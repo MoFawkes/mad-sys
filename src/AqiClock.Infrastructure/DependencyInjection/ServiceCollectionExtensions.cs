@@ -43,7 +43,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITimetableRepository, SqliteTimetableRepository>();
         services.AddSingleton<IAnnouncementRepository, SqliteAnnouncementRepository>();
         services.AddSingleton<IClassRepository, SqliteClassRepository>();
-        services.AddSingleton<IDeviceAudienceContext, DeviceAudienceContext>();
+        services.AddSingleton<IDeviceAudienceContext>(provider => new DeviceAudienceContext(provider.GetRequiredService<IMessenger>(), provider.GetRequiredService<ILocalCache>()));
         services.AddSingleton<IWeekScheduleRepository, SqliteWeekScheduleRepository>();
         services.AddSingleton<IDateOverrideRepository, SqliteDateOverrideRepository>();
         services.AddSingleton<IProfileRepository, SqliteProfileRepository>();

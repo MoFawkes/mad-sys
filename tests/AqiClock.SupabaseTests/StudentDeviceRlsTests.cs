@@ -1,5 +1,10 @@
 using System.Net;
 using System.Text.Json.Nodes;
+using AqiClock.Application.Abstractions;
+using AqiClock.Application.Configuration;
+using AqiClock.Infrastructure.Supabase;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace AqiClock.SupabaseTests;
 
@@ -176,6 +181,28 @@ public sealed class StudentDeviceRlsTests(SupabaseFixture fixture)
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Contains("42501", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
+    [SupabaseFact]
+    public async Task DesktopGatewayCanSignInEnrollAndResolveStudentOrganization()
+    {
+        using var gateway = new SupabaseGateway(Options.Create(new SupabaseOptions
+        {
+            Url = SupabaseEnvironment.Url!,
+            AnonKey = SupabaseEnvironment.AnonKey,
+        }), NullLogger<SupabaseGateway>.Instance);
+        AuthenticatedSession session = await gateway.SignInAnonymouslyAsync();
+        try
+        {
+            Guid enrolledOrganization = await gateway.EnrollStudentDeviceAsync(fixture.StudentJoinCode);
+            Assert.Equal(SupabaseFixture.OrgAId, enrolledOrganization);
+            Assert.Equal(SupabaseFixture.OrgAId, await gateway.GetCurrentOrganizationIdAsync());
+            Assert.NotEmpty((await gateway.PullAsync(CacheTable.Organizations)).Rows);
+        }
+        finally
+        {
+            await fixture.SqlAsync("delete from auth.users where id = $1", session.UserId);
+        }
     }
 
     private async Task EnsureProbeRowsAsync()

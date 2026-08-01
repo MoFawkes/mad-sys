@@ -55,9 +55,24 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
     public async Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         using HttpResponseMessage response = await _httpClient.PostAsJsonAsync("auth/v1/token?grant_type=password", new { email, password }, JsonOptions, cancellationToken).ConfigureAwait(false);
-        AuthResponse auth = await ReadAuthResponseAsync(response, cancellationToken).ConfigureAwait(false);
+        AuthResponse auth = await ReadAuthResponseAsync(response, AuthOperation.PasswordSignIn, cancellationToken).ConfigureAwait(false);
         await SetClientSessionAsync(auth).ConfigureAwait(false);
         return MapSession(auth);
+    }
+
+    public async Task<AuthenticatedSession> SignInAnonymouslyAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await _httpClient.PostAsJsonAsync("auth/v1/signup", new { }, JsonOptions, cancellationToken).ConfigureAwait(false);
+        AuthResponse auth = await ReadAuthResponseAsync(response, AuthOperation.AnonymousSignIn, cancellationToken).ConfigureAwait(false);
+        await SetClientSessionAsync(auth).ConfigureAwait(false);
+        return MapSession(auth);
+    }
+
+    public async Task<Guid> EnrollStudentDeviceAsync(string joinCode, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(joinCode);
+        using JsonDocument document = await PostRpcAsync("enroll_student_device", new { join_code = joinCode.Trim().Replace(" ", string.Empty) }, cancellationToken).ConfigureAwait(false);
+        return document.RootElement.GetGuid();
     }
 
     public async Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default)
@@ -111,9 +126,16 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
     public async Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default)
     {
         using HttpResponseMessage response = await _httpClient.PostAsJsonAsync("auth/v1/token?grant_type=refresh_token", new { refresh_token = session.RefreshToken }, JsonOptions, cancellationToken).ConfigureAwait(false);
-        AuthResponse auth = await ReadAuthResponseAsync(response, cancellationToken).ConfigureAwait(false);
+        AuthResponse auth = await ReadAuthResponseAsync(response, AuthOperation.Refresh, cancellationToken).ConfigureAwait(false);
         await SetClientSessionAsync(auth).ConfigureAwait(false);
         return MapSession(auth);
+    }
+
+    public Task RestoreAccessTokenAsync(StoredSession session, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        _accessToken = session.AccessToken;
+        return Task.CompletedTask;
     }
 
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
@@ -127,10 +149,13 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
 
     public async Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default)
     {
-        using JsonDocument document = await GetJsonAsync("rest/v1/profiles?select=org_id&id=eq." + GetCurrentUserId(), cancellationToken).ConfigureAwait(false);
+        Guid userId = GetCurrentUserId();
+        using JsonDocument document = await GetJsonAsync("rest/v1/profiles?select=org_id&id=eq." + userId, cancellationToken).ConfigureAwait(false);
         JsonElement rows = document.RootElement;
-        if (rows.GetArrayLength() != 1) throw new InvalidOperationException("The signed-in profile is unavailable or inactive.");
-        return rows[0].GetProperty("org_id").GetGuid();
+        if (rows.GetArrayLength() == 1) return rows[0].GetProperty("org_id").GetGuid();
+        using JsonDocument devices = await GetJsonAsync("rest/v1/student_devices?select=org_id&user_id=eq." + userId, cancellationToken).ConfigureAwait(false);
+        if (devices.RootElement.GetArrayLength() == 1) return devices.RootElement[0].GetProperty("org_id").GetGuid();
+        throw new InvalidOperationException("The signed-in profile or student-device enrolment is unavailable.");
     }
 
     public async Task<string> GetStudentJoinCodeAsync(CancellationToken cancellationToken = default)
@@ -316,11 +341,14 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<JsonDocument> PostRpcAsync(string functionName, CancellationToken cancellationToken)
+    private Task<JsonDocument> PostRpcAsync(string functionName, CancellationToken cancellationToken) =>
+        PostRpcAsync(functionName, new { }, cancellationToken);
+
+    private async Task<JsonDocument> PostRpcAsync(string functionName, object body, CancellationToken cancellationToken)
     {
         using HttpRequestMessage request = CreateRequest(
             HttpMethod.Post, $"rest/v1/rpc/{functionName}");
-        request.Content = JsonContent.Create(new { });
+        request.Content = JsonContent.Create(body, body.GetType(), options: JsonOptions);
         using HttpResponseMessage response = await _httpClient.SendAsync(
             request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         CheckClockSkew(response);
@@ -337,21 +365,52 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         return request;
     }
 
-    private async Task<AuthResponse> ReadAuthResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private async Task<AuthResponse> ReadAuthResponseAsync(HttpResponseMessage response, AuthOperation operation, CancellationToken cancellationToken)
     {
         CheckClockSkew(response);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            string? errorCode = TryReadAuthErrorCode(body);
+            if (operation == AuthOperation.Refresh && IsRejectedRefresh(response.StatusCode, errorCode))
+                throw new AuthenticationRejectedException("The stored Supabase session is no longer valid.");
+            if (operation == AuthOperation.PasswordSignIn && response.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.Unauthorized)
+                throw new CredentialRejectedException("The email or password was rejected.");
+            throw new HttpRequestException($"Supabase Auth returned HTTP {(int)response.StatusCode} ({errorCode ?? "unknown_error"}).", null, response.StatusCode);
+        }
         AuthResponse? auth = await response.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions, cancellationToken).ConfigureAwait(false);
         return auth ?? throw new InvalidOperationException("Supabase returned an empty authentication response.");
     }
 
-    private async Task SetClientSessionAsync(AuthResponse response)
+    private static string? TryReadAuthErrorCode(string body)
     {
-        _accessToken = response.AccessToken;
-        await _client.Auth.SetSession(response.AccessToken, response.RefreshToken, false).ConfigureAwait(false);
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(body);
+            foreach (string name in (string[])["error_code", "code", "error"])
+                if (document.RootElement.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String)
+                    return value.GetString()?.ToLowerInvariant();
+        }
+        catch (JsonException) { }
+        return null;
     }
 
-    private static AuthenticatedSession MapSession(AuthResponse response) => new(response.User.Id, response.User.Email, response.AccessToken, response.RefreshToken, DateTimeOffset.UtcNow.AddSeconds(response.ExpiresIn));
+    private static bool IsRejectedRefresh(System.Net.HttpStatusCode statusCode, string? errorCode) =>
+        statusCode == System.Net.HttpStatusCode.Unauthorized || errorCode is
+            "invalid_grant" or
+            "invalid_refresh_token" or
+            "refresh_token_expired" or
+            "refresh_token_not_found" or
+            "refresh_token_already_used";
+
+    private Task SetClientSessionAsync(AuthResponse response)
+    {
+        _accessToken = response.AccessToken;
+        _client.Realtime.SetAuth(response.AccessToken);
+        return Task.CompletedTask;
+    }
+
+    private static AuthenticatedSession MapSession(AuthResponse response) => new(response.User.Id, response.User.Email ?? string.Empty, response.AccessToken, response.RefreshToken, DateTimeOffset.UtcNow.AddSeconds(response.ExpiresIn), response.User.IsAnonymous);
 
     private Guid GetCurrentUserId()
     {
@@ -385,8 +444,9 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
     };
 
     private sealed record AuthResponse([property: JsonPropertyName("access_token")] string AccessToken, [property: JsonPropertyName("refresh_token")] string RefreshToken, [property: JsonPropertyName("expires_in")] int ExpiresIn, AuthUser User);
-    private sealed record AuthUser(Guid Id, string Email);
+    private sealed record AuthUser(Guid Id, string? Email, [property: JsonPropertyName("is_anonymous")] bool IsAnonymous = false);
     private sealed record PostgrestError(string? Code, string? Message);
+    private enum AuthOperation { PasswordSignIn, AnonymousSignIn, Refresh }
 
     private sealed class RealtimeSubscription(IReadOnlyList<RealtimeChannel> channels) : IRealtimeSubscription
     {

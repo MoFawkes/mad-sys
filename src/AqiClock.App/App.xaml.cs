@@ -108,6 +108,7 @@ public partial class App : System.Windows.Application, IDisposable
         IServiceProvider services = _host!.Services;
         ISettingsService settings = services.GetRequiredService<ISettingsService>(); settings.LoadAsync().GetAwaiter().GetResult();
         ThemeService theme = services.GetRequiredService<ThemeService>(); theme.Apply(settings.Current.Theme); settings.Changed += (_, changed) => Dispatcher.Invoke(() => theme.Apply(changed.Settings.Theme));
+        IDeviceAudienceContext audience = services.GetRequiredService<IDeviceAudienceContext>(); audience.RestoreAsync().GetAwaiter().GetResult();
         ISessionService session = services.GetRequiredService<ISessionService>(); session.RestoreAsync().GetAwaiter().GetResult();
         if (session.Current.UserId is not null) services.GetRequiredService<MainViewModel>().InitializeAsync().GetAwaiter().GetResult();
         services.GetRequiredService<StartupService>().Start();
@@ -118,7 +119,10 @@ public partial class App : System.Windows.Application, IDisposable
         IWindowService windows = services.GetRequiredService<IWindowService>();
         if (session.Current.UserId is not null)
         {
-            if (!_startMinimized && !settings.Current.StartMinimized) windows.ShowMainWindow();
+            bool studentReady = audience.Current.Role == DeviceAudienceRole.StudentDevice && audience.Current.SelectedClassIds.Count > 0;
+            bool studentNeedsSelection = audience.Current.Role == DeviceAudienceRole.StudentDevice && !studentReady;
+            if (studentNeedsSelection) windows.ShowStudentClassPickerWindow();
+            else if (!_startMinimized && !settings.Current.StartMinimized) windows.ShowMainWindow();
             _ = ObserveStartupSyncAsync(services.GetRequiredService<ISyncService>().StartAsync(), services.GetRequiredService<ILogger<App>>());
         }
         else windows.ShowRoleChoiceWindow();

@@ -86,6 +86,11 @@ public partial class PasswordRecoveryViewModel(
             LogRecoveryRejected(logger, exception);
             ErrorMessage = "This recovery link has expired or was already used. Request a new one.";
         }
+        catch (AuthenticationRejectedException exception)
+        {
+            LogRecoveryRejected(logger, exception);
+            ErrorMessage = "This recovery link has expired or was already used. Request a new one.";
+        }
         catch (HttpRequestException exception)
         {
             LogRecoveryUnavailable(logger, exception);

@@ -8,6 +8,8 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Supabase.Realtime.Exceptions;
+using AqiClock.App.Services;
+using System.Net.Http;
 
 namespace AqiClock.Application.Tests;
 
@@ -51,6 +53,123 @@ public sealed class InfrastructureOrchestrationTests
 
         Assert.True(service.Current.RequiresSignIn);
         Assert.Equal(0, cache.WipeCount);
+    }
+
+    [Fact]
+    public void OversizedDialogPlacementIsClampedInsideWorkArea()
+    {
+        WindowPlacement actual = WindowPlacements.Clamp(new WindowPlacement(-500, -300, 1400, 900), 0, 0, 1092, 614, 900, 480);
+        Assert.Equal(new WindowPlacement(0, 0, 1092, 614), actual);
+    }
+
+    [Fact]
+    public async Task SessionRestoreUsesCachedProfileWhenNetworkIsUnavailable()
+    {
+        Guid userId = Guid.NewGuid();
+        var stored = new StoredSession(JwtFor(userId), "refresh", DateTimeOffset.UtcNow.AddMinutes(30));
+        var store = new FakeSessionStore { Session = stored };
+        var gateway = new FakeGateway { RefreshException = new HttpRequestException("offline") };
+        using var service = new SessionService(store, gateway, new FakeProfiles(new Profile(userId, "Teacher", UserRole.Teacher, true)), new FakeCache(), new WeakReferenceMessenger());
+
+        await service.RestoreAsync();
+
+        Assert.Equal(userId, service.Current.UserId);
+        Assert.False(service.Current.RequiresSignIn);
+        Assert.Equal(stored, store.Session);
+        Assert.True(gateway.RestoreCalled);
+    }
+
+    [Fact]
+    public async Task RealGatewayOfflineRestoreStartsFromCachedTokenWithoutSdkRoundTrip()
+    {
+        Guid userId = Guid.NewGuid();
+        var store = new FakeSessionStore { Session = new StoredSession(JwtFor(userId), "refresh", DateTimeOffset.UtcNow.AddMinutes(30)) };
+        using var gateway = new SupabaseGateway(Options.Create(new SupabaseOptions { Url = "http://127.0.0.1:1", AnonKey = "sb_publishable_test" }), Microsoft.Extensions.Logging.Abstractions.NullLogger<SupabaseGateway>.Instance);
+        using var service = new SessionService(store, gateway, new FakeProfiles(new Profile(userId, "Teacher", UserRole.Teacher, true)), new FakeCache(), new WeakReferenceMessenger());
+
+        await service.RestoreAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(userId, service.Current.UserId);
+        Assert.False(service.Current.RequiresSignIn);
+    }
+
+    [Fact]
+    public async Task CorruptCachedAccessTokenRequiresSignInInsteadOfCrashingStartup()
+    {
+        var store = new FakeSessionStore { Session = new StoredSession("not-a-jwt", "refresh", DateTimeOffset.UtcNow.AddMinutes(30)) };
+        var gateway = new FakeGateway { RefreshException = new HttpRequestException("offline") };
+        using var service = new SessionService(store, gateway, new FakeProfiles(), new FakeCache(), new WeakReferenceMessenger());
+
+        await service.RestoreAsync();
+
+        Assert.True(service.Current.RequiresSignIn);
+        Assert.Null(store.Session);
+    }
+
+    [Fact]
+    public async Task EnsureFreshRefreshesAndPersistsOnlyInsideExpiryWindow()
+    {
+        Guid userId = Guid.NewGuid();
+        var store = new FakeSessionStore { Session = new StoredSession(JwtFor(userId), "old-refresh", DateTimeOffset.UtcNow.AddMinutes(4)) };
+        var gateway = new FakeGateway { RefreshedSession = new AuthenticatedSession(userId, "teacher@example.test", "rotated", "rotated-refresh", DateTimeOffset.UtcNow.AddHours(1)) };
+        using var service = new SessionService(store, gateway, new FakeProfiles(new Profile(userId, "Teacher", UserRole.Teacher, true)), new FakeCache(), new WeakReferenceMessenger());
+
+        await service.EnsureFreshAsync();
+        await service.EnsureFreshAsync();
+
+        Assert.Equal(1, gateway.RefreshCalls);
+        Assert.Equal("rotated", store.Session?.AccessToken);
+    }
+
+    [Fact]
+    public async Task AudiencePreferencesRoundTripAndClearThroughCacheMeta()
+    {
+        var cache = new FakeCache();
+        Guid classId = Guid.NewGuid();
+        var first = new DeviceAudienceContext(new WeakReferenceMessenger(), cache);
+        await first.SetStudentAsync([classId], [SessionHalfDay.Am]);
+        var restored = new DeviceAudienceContext(new WeakReferenceMessenger(), cache);
+
+        await restored.RestoreAsync();
+        Assert.Contains(classId, restored.Current.SelectedClassIds);
+        Assert.Contains(SessionHalfDay.Am, restored.Current.OptedHalfDays);
+
+        await restored.ClearAsync();
+        var cleared = new DeviceAudienceContext(new WeakReferenceMessenger(), cache);
+        await cleared.RestoreAsync();
+        Assert.Equal(DeviceAudienceRole.Teacher, cleared.Current.Role);
+    }
+
+    [Fact]
+    public async Task TeacherRestoreClearsStaleStudentAudiencePreferences()
+    {
+        Guid userId = Guid.NewGuid();
+        var cache = new FakeCache();
+        var audience = new DeviceAudienceContext(new WeakReferenceMessenger(), cache);
+        await audience.SetStudentAsync([Guid.NewGuid()], [SessionHalfDay.Pm]);
+        var gateway = new FakeGateway { RefreshedSession = new AuthenticatedSession(userId, "teacher@example.test", JwtFor(userId), "refresh-2", DateTimeOffset.UtcNow.AddHours(1)) };
+        var store = new FakeSessionStore { Session = new StoredSession(JwtFor(userId), "refresh-1", DateTimeOffset.UtcNow.AddMinutes(5)) };
+        using var service = new SessionService(store, gateway, new FakeProfiles(new Profile(userId, "Teacher", UserRole.Teacher, true)), cache, new WeakReferenceMessenger(), audience);
+
+        await service.RestoreAsync();
+
+        Assert.Equal(UserRole.Teacher, service.Current.Role);
+        Assert.Equal(DeviceAudienceRole.Teacher, audience.Current.Role);
+        Assert.Equal(string.Empty, cache.Meta["student_preferences"]);
+    }
+
+    [Fact]
+    public async Task StudentSyncSkipsProfiles()
+    {
+        var gateway = new FakeGateway();
+        var audience = new DeviceAudienceContext(new WeakReferenceMessenger());
+        await audience.SetStudentAsync([Guid.NewGuid()], []);
+        await using var service = new SyncService(gateway, new FakeCache(), new WeakReferenceMessenger(), new DebouncePolicy(TimeSpan.Zero), TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance, audience: audience);
+
+        await service.SyncAllAsync();
+
+        Assert.DoesNotContain(CacheTable.Profiles, gateway.PullCounts.Keys);
+        Assert.Contains(CacheTable.Announcements, gateway.PullCounts.Keys);
     }
 
     [Fact]
@@ -186,6 +305,20 @@ public sealed class InfrastructureOrchestrationTests
     }
 
     [Fact]
+    public async Task HeartbeatSurvivesTransientTokenRefreshFailure()
+    {
+        var gateway = new FakeGateway();
+        var session = new RefreshingSession(new HttpRequestException("offline"));
+        await using var service = new SyncService(gateway, new FakeCache(), new WeakReferenceMessenger(), new DebouncePolicy(TimeSpan.Zero), TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance, TimeSpan.FromMilliseconds(15), session);
+        await service.StartAsync();
+        int initialPulls = gateway.PullCounts.Values.Sum();
+
+        await WaitUntilAsync(() => session.Calls >= 2 && gateway.PullCounts.Values.Sum() > initialPulls);
+
+        Assert.Equal(ConnectivityState.Online, service.State);
+    }
+
+    [Fact]
     public async Task StopThenStartRestartsHeartbeatAndRealtime()
     {
         var gateway = new FakeGateway();
@@ -285,6 +418,33 @@ public sealed class InfrastructureOrchestrationTests
         }
     }
 
+    [Theory]
+    [InlineData("refresh_token_not_found")]
+    [InlineData("refresh_token_already_used")]
+    [InlineData("invalid_grant")]
+    public void ModernGoTrueRefreshErrorCodesRequireReauthentication(string errorCode)
+    {
+        var method = typeof(SupabaseGateway).GetMethod("IsRejectedRefresh", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Assert.True((bool)method!.Invoke(null, [System.Net.HttpStatusCode.BadRequest, errorCode])!);
+    }
+
+    [Fact]
+    public async Task CachedAccessTokenRestoreDoesNotCreateSdkSessionOrContactServer()
+    {
+        using var gateway = new SupabaseGateway(Options.Create(new SupabaseOptions { Url = "https://127.0.0.1:1", AnonKey = "sb_publishable_test" }), Microsoft.Extensions.Logging.Abstractions.NullLogger<SupabaseGateway>.Instance);
+        await gateway.RestoreAccessTokenAsync(new StoredSession("cached-access", "cached-refresh", DateTimeOffset.UtcNow.AddHours(1))).WaitAsync(TimeSpan.FromSeconds(1));
+        var clientField = typeof(SupabaseGateway).GetField("_client", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var client = Assert.IsType<global::Supabase.Client>(clientField?.GetValue(gateway));
+
+        Assert.Null(client.Auth.CurrentSession);
+    }
+
+    private static string JwtFor(Guid userId)
+    {
+        static string Encode(string value) => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(value)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        return $"{Encode("{\"alg\":\"none\"}")}.{Encode($"{{\"sub\":\"{userId}\"}}")}.signature";
+    }
+
     private sealed class FakeSessionStore : ISessionStore
     {
         public StoredSession? Session { get; set; }
@@ -324,9 +484,12 @@ public sealed class InfrastructureOrchestrationTests
         public int SubscribeCalls { get; private set; }
         public int ActiveSubscriptions { get; private set; }
         public bool IsSignedOut { get; set; }
+        public bool RestoreCalled { get; private set; }
+        public int RefreshCalls { get; private set; }
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.FromResult(RefreshedSession);
         public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => RefreshException is null ? Task.FromResult(RefreshedSession) : Task.FromException<AuthenticatedSession>(RefreshException);
+        public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) { RefreshCalls++; return RefreshException is null ? Task.FromResult(RefreshedSession) : Task.FromException<AuthenticatedSession>(RefreshException); }
+        public Task RestoreAccessTokenAsync(StoredSession session, CancellationToken cancellationToken = default) { RestoreCalled = true; return Task.CompletedTask; }
         public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) =>
             IsSignedOut
@@ -359,6 +522,20 @@ public sealed class InfrastructureOrchestrationTests
         {
             onDispose?.Invoke();
             return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class RefreshingSession(Exception firstFailure) : ISessionService
+    {
+        public int Calls { get; private set; }
+        public SessionState Current => new(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false);
+        public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task EnsureFreshAsync(CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Calls == 1 ? Task.FromException(firstFailure) : Task.CompletedTask;
         }
     }
 

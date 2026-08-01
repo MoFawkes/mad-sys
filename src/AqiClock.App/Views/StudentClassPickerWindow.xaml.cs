@@ -13,9 +13,10 @@ public partial class StudentClassPickerWindow : FluentWindow
     { InitializeComponent(); DataContext = _viewModel = viewModel; _main = main; _windows = windows; }
     private async void OnLoaded(object sender, System.Windows.RoutedEventArgs e) => await _viewModel.LoadAsync();
     public Task RefreshAsync() => _viewModel.LoadAsync();
+    private async void OnEnroll(object sender, System.Windows.RoutedEventArgs e) => await _viewModel.EnrollAsync();
     private async void OnStart(object sender, System.Windows.RoutedEventArgs e)
     {
-        if (!_viewModel.TryStartSession()) return;
+        if (!await _viewModel.TryStartSessionAsync()) return;
         await _main.InitializeAsync();
         _windows.ShowMainWindow();
         Close();

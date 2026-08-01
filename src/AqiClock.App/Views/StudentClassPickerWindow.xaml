@@ -4,6 +4,7 @@
   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
   Title="Student session" Width="520" Height="650" WindowStartupLocation="CenterScreen"
   ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica" Loaded="OnLoaded">
+  <ui:FluentWindow.Resources><BooleanToVisibilityConverter x:Key="BoolVisibility"/></ui:FluentWindow.Resources>
   <Grid Background="{DynamicResource WindowBrush}">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/></Grid.RowDefinitions>
     <ui:TitleBar Title="Student session"/>
@@ -11,9 +12,14 @@
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <StackPanel>
       <TextBlock Text="Choose your class(es)" FontSize="{DynamicResource TitleFontSize}" FontWeight="Bold" Foreground="{DynamicResource HeaderBrush}"/>
-      <TextBlock Text="This choice lasts for this app session only." Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,16"/>
+      <TextBlock Text="Your choices are remembered on this computer." Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,16"/>
+      <StackPanel Visibility="{Binding NeedsEnrollment, Converter={StaticResource BoolVisibility}}" Margin="0,0,0,12">
+        <TextBlock Text="Enter the student-device join code shown by an administrator." TextWrapping="Wrap" Margin="0,0,0,8"/>
+        <TextBox Text="{Binding JoinCode, UpdateSourceTrigger=PropertyChanged}" MaxLength="24"/>
+        <ui:Button Content="Enrol device and load classes" Appearance="Primary" HorizontalAlignment="Right" Margin="0,8,0,0" Click="OnEnroll"/>
+      </StackPanel>
     </StackPanel>
-    <ListBox Grid.Row="1" ItemsSource="{Binding Classes}" Background="{DynamicResource CardBrush}">
+    <ListBox Grid.Row="1" ItemsSource="{Binding Classes}" Background="{DynamicResource CardBrush}" IsEnabled="{Binding IsEnrolled}">
       <ListBox.ItemContainerStyle>
         <Style TargetType="ListBoxItem">
           <Setter Property="Background" Value="Transparent" />
@@ -34,7 +40,7 @@
     </ListBox>
     <StackPanel Grid.Row="4" Margin="0,12,0,0">
       <TextBlock Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-      <ui:Button Content="Start student session" Appearance="Primary" HorizontalAlignment="Right" Click="OnStart"/>
+      <ui:Button Content="Start student session" Appearance="Primary" HorizontalAlignment="Right" Click="OnStart" IsEnabled="{Binding IsEnrolled}"/>
     </StackPanel>
     </Grid>
   </Grid>

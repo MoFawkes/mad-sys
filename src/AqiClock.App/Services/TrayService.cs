@@ -81,9 +81,9 @@ public sealed class TrayService : IRecipient<SessionChanged>, IRecipient<Audienc
         menu.Items.Clear();
         menu.Items.Add(Item("Open", (_, _) => _windows.ShowMainWindow()));
         menu.Items.Add(Item($"Announcements ({_main.Announcements.UnreadCount})", (_, _) => _windows.ShowAnnouncements()));
-        if (_audience.Current.Role == DeviceAudienceRole.StudentDevice && _session.Current.UserId is null)
+        if (_audience.Current.Role == DeviceAudienceRole.StudentDevice)
         {
-            menu.Items.Add(Item("End student session", (_, _) => { _audience.Clear(); _windows.ShowRoleChoiceWindow(); }));
+            menu.Items.Add(Item("End student session", async (_, _) => { await _session.SignOutAsync(); _windows.ShowRoleChoiceWindow(); }));
             menu.Items.Add(Item("Exit", (_, _) => _windows.ExitApplication()));
             return;
         }
