@@ -19,6 +19,7 @@ public sealed record AnnouncementDisplay(
     bool IsUnread,
     string? EMasjidLink)
 {
+    public bool HasPoster => !string.IsNullOrWhiteSpace(Poster);
     public bool HasEMasjidLink => !string.IsNullOrWhiteSpace(EMasjidLink);
 }
 
@@ -44,8 +45,12 @@ public partial class AnnouncementsViewModel : ObservableObject, IRecipient<DataC
     {
         DateTimeOffset now = new(_clock.Now);
         IReadOnlyList<Announcement> announcements = await _repository.GetCurrentAsync(now, cancellationToken);
-        IReadOnlyList<Profile> profiles = await _profiles.GetAllAsync(cancellationToken);
-        Dictionary<Guid, string> names = profiles.ToDictionary(x => x.Id, x => x.DisplayName);
+        // Student devices never sync profiles (student RLS withholds staff data), so an author
+        // lookup would miss on every row. Show no author rather than "Unknown" on each one.
+        bool showsPoster = _audience.Current.Role != DeviceAudienceRole.StudentDevice;
+        Dictionary<Guid, string> names = showsPoster
+            ? (await _profiles.GetAllAsync(cancellationToken)).ToDictionary(x => x.Id, x => x.DisplayName)
+            : [];
         Items.Clear(); int unread = 0;
         foreach (Announcement item in announcements.Where(_audience.Matches).OrderByDescending(x => x.PublishAt ?? x.CreatedAt))
         {
@@ -57,7 +62,7 @@ public partial class AnnouncementsViewModel : ObservableObject, IRecipient<DataC
                 item.Title,
                 item.Body,
                 Relative(item.CreatedAt, now),
-                names.GetValueOrDefault(item.CreatedBy, "Unknown"),
+                showsPoster ? names.GetValueOrDefault(item.CreatedBy, "Unknown") : string.Empty,
                 !isRead,
                 item.EMasjidLink));
         }
