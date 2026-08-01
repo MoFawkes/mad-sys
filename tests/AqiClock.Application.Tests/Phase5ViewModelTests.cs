@@ -58,6 +58,22 @@ public sealed class Phase5ViewModelTests
             new SessionState(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false), false));
     }
 
+    [Fact]
+    public void EnrolledStudentDevicesAlwaysShowTheClockAtStartup()
+    {
+        // A student device is a display: neither the --minimized flag nor the setting may hide it.
+        Assert.True(WindowLifecycle.ShouldShowMainWindowAtStartup(studentReady: true, startMinimisedRequested: true, startMinimisedSetting: true));
+        Assert.True(WindowLifecycle.ShouldShowMainWindowAtStartup(studentReady: true, startMinimisedRequested: false, startMinimisedSetting: true));
+    }
+
+    [Fact]
+    public void StaffMachinesStillHonourStartMinimised()
+    {
+        Assert.False(WindowLifecycle.ShouldShowMainWindowAtStartup(studentReady: false, startMinimisedRequested: true, startMinimisedSetting: false));
+        Assert.False(WindowLifecycle.ShouldShowMainWindowAtStartup(studentReady: false, startMinimisedRequested: false, startMinimisedSetting: true));
+        Assert.True(WindowLifecycle.ShouldShowMainWindowAtStartup(studentReady: false, startMinimisedRequested: false, startMinimisedSetting: false));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

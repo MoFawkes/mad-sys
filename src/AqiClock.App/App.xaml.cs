@@ -122,7 +122,7 @@ public partial class App : System.Windows.Application, IDisposable
             bool studentReady = audience.Current.Role == DeviceAudienceRole.StudentDevice && audience.Current.SelectedClassIds.Count > 0;
             bool studentNeedsSelection = audience.Current.Role == DeviceAudienceRole.StudentDevice && !studentReady;
             if (studentNeedsSelection) windows.ShowStudentClassPickerWindow();
-            else if (!_startMinimized && !settings.Current.StartMinimized) windows.ShowMainWindow();
+            else if (WindowLifecycle.ShouldShowMainWindowAtStartup(studentReady, _startMinimized, settings.Current.StartMinimized)) windows.ShowMainWindow();
             _ = ObserveStartupSyncAsync(services.GetRequiredService<ISyncService>().StartAsync(), services.GetRequiredService<ILogger<App>>());
         }
         else windows.ShowRoleChoiceWindow();

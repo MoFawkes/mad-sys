@@ -165,6 +165,13 @@ public static class WindowLifecycle
         recoveryVisible ? ActivationTarget.PasswordRecovery :
         session.UserId is null && !studentSessionActive ? ActivationTarget.SignIn :
         ActivationTarget.Main;
+
+    /// <summary>
+    /// An enrolled student device is a display, so it always shows the clock at startup.
+    /// Start-minimised only applies to staff machines, where the app is a background utility.
+    /// </summary>
+    public static bool ShouldShowMainWindowAtStartup(bool studentReady, bool startMinimisedRequested, bool startMinimisedSetting) =>
+        studentReady || (!startMinimisedRequested && !startMinimisedSetting);
 }
 
 public enum ActivationTarget { SignIn, PasswordRecovery, Main }

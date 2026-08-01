@@ -69,11 +69,11 @@
                 <Grid DataContext="{Binding Timetables}" Margin="10">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="240" /><ColumnDefinition /></Grid.ColumnDefinitions>
                     <DockPanel>
-                        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal">
-                            <ui:Button Content="New" Command="{Binding NewTimetableCommand}" Appearance="Primary" />
-                            <Button Content="Duplicate" Command="{Binding DuplicateCommand}" />
-                            <Button Content="Archive / restore" Command="{Binding ToggleArchiveCommand}" />
-                        </StackPanel>
+                        <WrapPanel DockPanel.Dock="Bottom">
+                            <ui:Button Content="New" Command="{Binding NewTimetableCommand}" Appearance="Primary" Margin="0,2,4,2" />
+                            <Button Content="Duplicate" Command="{Binding DuplicateCommand}" Margin="0,2,4,2" />
+                            <Button Content="Archive / restore" Command="{Binding ToggleArchiveCommand}" Margin="0,2,4,2" />
+                        </WrapPanel>
                         <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" DisplayMemberPath="Name" />
                     </DockPanel>
                     <DockPanel Grid.Column="1" Margin="16,0,0,0">
