@@ -30,8 +30,15 @@ const PROFILE_FIRST: readonly SyncTable[] = [
   ...SYNC_TABLES.filter((table) => table !== 'profiles'),
 ];
 
+// Students have no readable profiles row under RLS, so pulling the table only
+// ever yields an empty snapshot. Omitting it matches the desktop client's
+// TablesForAudience and avoids a per-sync query that can never return data.
+const STUDENT_TABLES: readonly SyncTable[] = SYNC_TABLES.filter(
+  (table) => table !== 'profiles',
+);
+
 export function syncOrderFor(audience: SyncAudience): readonly SyncTable[] {
-  return audience === 'teacher' ? PROFILE_FIRST : SYNC_TABLES;
+  return audience === 'teacher' ? PROFILE_FIRST : STUDENT_TABLES;
 }
 
 export class SyncService {
@@ -174,7 +181,7 @@ export class SyncService {
 
   private subscribeRealtime(): void {
     const supabase = getSupabaseClient();
-    for (const table of SYNC_TABLES) {
+    for (const table of syncOrderFor(this.audience)) {
       const channel = supabase
         .channel(`mobile-${table}`)
         .on(

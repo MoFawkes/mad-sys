@@ -17,18 +17,20 @@ describe('sync audience ordering', () => {
     expect(syncOrderFor('teacher')[0]).toBe('profiles');
   });
 
-  it('syncs a student snapshot without requiring a profile first', () => {
+  // Students previously pulled `profiles` too. RLS returns an empty snapshot for
+  // an anonymous device, and that empty-but-successful result was read as "this
+  // account is deactivated", flipping the session into teacher mode and showing
+  // "Your account is inactive" instead of the timetable.
+  it('omits profiles from the student snapshot entirely', () => {
     expect(syncOrderFor('student')).toEqual([
       'timetables',
       'periods',
       'week_schedule',
       'date_overrides',
       'announcements',
-      'profiles',
       'classes',
       'period_classes',
     ]);
-    expect(syncOrderFor('student')).toContain('profiles');
-    expect(syncOrderFor('student')[0]).not.toBe('profiles');
+    expect(syncOrderFor('student')).not.toContain('profiles');
   });
 });
