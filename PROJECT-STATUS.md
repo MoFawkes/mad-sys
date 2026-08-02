@@ -17,18 +17,32 @@ the acceptance script.
 | Source | `main` at `357e48f`; v0.10.0 tagged at merge commit `15ecb86` |
 | Production backend | Supabase project active and healthy |
 | Latest release | v0.10.0 — audience-aware sign-in, classes, announcements, and Navy/Cream theme |
-| Next release | v0.11.0 Expo mobile companion; implementation complete, manual/device acceptance pending |
+| Next release | v0.11.0 desktop QoL — ready to tag; v0.12.0 Expo mobile companion pending device acceptance |
 | Candidate CI | Merged-main run `30722069814` green at `357e48f` |
 | Release workflow | v0.10.0 tag-bound run `30049223114` green; public assets verified |
 
-## v0.11.0 mobile state
+## Release split — decided 2026-08-02
+
+v0.11.0 is the **desktop** release; the Expo companion moves to **v0.12.0**.
+
+The desktop work was previously recorded as unable to ship alone because enrolment needs
+`enroll_student_device` and the student RLS migrations. That dependency is **already
+satisfied**: production carries all seven migration versions (audited 2026-08-01) and `main`
+carries them since PR #2. Nothing else couples the two — `.github/workflows/release.yml`
+publishes only the Windows Velopack artifact, and the mobile APK is distributed by link, so
+it stays invisible to users until one is shared. Teachers therefore do not need to wait for
+mobile device acceptance to receive fixes they asked for.
+
+## v0.12.0 mobile state
 
 - Phases 0–10 are implemented: the original mobile scope, visual alignment, isolated/admin-distributed join codes with desktop QR and mobile sharing, revoked-device recovery, and desktop-brand icon parity.
 - The additive student-device migration and signup hook are covered by the release-gating Supabase matrix; the existing staff/admin matrix remains in scope.
 - Mobile automated gates are Jest, TypeScript, and ESLint in their own CI job. Existing .NET and Supabase required checks remain unfiltered.
 - Distribution is an internal Android APK from the EAS `preview` profile; iOS and store submission are out of scope.
-- The 2026-08-01 desktop follow-up is merged on `main`: staff sessions tolerate boot-time network races and refresh proactively; desktop students use anonymous enrolment with persisted choices and student-scoped sync; Admin/Settings sizing and editor interruptions are corrected.
-- EAS preview build `f2b8871d-919f-41df-96e6-104b621cbee4` was produced from `357e48f` with both Supabase client variables loaded. Its merged manifest includes `POST_NOTIFICATIONS` and `RECEIVE_BOOT_COMPLETED`, but neither exact-alarm permission.
+- The 2026-08-01 desktop follow-up is merged on `main`: staff sessions tolerate boot-time network races and refresh proactively; desktop students use anonymous enrolment with persisted choices and student-scoped sync; Admin/Settings sizing and editor interruptions are corrected. It ships as v0.11.0 on its own — see the release-split section above.
+- EAS preview build `f2b8871d-919f-41df-96e6-104b621cbee4` from `357e48f` shipped with `POST_NOTIFICATIONS` and `RECEIVE_BOOT_COMPLETED` but **neither exact-alarm permission**: `expo-notifications` 0.32.17 no longer declares `SCHEDULE_EXACT_ALARM` for its consumers, so Android 12+ fell back to inexact alarms, which Doze batches to roughly nine-minute granularity.
+- Superseded by build `47b10fa9-a2db-4958-8291-eb3779583c7c` from `3f20549`, which declares both `USE_EXACT_ALARM` and `SCHEDULE_EXACT_ALARM` (verified in its merged manifest) and carries the student-session fix. SHA-256 `9B9C80DB17D546BDB4AA6912F9C0DF9AF3E7FF26F1083817ABEE3A3DB64BFDF8`. Drift itself is still unmeasured and needs physical hardware.
+- Emulator acceptance on 2026-08-02 passed checks 336, 338, 340, 341, 342, 344, 345, 346, and 349 against a local stack, and found the student-session defect above. The remaining rows need physical hardware.
 - Production reconciliation on 2026-08-01 found all seven migration versions and the complete student-device schema already applied. The hosted signup gate was verified against production intent: public email signup returned 403 **Public signup is disabled**, while an anonymous identity enrolled successfully and could select its own `student_devices` row under RLS.
 - Release remains blocked on the physical Android checklist and measured Android 13+ notification drift. The overnight offline and notification passes plus the three-day background pass impose a roughly four-day wall-clock acceptance floor from the start of device testing. See `docs/MANUAL-TESTS.md`.
 - Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, Android drift, and the desktop untagged-period notification semantic difference.

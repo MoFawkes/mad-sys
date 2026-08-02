@@ -103,7 +103,10 @@ export function AppProvider({ children }: PropsWithChildren) {
   const applyFreshProfile = useCallback(async (userId: string) => {
     const profile = await getCachedProfile(userId);
     setSession((current) =>
-      current.status === 'signedIn' && current.userId === userId
+      // Teacher sessions only. An anonymous student never has a profile row
+      // (ADR-023), so the "no own row" signal below would misread it as an
+      // inactive account and flip the session into teacher mode.
+      current.status === 'signedIn' && current.userId === userId && current.mode === 'teacher'
         ? {
             ...current,
             role: profile?.role ?? 'teacher',

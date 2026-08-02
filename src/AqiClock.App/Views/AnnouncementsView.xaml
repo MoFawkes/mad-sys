@@ -38,6 +38,7 @@
               </Hyperlink>
             </TextBlock>
             <TextBlock Text="{Binding Poster}"
+                       Visibility="{Binding HasPoster, Converter={StaticResource BoolToVisibility}}"
                        FontSize="{DynamicResource CaptionFontSize}"
                        Foreground="{DynamicResource MutedBrush}" />
           </StackPanel>

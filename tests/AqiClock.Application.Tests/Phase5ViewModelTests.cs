@@ -232,6 +232,48 @@ public sealed class Phase5ViewModelTests
     }
 
     [Fact]
+    public async Task StudentDevicesShowNoAuthorInsteadOfUnknown()
+    {
+        // Student RLS withholds staff profiles and student sync omits the profiles table, so an
+        // author lookup misses on every row. The reader must show no author, never "Unknown".
+        Guid author = Guid.NewGuid();
+        var messenger = new WeakReferenceMessenger();
+        var audience = new DeviceAudienceContext(messenger);
+        await audience.SetStudentAsync([Guid.NewGuid()], []);
+        var vm = new AnnouncementsViewModel(
+            new AnnouncementRepository(new Announcement(Guid.NewGuid(), "Assembly", "In the hall", DateTimeOffset.Now.AddMinutes(-2), author, null)),
+            new ReadStore(),
+            new ProfileRepository(),
+            new FixedClock(DateTime.Now),
+            messenger,
+            audience);
+
+        await vm.LoadAsync(false);
+
+        AnnouncementDisplay display = Assert.Single(vm.Items);
+        Assert.Equal(string.Empty, display.Poster);
+        Assert.False(display.HasPoster);
+    }
+
+    [Fact]
+    public async Task TeacherDevicesStillShowTheAuthorName()
+    {
+        Guid author = Guid.NewGuid();
+        var vm = new AnnouncementsViewModel(
+            new AnnouncementRepository(new Announcement(Guid.NewGuid(), "Meeting", "At 3", DateTimeOffset.Now.AddMinutes(-2), author, null)),
+            new ReadStore(),
+            new ProfileRepository(new Profile(author, "Sam", UserRole.Teacher, true)),
+            new FixedClock(DateTime.Now),
+            new WeakReferenceMessenger());
+
+        await vm.LoadAsync(false);
+
+        AnnouncementDisplay display = Assert.Single(vm.Items);
+        Assert.Equal("Sam", display.Poster);
+        Assert.True(display.HasPoster);
+    }
+
+    [Fact]
     public async Task SettingsRoundTripPersistsTypedValues()
     {
         string directory = Path.Combine(Path.GetTempPath(), "AqiClockTests", Guid.NewGuid().ToString("N"));

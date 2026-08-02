@@ -1,0 +1,210 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>AQI Clock - Select Audience</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500&amp;family=JetBrains+Mono:wght@500&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@100..900&amp;family=Inter:wght@100..900&amp;family=JetBrains+Mono:wght@100..900&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-background": "#dbe1ff",
+                    "surface": "#031134",
+                    "on-error": "#690005",
+                    "primary-container": "#b0c4de",
+                    "tertiary-fixed": "#d2e4ff",
+                    "surface-bright": "#2b385c",
+                    "primary-fixed-dim": "#b4c8e2",
+                    "on-secondary-container": "#abb7e1",
+                    "on-secondary": "#222f51",
+                    "background": "#031134",
+                    "primary-fixed": "#d0e4ff",
+                    "on-tertiary": "#0d3254",
+                    "on-tertiary-fixed": "#001d36",
+                    "surface-tint": "#b4c8e2",
+                    "inverse-surface": "#dbe1ff",
+                    "surface-dim": "#031134",
+                    "tertiary-container": "#a5c5ee",
+                    "on-primary-container": "#3e5167",
+                    "secondary-container": "#3b486c",
+                    "primary": "#cce0fb",
+                    "tertiary": "#cae0ff",
+                    "on-secondary-fixed": "#0c1a3b",
+                    "error": "#ffb4ab",
+                    "on-surface": "#dbe1ff",
+                    "surface-container-lowest": "#000b2d",
+                    "surface-container-low": "#0b1a3d",
+                    "on-tertiary-fixed-variant": "#28496c",
+                    "secondary": "#b9c5f0",
+                    "on-error-container": "#ffdad6",
+                    "surface-variant": "#273357",
+                    "tertiary-fixed-dim": "#a9c9f3",
+                    "on-tertiary-container": "#325275",
+                    "inverse-on-surface": "#222f53",
+                    "surface-container-highest": "#273357",
+                    "surface-container": "#101e41",
+                    "secondary-fixed-dim": "#b9c5f0",
+                    "on-primary": "#1e3246",
+                    "error-container": "#93000a",
+                    "surface-container-high": "#1b284c",
+                    "on-surface-variant": "#c4c6cd",
+                    "outline": "#8e9197",
+                    "outline-variant": "#43474c",
+                    "secondary-fixed": "#dae2ff",
+                    "inverse-primary": "#4d6077",
+                    "on-primary-fixed-variant": "#35485e",
+                    "on-primary-fixed": "#071d30",
+                    "on-secondary-fixed-variant": "#394669"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "margin-mobile": "16px",
+                    "margin-desktop": "40px",
+                    "unit": "8px",
+                    "container-max": "1440px",
+                    "margin-tablet": "24px",
+                    "gutter": "24px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Hanken Grotesk"],
+                    "body-sm": ["Inter"],
+                    "display": ["Hanken Grotesk"],
+                    "label-md": ["JetBrains Mono"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "label-sm": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "display": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-md": ["13px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "label-sm": ["11px", {"lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #031134;
+            color: #dbe1ff;
+            overflow-x: hidden;
+        }
+        .glass-card {
+            background: rgba(30, 43, 77, 0.4);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-card:hover {
+            background: rgba(30, 43, 77, 0.6);
+            border-color: #b0c4de;
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+        .selection-active {
+            border-color: #b4c8e2 !important;
+            background: rgba(176, 196, 222, 0.1) !important;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+<!-- TopAppBar -->
+
+<!-- Main Content Canvas -->
+<main class="flex-grow flex flex-col items-center justify-center pt-24 pb-16 px-margin-mobile">
+<!-- Background Ambient Effect -->
+<div class="fixed inset-0 pointer-events-none opacity-20 overflow-hidden">
+<div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary rounded-full blur-[120px]"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary rounded-full blur-[100px]"></div>
+</div>
+<div class="w-full max-w-4xl text-center z-10">
+<h1 class="font-display text-display text-primary mb-2">AQI Clock</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-12">Choose the audience using this computer.</p>
+<!-- Audience Selection Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter px-4">
+<!-- Teacher Card -->
+<button class="glass-card group flex flex-col items-center justify-center p-12 rounded-xl text-center relative overflow-hidden h-[400px]" onclick="selectAudience('teacher')">
+<div class="absolute inset-0 bg-primary opacity-0 group-hover:opacity-5 transition-opacity"></div>
+<div class="w-24 h-24 mb-8 rounded-full bg-secondary-container flex items-center justify-center text-primary transition-transform group-hover:scale-110">
+<span class="material-symbols-outlined text-[48px]" style="font-variation-settings: 'FILL' 1;">school</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-4">Teacher</h2>
+
+<div class="mt-8 flex items-center gap-2 text-primary font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="">SELECT ROLE</span>
+<span class="material-symbols-outlined text-sm">arrow_forward</span>
+</div>
+</button>
+<!-- Student Card -->
+<button class="glass-card group flex flex-col items-center justify-center p-12 rounded-xl text-center relative overflow-hidden h-[400px]" onclick="selectAudience('student')">
+<div class="absolute inset-0 bg-primary opacity-0 group-hover:opacity-5 transition-opacity"></div>
+<div class="w-24 h-24 mb-8 rounded-full bg-secondary-container flex items-center justify-center text-primary transition-transform group-hover:scale-110">
+<span class="material-symbols-outlined text-[48px]" style="font-variation-settings: 'FILL' 1;">person</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-4">Student</h2>
+
+<div class="mt-8 flex items-center gap-2 text-primary font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="">START LEARNING</span>
+<span class="material-symbols-outlined text-sm">arrow_forward</span>
+</div>
+</button>
+</div>
+<!-- Contextual Note -->
+<div class="mt-12 opacity-60">
+<p class="font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant">Version 4.2.0 | Secured Environment</p>
+</div>
+</div>
+</main>
+<!-- Footer -->
+
+<script>
+        function selectAudience(role) {
+            console.log('Audience selected:', role);
+            // Visual feedback
+            const buttons = document.querySelectorAll('.glass-card');
+            buttons.forEach(btn => btn.classList.remove('selection-active'));
+
+            event.currentTarget.classList.add('selection-active');
+
+            // Interaction: Subtle scaling for confirmation
+            event.currentTarget.style.transform = 'scale(0.98)';
+            setTimeout(() => {
+                event.currentTarget.style.transform = '';
+                // In a real app, this would navigate
+                alert(`Navigating to ${role} experience...`);
+            }, 150);
+        }
+
+        // Simple mouse tracking for background atmosphere
+        document.addEventListener('mousemove', (e) => {
+            const x = e.clientX / window.innerWidth;
+            const y = e.clientY / window.innerHeight;
+
+            const primaryBlur = document.querySelector('.bg-primary');
+            const secondaryBlur = document.querySelector('.bg-secondary');
+
+            primaryBlur.style.transform = `translate(${x * 20}px, ${y * 20}px)`;
+            secondaryBlur.style.transform = `translate(${-x * 20}px, ${-y * 20}px)`;
+        });
+    </script>
+
+
+</body></html>
