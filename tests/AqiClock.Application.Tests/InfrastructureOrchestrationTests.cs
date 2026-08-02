@@ -6,9 +6,11 @@ using AqiClock.Domain.Entities;
 using AqiClock.Infrastructure.Supabase;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.Extensions.Options;
 using Supabase.Realtime.Exceptions;
 using AqiClock.App.Services;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Windows;
 
@@ -336,7 +338,10 @@ public sealed class InfrastructureOrchestrationTests
         Assert.Equal(UserRole.Teacher, service.Current.Role);
 
         messenger.Send(new AqiClock.Application.Messages.DataChanged(CacheTable.Profiles));
-        await WaitUntilAsync(() => service.Current.Role == UserRole.Admin);
+        await WaitUntilAsync(
+            () => service.Current.Role == UserRole.Admin,
+            "the refreshed profile to promote the session to Admin",
+            () => $"role={service.Current.Role}");
 
         Assert.Equal(UserRole.Admin, service.Current.Role);
     }
@@ -361,12 +366,17 @@ public sealed class InfrastructureOrchestrationTests
     {
         var cache = new FakeCache();
         var gateway = new FakeGateway();
-        await using var service = new SyncService(gateway, cache, new WeakReferenceMessenger(), new DebouncePolicy(TimeSpan.FromMilliseconds(40)), TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance);
+        var time = new FakeTimeProvider();
+        await using var service = new SyncService(gateway, cache, new WeakReferenceMessenger(), new DebouncePolicy(TimeSpan.FromMilliseconds(40)), time, Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance);
         service.SignalTableChanged(CacheTable.Timetables);
         service.SignalTableChanged(CacheTable.Timetables);
         service.SignalTableChanged(CacheTable.Timetables);
 
-        await Task.Delay(150);
+        time.Advance(TimeSpan.FromMilliseconds(40));
+        await WaitUntilAsync(
+            () => gateway.PullCounts.GetValueOrDefault(CacheTable.Timetables) == 1,
+            "the debounced timetable signal to perform one pull",
+            () => $"pulls={gateway.PullCounts.GetValueOrDefault(CacheTable.Timetables)}");
 
         Assert.Equal(1, gateway.PullCounts.GetValueOrDefault(CacheTable.Timetables));
     }
@@ -390,11 +400,20 @@ public sealed class InfrastructureOrchestrationTests
     public async Task HeartbeatRetriesRealtimeSubscriptionUntilItAttaches()
     {
         var gateway = new FakeGateway();
+        var time = new FakeTimeProvider();
         gateway.SubscriptionFailures.Enqueue(new RealtimeException("temporary 403"));
-        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(50));
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(50), timeProvider: time);
 
         await service.StartAsync();
-        await WaitUntilAsync(() => gateway.SubscribeCalls >= 2 && gateway.ActiveSubscriptions == 1);
+        await WaitUntilAsync(
+            () => gateway.SubscribeCalls == 1,
+            "the initial realtime subscription attempt to fail",
+            () => $"calls={gateway.SubscribeCalls}, active={gateway.ActiveSubscriptions}");
+        time.Advance(TimeSpan.FromMilliseconds(50));
+        await WaitUntilAsync(
+            () => gateway.SubscribeCalls >= 2 && gateway.ActiveSubscriptions == 1 && service.State == ConnectivityState.Online,
+            "the heartbeat to retry and attach realtime",
+            () => $"calls={gateway.SubscribeCalls}, active={gateway.ActiveSubscriptions}, state={service.State}");
 
         Assert.Equal(1, gateway.ActiveSubscriptions);
         Assert.Equal(ConnectivityState.Online, service.State);
@@ -404,15 +423,23 @@ public sealed class InfrastructureOrchestrationTests
     public async Task HeartbeatSurvivesUnexpectedRefreshFailure()
     {
         var gateway = new FakeGateway();
-        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15));
+        var time = new FakeTimeProvider();
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15), timeProvider: time);
         await service.StartAsync();
         int successfulPulls = gateway.PullCounts.Values.Sum();
         gateway.PullFailures.Enqueue(new InvalidOperationException("unexpected PostgREST-style failure"));
 
+        time.Advance(TimeSpan.FromMilliseconds(15));
+        await WaitUntilAsync(
+            () => service.State == ConnectivityState.Offline,
+            "the failed heartbeat refresh to transition offline",
+            () => $"state={service.State}, pulls={gateway.PullCounts.Values.Sum()}");
+        time.Advance(TimeSpan.FromMilliseconds(30));
         int fullRefresh = Enum.GetValues<CacheTable>().Length;
-        await WaitUntilAsync(() =>
-            service.State == ConnectivityState.Online &&
-            gateway.PullCounts.Values.Sum() >= successfulPulls + fullRefresh + 1);
+        await WaitUntilAsync(
+            () => service.State == ConnectivityState.Online && gateway.PullCounts.Values.Sum() >= successfulPulls + fullRefresh + 1,
+            "the next heartbeat to recover after an unexpected pull failure",
+            () => $"state={service.State}, pulls={gateway.PullCounts.Values.Sum()}, expected>={successfulPulls + fullRefresh + 1}");
 
         Assert.Equal(ConnectivityState.Online, service.State);
         Assert.True(gateway.PullCounts.Values.Sum() > successfulPulls);
@@ -422,12 +449,22 @@ public sealed class InfrastructureOrchestrationTests
     public async Task HeartbeatSurvivesTransientTokenRefreshFailure()
     {
         var gateway = new FakeGateway();
+        var time = new FakeTimeProvider();
         var session = new RefreshingSession(new HttpRequestException("offline"));
-        await using var service = new SyncService(gateway, new FakeCache(), new WeakReferenceMessenger(), new DebouncePolicy(TimeSpan.Zero), TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance, TimeSpan.FromMilliseconds(15), session);
+        await using var service = new SyncService(gateway, new FakeCache(), new WeakReferenceMessenger(), new DebouncePolicy(TimeSpan.Zero), time, Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance, TimeSpan.FromMilliseconds(15), session);
         await service.StartAsync();
         int initialPulls = gateway.PullCounts.Values.Sum();
 
-        await WaitUntilAsync(() => session.Calls >= 2 && gateway.PullCounts.Values.Sum() > initialPulls);
+        time.Advance(TimeSpan.FromMilliseconds(15));
+        await WaitUntilAsync(
+            () => service.State == ConnectivityState.Offline && session.Calls == 1,
+            "the transient token refresh failure to transition offline",
+            () => $"state={service.State}, sessionCalls={session.Calls}");
+        time.Advance(TimeSpan.FromMilliseconds(15));
+        await WaitUntilAsync(
+            () => session.Calls >= 2 && gateway.PullCounts.Values.Sum() > initialPulls && service.State == ConnectivityState.Online,
+            "the next heartbeat to recover after a transient token refresh failure",
+            () => $"state={service.State}, sessionCalls={session.Calls}, pulls={gateway.PullCounts.Values.Sum()}");
 
         Assert.Equal(ConnectivityState.Online, service.State);
     }
@@ -439,14 +476,17 @@ public sealed class InfrastructureOrchestrationTests
         var messenger = new WeakReferenceMessenger();
         var recipient = new ThrowingConnectivityRecipient();
         var logger = new CapturingLogger<SyncService>();
+        var time = new FakeTimeProvider();
         messenger.Register(recipient);
-        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(50), messenger, logger);
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(50), messenger, logger, time);
 
         await service.StartAsync();
         int initialPulls = gateway.PullCounts.Values.Sum();
-        await WaitUntilAsync(() =>
-            gateway.PullCounts.Values.Sum() > initialPulls &&
-            service.State == ConnectivityState.Online);
+        time.Advance(TimeSpan.FromMilliseconds(50));
+        await WaitUntilAsync(
+            () => gateway.PullCounts.Values.Sum() > initialPulls && service.State == ConnectivityState.Online,
+            "the heartbeat to survive a throwing connectivity recipient",
+            () => $"state={service.State}, recipientCalls={recipient.Calls}, pulls={gateway.PullCounts.Values.Sum()}");
 
         Assert.Equal(ConnectivityState.Online, service.State);
         Assert.True(recipient.Calls >= 3);
@@ -457,14 +497,22 @@ public sealed class InfrastructureOrchestrationTests
     public async Task HeartbeatResubscribesAfterRealtimeSocketDrops()
     {
         var gateway = new FakeGateway();
-        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15));
+        var time = new FakeTimeProvider();
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15), timeProvider: time);
 
         await service.StartAsync();
-        await WaitUntilAsync(() => gateway.LatestSubscription is not null && gateway.ActiveSubscriptions == 1);
+        await WaitUntilAsync(
+            () => gateway.LatestSubscription is not null && gateway.ActiveSubscriptions == 1,
+            "the initial realtime subscription to attach",
+            () => $"calls={gateway.SubscribeCalls}, active={gateway.ActiveSubscriptions}");
         FakeSubscription dropped = gateway.LatestSubscription!;
         dropped.Drop();
 
-        await WaitUntilAsync(() => gateway.SubscribeCalls >= 2 && gateway.ActiveSubscriptions == 1 && gateway.LatestSubscription != dropped);
+        time.Advance(TimeSpan.FromMilliseconds(15));
+        await WaitUntilAsync(
+            () => gateway.SubscribeCalls >= 2 && gateway.ActiveSubscriptions == 1 && gateway.LatestSubscription != dropped,
+            "the heartbeat to replace the dropped realtime subscription",
+            () => $"calls={gateway.SubscribeCalls}, active={gateway.ActiveSubscriptions}, replaced={gateway.LatestSubscription != dropped}");
 
         Assert.False(dropped.IsAlive);
         Assert.True(gateway.LatestSubscription!.IsAlive);
@@ -474,20 +522,28 @@ public sealed class InfrastructureOrchestrationTests
     public async Task StopThenStartRestartsHeartbeatAndRealtime()
     {
         var gateway = new FakeGateway();
-        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15));
+        var time = new FakeTimeProvider();
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15), timeProvider: time);
 
         await service.StartAsync();
-        await WaitUntilAsync(() => gateway.ActiveSubscriptions == 1);
+        await WaitUntilAsync(
+            () => gateway.ActiveSubscriptions == 1,
+            "the initial realtime subscription to attach before stopping",
+            () => $"calls={gateway.SubscribeCalls}, active={gateway.ActiveSubscriptions}");
         await service.StopAsync();
         int pullsAfterStop = gateway.PullCounts.Values.Sum();
-        await Task.Delay(60);
+        time.Advance(TimeSpan.FromMilliseconds(60));
+        await Task.Yield();
 
         Assert.Equal(0, gateway.ActiveSubscriptions);
         Assert.Equal(pullsAfterStop, gateway.PullCounts.Values.Sum());
         Assert.Equal(ConnectivityState.Offline, service.State);
 
         await service.StartAsync();
-        await WaitUntilAsync(() => gateway.SubscribeCalls >= 2 && service.State == ConnectivityState.Online);
+        await WaitUntilAsync(
+            () => gateway.SubscribeCalls >= 2 && service.State == ConnectivityState.Online,
+            "restart to attach realtime and complete initial sync",
+            () => $"calls={gateway.SubscribeCalls}, active={gateway.ActiveSubscriptions}, state={service.State}");
 
         Assert.Equal(1, gateway.ActiveSubscriptions);
         Assert.Equal(ConnectivityState.Online, service.State);
@@ -498,12 +554,18 @@ public sealed class InfrastructureOrchestrationTests
     {
         var gateway = new FakeGateway();
         var logger = new CapturingLogger<SyncService>();
-        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15), logger: logger);
+        var time = new FakeTimeProvider();
+        await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15), logger: logger, timeProvider: time);
         await service.StartAsync();
         gateway.IsSignedOut = true;
 
-        await WaitUntilAsync(() => service.State == ConnectivityState.Offline);
-        await Task.Delay(50);
+        time.Advance(TimeSpan.FromMilliseconds(15));
+        await WaitUntilAsync(
+            () => service.State == ConnectivityState.Offline,
+            "the signed-out heartbeat to transition offline",
+            () => $"state={service.State}, errors={logger.Errors.Count}");
+        time.Advance(TimeSpan.FromMilliseconds(50));
+        await Task.Yield();
 
         Assert.Empty(logger.Errors);
     }
@@ -515,10 +577,16 @@ public sealed class InfrastructureOrchestrationTests
         var messenger = new WeakReferenceMessenger();
         await using var service = CreateSyncService(gateway, TimeSpan.FromMilliseconds(15), messenger);
         await service.StartAsync();
-        await WaitUntilAsync(() => gateway.ActiveSubscriptions == 1);
+        await WaitUntilAsync(
+            () => gateway.ActiveSubscriptions == 1,
+            "the realtime subscription to attach before sign-out",
+            () => $"calls={gateway.SubscribeCalls}, active={gateway.ActiveSubscriptions}");
 
         messenger.Send(new AqiClock.Application.Messages.SessionChanged(SessionState.SignedOut));
-        await WaitUntilAsync(() => gateway.ActiveSubscriptions == 0 && service.State == ConnectivityState.Offline);
+        await WaitUntilAsync(
+            () => gateway.ActiveSubscriptions == 0 && service.State == ConnectivityState.Offline,
+            "sign-out to stop sync and dispose realtime",
+            () => $"active={gateway.ActiveSubscriptions}, state={service.State}");
 
         Assert.Equal(0, gateway.ActiveSubscriptions);
     }
@@ -551,22 +619,27 @@ public sealed class InfrastructureOrchestrationTests
         FakeGateway gateway,
         TimeSpan? heartbeatInterval = null,
         IMessenger? messenger = null,
-        ILogger<SyncService>? logger = null) =>
+        ILogger<SyncService>? logger = null,
+        TimeProvider? timeProvider = null) =>
         new(
             gateway,
             new FakeCache(),
             messenger ?? new WeakReferenceMessenger(),
             new DebouncePolicy(TimeSpan.Zero),
-            TimeProvider.System,
+            timeProvider ?? TimeProvider.System,
             logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance,
             heartbeatInterval);
 
-    private static async Task WaitUntilAsync(Func<bool> condition)
+    private static async Task WaitUntilAsync(Func<bool> condition, string because, Func<string> observed)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        var timeout = Stopwatch.StartNew();
         while (!condition())
         {
-            await Task.Delay(10, timeout.Token);
+            if (timeout.Elapsed >= TimeSpan.FromSeconds(10))
+            {
+                Assert.Fail($"Timed out waiting for {because}. Observed: {observed()}");
+            }
+            await Task.Delay(10);
         }
     }
 
