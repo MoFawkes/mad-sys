@@ -16,6 +16,60 @@ namespace AqiClock.Application.Tests;
 public sealed class AdminViewModelTests
 {
     [Fact]
+    public async Task MovingPeriodThenSaveSendsSingleAtomicPayloadInVisualOrder()
+    {
+        Period first = new(Guid.NewGuid(), "First", new(9, 0), new(10, 0), 0);
+        Period second = new(Guid.NewGuid(), "Second", new(10, 0), new(11, 0), 1);
+        var timetable = new Timetable(Guid.NewGuid(), "Day", false, [first, second]);
+        var gateway = new Gateway();
+        var vm = new TimetableEditorViewModel(gateway, new Sync(), new Timetables(timetable), new Week(), new Overrides(), new Windows(), new WeakReferenceMessenger());
+        await vm.LoadAsync();
+
+        vm.MoveUpCommand.Execute(vm.Periods[1]);
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        IReadOnlyList<PeriodRow> saved = Assert.IsAssignableFrom<IReadOnlyList<PeriodRow>>(gateway.SavedPeriods);
+        Assert.Equal([second.Id, first.Id], saved.Select(x => x.Id));
+        Assert.Equal([0, 1], saved.Select(x => x.SortOrder));
+    }
+
+    [Fact]
+    public async Task RemovingMiddlePeriodThenSaveSendsOnlyContiguousSurvivors()
+    {
+        Period[] periods = Enumerable.Range(0, 3).Select(i => new Period(Guid.NewGuid(), $"P{i}", new(9 + i, 0), new(10 + i, 0), i)).ToArray();
+        var timetable = new Timetable(Guid.NewGuid(), "Day", false, periods);
+        var gateway = new Gateway();
+        var vm = new TimetableEditorViewModel(gateway, new Sync(), new Timetables(timetable), new Week(), new Overrides(), new Windows(), new WeakReferenceMessenger());
+        await vm.LoadAsync();
+
+        vm.RemovePeriodCommand.Execute(vm.Periods[1]);
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        IReadOnlyList<PeriodRow> saved = Assert.IsAssignableFrom<IReadOnlyList<PeriodRow>>(gateway.SavedPeriods);
+        Assert.Equal([periods[0].Id, periods[2].Id], saved.Select(x => x.Id));
+        Assert.Equal([0, 1], saved.Select(x => x.SortOrder));
+    }
+
+    [Fact]
+    public async Task AddingPeriodMidListThenSaveUsesItsVisualIndex()
+    {
+        Period first = new(Guid.NewGuid(), "First", new(9, 0), new(10, 0), 0);
+        Period last = new(Guid.NewGuid(), "Last", new(11, 0), new(12, 0), 1);
+        var timetable = new Timetable(Guid.NewGuid(), "Day", false, [first, last]);
+        var gateway = new Gateway();
+        var vm = new TimetableEditorViewModel(gateway, new Sync(), new Timetables(timetable), new Week(), new Overrides(), new Windows(), new WeakReferenceMessenger());
+        await vm.LoadAsync();
+        var middle = new PeriodEditorItem { Id = Guid.NewGuid(), Name = "Middle", Start = new(10, 0, 0), End = new(11, 0, 0) };
+
+        vm.Periods.Insert(1, middle);
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        IReadOnlyList<PeriodRow> saved = Assert.IsAssignableFrom<IReadOnlyList<PeriodRow>>(gateway.SavedPeriods);
+        Assert.Equal([first.Id, middle.Id, last.Id], saved.Select(x => x.Id));
+        Assert.Equal([0, 1, 2], saved.Select(x => x.SortOrder));
+    }
+
+    [Fact]
     public async Task TeacherSessionDoesNotCountAsEnrolledStudentDevice()
     {
         var cache = new Cache();
@@ -359,6 +413,9 @@ public sealed class AdminViewModelTests
         public int UpdateCalls { get; private set; }
         public int DeleteCalls { get; private set; }
         public int ProfileUpdateCalls { get; private set; }
+        public TimetableRow? SavedTimetable { get; private set; }
+        public IReadOnlyList<PeriodRow>? SavedPeriods { get; private set; }
+        public Task SaveTimetableAsync(TimetableRow timetable, IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default) { SavedTimetable = timetable; SavedPeriods = periods; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); }
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(Guid.NewGuid()); public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) { LastInsertedRow = row; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); } public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) { UpdateCalls++; LastUpdatedRow = row; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); } public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) { DeleteCalls++; return DeleteFailure is null ? Task.CompletedTask : Task.FromException(DeleteFailure); } public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default) { ProfileUpdateCalls++; return ProfileFailure is null ? Task.CompletedTask : Task.FromException(ProfileFailure); } public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AuditEntry>>([]); public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 

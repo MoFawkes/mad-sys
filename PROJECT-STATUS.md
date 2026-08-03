@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-08-01
+Last updated: 2026-08-03
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -17,7 +17,7 @@ the acceptance script.
 | Source | `main` at `357e48f`; v0.10.0 tagged at merge commit `15ecb86` |
 | Production backend | Supabase project active and healthy |
 | Latest release | v0.10.0 — audience-aware sign-in, classes, announcements, and Navy/Cream theme |
-| Next release | v0.11.0 desktop QoL — ready to tag; v0.12.0 Expo mobile companion pending device acceptance |
+| Next release | v0.11.1 desktop admin-save fixes; v0.12.0 Expo mobile companion remains pending device acceptance |
 | Candidate CI | Merged-main run `30722069814` green at `357e48f` |
 | Release workflow | v0.10.0 tag-bound run `30049223114` green; public assets verified |
 

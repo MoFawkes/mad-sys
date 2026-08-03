@@ -28,6 +28,7 @@ public interface ISupabaseGateway
     Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default);
     Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default);
     Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default);
+    Task SaveTimetableAsync(TimetableRow timetable, IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default);
     Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default);
     Task SetPeriodClassesAsync(Guid periodId, IReadOnlyCollection<Guid> classIds, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;

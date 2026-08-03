@@ -317,6 +317,12 @@ verification, the open re-check boxes plus the four still-untested items are
 the remaining owner acceptance before tagging; the production-like migration
 rehearsal runs automatically in CI.
 
+## v0.11.1 desktop admin-save checks
+
+- [ ] Admin → Timetables → Full-Time Friday: move a middle period up and Save. Confirm the order persists after Cancel/reselect and no remote-change banner appears.
+- [ ] Delete a middle period and Save; then add a period, move it up twice, and Save; then swap two period names and Save. Confirm every operation succeeds and persists.
+- [ ] After deleting all `public.week_schedule` rows locally, assign Monday's timetable and Save. Restart and confirm the assignment persists. In Light and Dark themes, verify Classes / Audiences has clear Name/Order spacing and sweep all seven Admin tabs for cell-layout regressions.
+
 ## v0.11.0 desktop QoL checks
 
 - [ ] Sign in as staff, reboot with auto-start and delayed Wi-Fi, and confirm cached signed-in state appears before sync returns to **Synced**.
