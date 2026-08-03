@@ -28,6 +28,16 @@ Held for physical Android device acceptance; see `docs/MANUAL-TESTS.md`.
 - Surface inactive teacher accounts explicitly instead of showing an unexplained empty timetable.
 - Stopped student sessions reporting "Your account is inactive". Students synced the `profiles` table, whose empty RLS snapshot was read as a deactivated account, flipping the session into teacher mode and disabling class filtering.
 
+## 0.11.1 - Unreleased
+
+Desktop patch; 0.12.0 remains reserved for the Expo mobile release pending Android device acceptance.
+
+### Fixed
+
+- Period reordering, middle insertion, deletion, and name swaps now save atomically without false duplicate-name errors or partial updates.
+- Day-to-timetable assignments now save for organisations that never ran the local fixture seed.
+- Admin table cells now honour their padding, and Classes / Audiences keeps the Name and Order columns clearly separated.
+
 ## 0.11.0 - 2026-08-02
 
 Desktop release. The Expo companion moves to 0.12.0: its schema is already deployed to

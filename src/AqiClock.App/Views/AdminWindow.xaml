@@ -38,6 +38,18 @@
             <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
                     <Setter Property="Background" Value="{DynamicResource CurrentPeriodBrush}" />
@@ -132,7 +144,7 @@
                 <DockPanel Margin="0,0,10,0"><ui:Button DockPanel.Dock="Top" Content="Add class" Command="{Binding AddCommand}" HorizontalAlignment="Left"/>
                   <TextBlock DockPanel.Dock="Top" Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}"/>
                   <DataGrid ItemsSource="{Binding Items}" AutoGenerateColumns="False" CanUserAddRows="False"><DataGrid.Columns>
-                    <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/><DataGridTextColumn Header="Order" Binding="{Binding SortOrder, UpdateSourceTrigger=PropertyChanged}"/>
+                    <DataGridTextColumn Header="Name" Width="*" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/><DataGridTextColumn Header="Order" Width="90" Binding="{Binding SortOrder, UpdateSourceTrigger=PropertyChanged}"/>
                     <DataGridTemplateColumn Header="Actions" Width="Auto" MinWidth="140"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal"><ui:Button Content="Save" Command="{Binding DataContext.SaveCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/><ui:Button Content="Delete" Appearance="Danger" Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Margin="4,0,0,0"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                   </DataGrid.Columns></DataGrid></DockPanel>
                 <DataGrid Grid.Column="1" ItemsSource="{Binding PeriodTags}" AutoGenerateColumns="False" CanUserAddRows="False"><DataGrid.Columns>

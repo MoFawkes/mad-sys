@@ -90,6 +90,94 @@ public sealed class GatewaySmokeTests(SupabaseFixture fixture)
         await gateway.UpdateWeekScheduleAsync(0, monday.TimetableId);
     }
 
+    [SupabaseFact]
+    public async Task AtomicTimetableSaveReordersPeriodsAndSwapsNames()
+    {
+        using SupabaseGateway gateway = CreateGateway();
+        await gateway.SignInAsync(SupabaseFixture.Email("admin1"), SupabaseFixture.Password);
+        Guid timetableId = Guid.NewGuid();
+        Guid firstId = Guid.NewGuid();
+        Guid secondId = Guid.NewGuid();
+        var timetable = new TimetableRow(timetableId, SupabaseFixture.OrgAId, $"Atomic {fixture.RunId}", false);
+        PeriodRow first = new(firstId, timetableId, "Alpha", new(9, 0), new(10, 0), 0, true);
+        PeriodRow second = new(secondId, timetableId, "Beta", new(10, 0), new(11, 0), 1, true);
+        await gateway.SaveTimetableAsync(timetable, [first, second]);
+
+        await gateway.SaveTimetableAsync(timetable, [second with { Name = "Alpha", SortOrder = 0 }, first with { Name = "Beta", SortOrder = 1 }]);
+
+        PeriodRow[] saved = (await gateway.PullAsync(CacheTable.Periods)).Rows.Cast<PeriodRow>()
+            .Where(x => x.TimetableId == timetableId).OrderBy(x => x.SortOrder).ToArray();
+        Assert.Equal([secondId, firstId], saved.Select(x => x.Id));
+        Assert.Equal(["Alpha", "Beta"], saved.Select(x => x.Name));
+        await gateway.DeleteAsync(CacheTable.Timetables, timetableId);
+    }
+
+    [SupabaseFact]
+    public async Task CommitTimeDuplicatePeriodNameMapsToDuplicateRowException()
+    {
+        using SupabaseGateway gateway = CreateGateway();
+        await gateway.SignInAsync(SupabaseFixture.Email("admin1"), SupabaseFixture.Password);
+        Guid timetableId = Guid.NewGuid();
+        var timetable = new TimetableRow(timetableId, SupabaseFixture.OrgAId, $"Duplicate {fixture.RunId}", false);
+        PeriodRow first = new(Guid.NewGuid(), timetableId, "Repeated", new(9, 0), new(10, 0), 0, true);
+        PeriodRow second = new(Guid.NewGuid(), timetableId, "Repeated", new(10, 0), new(11, 0), 1, true);
+
+        DuplicateRowException error = await Assert.ThrowsAsync<DuplicateRowException>(
+            () => gateway.SaveTimetableAsync(timetable, [first, second]));
+
+        Assert.Equal("23505", error.ServerCode);
+        Assert.DoesNotContain(
+            (await gateway.PullAsync(CacheTable.Timetables)).Rows.Cast<TimetableRow>(),
+            row => row.Id == timetableId);
+    }
+
+    [SupabaseFact]
+    public async Task NonAdminCannotSaveTimetable()
+    {
+        using SupabaseGateway gateway = CreateGateway();
+        await gateway.SignInAsync(SupabaseFixture.Email("staff1"), SupabaseFixture.Password);
+        var timetable = new TimetableRow(Guid.NewGuid(), SupabaseFixture.OrgAId, $"Denied {fixture.RunId}", false);
+
+        await Assert.ThrowsAsync<ServerDeniedException>(() => gateway.SaveTimetableAsync(timetable, []));
+    }
+
+    [SupabaseFact]
+    public async Task AtomicTimetableSaveRejectsPeriodFromAnotherOrganization()
+    {
+        Guid foreignTimetableId = Guid.NewGuid();
+        Guid foreignPeriodId = Guid.NewGuid();
+        await fixture.SqlAsync("insert into public.timetables (id, org_id, name) values ($1, $2, $3)", foreignTimetableId, fixture.OrgBId, $"Foreign {fixture.RunId}");
+        await fixture.SqlAsync("insert into public.periods (id, timetable_id, name, start_time, end_time, sort_order) values ($1, $2, $3, '09:00', '10:00', 0)", foreignPeriodId, foreignTimetableId, $"Foreign period {fixture.RunId}");
+        using SupabaseGateway gateway = CreateGateway();
+        await gateway.SignInAsync(SupabaseFixture.Email("admin1"), SupabaseFixture.Password);
+        Guid ownTimetableId = Guid.NewGuid();
+        var timetable = new TimetableRow(ownTimetableId, SupabaseFixture.OrgAId, $"Own {fixture.RunId}", false);
+        var period = new PeriodRow(foreignPeriodId, ownTimetableId, "Hijack", new(9, 0), new(10, 0), 0, true);
+
+        await Assert.ThrowsAsync<ServerDeniedException>(() => gateway.SaveTimetableAsync(timetable, [period]));
+
+        await fixture.SqlAsync("delete from public.timetables where id = $1", foreignTimetableId);
+    }
+
+    [SupabaseFact]
+    public async Task WeekScheduleUpsertCreatesMissingWeekday()
+    {
+        await fixture.SqlAsync("delete from public.week_schedule where org_id = $1 and weekday = 0", SupabaseFixture.OrgAId);
+        try
+        {
+            using SupabaseGateway gateway = CreateGateway();
+            await gateway.SignInAsync(SupabaseFixture.Email("admin1"), SupabaseFixture.Password);
+            await gateway.UpdateWeekScheduleAsync(0, SupabaseFixture.SeedTimetableId);
+            WeekScheduleRow monday = (await gateway.PullAsync(CacheTable.WeekSchedule)).Rows.Cast<WeekScheduleRow>().Single(x => x.Weekday == 0);
+            Assert.Equal(SupabaseFixture.SeedTimetableId, monday.TimetableId);
+        }
+        finally
+        {
+            await fixture.SqlAsync("delete from public.week_schedule where org_id = $1 and weekday = 0", SupabaseFixture.OrgAId);
+            await fixture.SqlAsync("insert into public.week_schedule (id, org_id, weekday, timetable_id) values ($1, $2, 0, null)", SupabaseFixture.SeedWeekdayMondayId, SupabaseFixture.OrgAId);
+        }
+    }
+
     private static SupabaseGateway CreateGateway()
     {
         var options = Options.Create(new SupabaseOptions

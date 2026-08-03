@@ -1,6 +1,6 @@
 # AQI Clock — Database Design
 
-Status: Implemented · Last updated: 2026-07-28
+Status: Implemented · Last updated: 2026-08-03
 
 Supabase Postgres is the source of truth. The Windows and Expo clients keep disposable SQLite read caches; neither client renders a network response directly.
 
@@ -28,6 +28,10 @@ Announcement audiences are `everyone`, `teachers`, `graduates`, `am`, `pm`, and 
 The `auth.users` trigger creates profiles only for non-anonymous identities. Anonymous identities remain outside `profiles` and gain an organisation only through `enroll_student_device(join_code)`.
 
 Join codes are assigned by `private.assign_join_code()` after organisation insertion. `enroll_student_device` normalises spaces, dashes, and case before lookup. Admin-only RPCs reveal or rotate the code and separately revoke existing devices; the code table itself has no Data API grants or policies.
+
+`public.admin_save_timetable(jsonb, jsonb)` is an admin-gated, security-definer RPC that derives the caller's organisation server-side and saves the timetable and its complete period set in one transaction. It rejects timetable and period IDs owned by another organisation. The per-timetable period name and sort-order constraints are deferrable but initially immediate; only this RPC defers them, allowing reorder and name-swap operations while still rejecting genuine duplicates at commit.
+
+Every organisation has exactly one `week_schedule` row for each weekday. The timetable-save migration backfills missing rows, and `private.seed_week_schedule()` creates all seven after every new organisation insert. The weekday uniqueness constraint remains non-deferrable so Data API upserts can use it as their conflict arbiter.
 
 ## Relationships
 

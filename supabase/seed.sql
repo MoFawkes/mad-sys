@@ -18,7 +18,11 @@ select
     weekday,
     null
 from generate_series(0, 6) as weekday
-on conflict (org_id, weekday) do nothing;
+-- The organization trigger may already have created these rows during a full
+-- reset. Preserve deterministic fixture IDs used by the integration tests.
+on conflict (org_id, weekday) do update
+set id = excluded.id,
+    timetable_id = excluded.timetable_id;
 
 insert into public.periods (
     id, timetable_id, name, start_time, end_time, sort_order, is_lesson

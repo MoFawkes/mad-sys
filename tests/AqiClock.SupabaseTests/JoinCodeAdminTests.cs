@@ -262,6 +262,8 @@ public sealed class JoinCodeAdminTests(SupabaseFixture fixture)
         }
         finally
         {
+            await fixture.SqlAsync("delete from public.week_schedule where org_id = $1", orgId);
+            await fixture.SqlAsync("delete from public.audit_log where org_id = $1", orgId);
             await fixture.SqlAsync("delete from public.organizations where id = $1", orgId);
         }
     }

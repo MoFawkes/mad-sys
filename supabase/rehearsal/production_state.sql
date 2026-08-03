@@ -4,6 +4,11 @@
 -- profiles still use role 'staff' and announcements have no audience columns.
 -- Emails deliberately avoid the 'aqitest-' prefix that SupabaseFixture deletes.
 
+-- Mirrors a production-created organisation that never ran seed.sql and therefore
+-- has no week_schedule rows before the v0.11.1 backfill.
+insert into public.organizations (id, name) values
+    ('00000000-0000-0000-0000-000000000099', 'Rehearsal unseeded organisation');
+
 insert into auth.users (
     instance_id, id, aud, role, email, encrypted_password,
     email_confirmed_at, raw_app_meta_data, raw_user_meta_data,

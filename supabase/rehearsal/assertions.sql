@@ -10,8 +10,35 @@ declare versions text;
 begin
     select string_agg(version, ',' order by version) into versions
     from supabase_migrations.schema_migrations;
-    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650' then
+    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000' then
         raise exception 'Unexpected migration history: %', versions;
+    end if;
+end $$;
+
+-- v0.11.1 backfilled every existing organisation and exposed the atomic
+-- timetable RPC with constraints that can be deferred inside that RPC.
+do $$
+declare invalid_orgs integer;
+begin
+    select count(*) into invalid_orgs
+    from (
+        select organization.id
+        from public.organizations organization
+        left join public.week_schedule schedule on schedule.org_id = organization.id
+        group by organization.id
+        having count(schedule.id) <> 7
+    ) invalid;
+    if invalid_orgs <> 0 then
+        raise exception '% organizations do not have exactly seven week_schedule rows', invalid_orgs;
+    end if;
+    if to_regprocedure('public.admin_save_timetable(jsonb,jsonb)') is null then
+        raise exception 'admin_save_timetable(jsonb,jsonb) is missing';
+    end if;
+    if (select count(*) from pg_constraint
+        where conrelid = 'public.periods'::regclass
+          and conname in ('periods_timetable_name_key', 'periods_timetable_sort_order_key')
+          and condeferrable) <> 2 then
+        raise exception 'period unique constraints are not both deferrable';
     end if;
 end $$;
 

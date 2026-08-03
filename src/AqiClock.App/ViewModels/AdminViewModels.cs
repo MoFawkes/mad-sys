@@ -235,7 +235,6 @@ public partial class PeriodEditorItem : ObservableObject
 public partial class TimetableEditorViewModel : ObservableObject, IRecipient<DataChanged>
 {
     private readonly ISupabaseGateway _gateway; private readonly ISyncService _sync; private readonly ITimetableRepository _repository; private readonly IWeekScheduleRepository _week; private readonly IDateOverrideRepository _overrides; private readonly IWindowService _windows;
-    private HashSet<Guid> _originalPeriodIds = [];
     private bool _loading;
     private int _ownWriteDepth;
     [ObservableProperty] private Timetable? _selected;
@@ -265,7 +264,7 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
     }
 
     partial void OnSelectedChanged(Timetable? value) { if (value is not null) Select(value); }
-    private void Select(Timetable value) { _loading = true; Name = value.Name; IsArchived = value.IsArchived; Periods.Clear(); foreach (Period p in value.Periods.OrderBy(x => x.SortOrder)) Periods.Add(new() { Id = p.Id, Name = p.Name, Start = p.StartTime.ToTimeSpan(), End = p.EndTime.ToTimeSpan(), IsLesson = p.IsLesson, SortOrder = p.SortOrder }); _originalPeriodIds = value.Periods.Select(x => x.Id).ToHashSet(); IsDirty = false; HasConflict = false; ValidationMessage = null; _loading = false; }
+    private void Select(Timetable value) { _loading = true; Name = value.Name; IsArchived = value.IsArchived; Periods.Clear(); foreach (Period p in value.Periods.OrderBy(x => x.SortOrder)) Periods.Add(new() { Id = p.Id, Name = p.Name, Start = p.StartTime.ToTimeSpan(), End = p.EndTime.ToTimeSpan(), IsLesson = p.IsLesson, SortOrder = p.SortOrder }); IsDirty = false; HasConflict = false; ValidationMessage = null; _loading = false; }
     partial void OnNameChanged(string value) { if (!_loading) IsDirty = true; }
     partial void OnIsArchivedChanged(bool value) { if (!_loading) IsDirty = true; }
     private void OnPeriodsChanged(object? sender, NotifyCollectionChangedEventArgs args) { if (args.NewItems is not null) foreach (PeriodEditorItem item in args.NewItems) item.PropertyChanged += OnPeriodChanged; if (!_loading) IsDirty = true; }
@@ -295,15 +294,15 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
         _ownWriteDepth++;
         try
         {
-            Guid org = await _gateway.GetCurrentOrganizationIdAsync(token); bool exists = Items.Any(x => x.Id == Selected.Id);
+            Guid org = await _gateway.GetCurrentOrganizationIdAsync(token);
             var row = new TimetableRow(Selected.Id, org, Name.Trim(), IsArchived);
-            if (exists) await _gateway.UpdateAsync(CacheTable.Timetables, Selected.Id, row, token); else await _gateway.InsertAsync(CacheTable.Timetables, row, token);
+            var periods = new List<PeriodRow>(Periods.Count);
             for (int index = 0; index < Periods.Count; index++)
             {
-                PeriodEditorItem p = Periods[index]; var period = new PeriodRow(p.Id, Selected.Id, p.Name.Trim(), TimeOnly.FromTimeSpan(p.Start), TimeOnly.FromTimeSpan(p.End), index, p.IsLesson);
-                if (_originalPeriodIds.Contains(p.Id)) await _gateway.UpdateAsync(CacheTable.Periods, p.Id, period, token); else await _gateway.InsertAsync(CacheTable.Periods, period, token);
+                PeriodEditorItem p = Periods[index];
+                periods.Add(new PeriodRow(p.Id, Selected.Id, p.Name.Trim(), TimeOnly.FromTimeSpan(p.Start), TimeOnly.FromTimeSpan(p.End), index, p.IsLesson));
             }
-            foreach (Guid deleted in _originalPeriodIds.Except(Periods.Select(x => x.Id))) await _gateway.DeleteAsync(CacheTable.Periods, deleted, token);
+            await _gateway.SaveTimetableAsync(row, periods, token);
             await _sync.SyncTableAsync(CacheTable.Timetables, token); await _sync.SyncTableAsync(CacheTable.Periods, token); await LoadAsync(token); Timetable? saved = Items.FirstOrDefault(x => x.Id == row.Id); Selected = saved; if (saved is not null) Select(saved); IsDirty = false; HasConflict = false;
         }
         catch (DuplicateRowException) { ValidationMessage = "A timetable or period name is already used."; }
@@ -326,7 +325,7 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
         catch (ServerDeniedException) { ValidationMessage = "Your role changed."; _windows.CloseAdminWindow(); }
     }
 
-    [RelayCommand] private async Task DuplicateAsync(CancellationToken token) { if (Selected is null) return; Timetable source = Selected; NewTimetable(); Name = source.Name + " copy"; Periods.Clear(); foreach (Period p in source.Periods) Periods.Add(new() { Id = Guid.NewGuid(), Name = p.Name, Start = p.StartTime.ToTimeSpan(), End = p.EndTime.ToTimeSpan(), IsLesson = p.IsLesson, SortOrder = p.SortOrder }); await SaveAsync(token); }
+    [RelayCommand] private async Task DuplicateAsync(CancellationToken token) { if (Selected is null) return; Timetable source = Selected; NewTimetable(); Name = source.Name + " copy"; Periods.Clear(); foreach (Period p in source.Periods.OrderBy(x => x.SortOrder)) Periods.Add(new() { Id = Guid.NewGuid(), Name = p.Name, Start = p.StartTime.ToTimeSpan(), End = p.EndTime.ToTimeSpan(), IsLesson = p.IsLesson, SortOrder = p.SortOrder }); await SaveAsync(token); }
     [RelayCommand] private async Task ToggleArchiveAsync(CancellationToken token) { IsArchived = !IsArchived; await SaveAsync(token); }
 
     public bool Validate()

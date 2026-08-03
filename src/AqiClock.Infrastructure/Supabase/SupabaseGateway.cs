@@ -227,11 +227,18 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
             await SendWriteAsync(HttpMethod.Post, CacheTable.PeriodClasses, null, new PeriodClassRow(periodId, classId), cancellationToken).ConfigureAwait(false);
     }
 
-    public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default)
+    public async Task SaveTimetableAsync(TimetableRow timetable, IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default)
+    {
+        using JsonDocument _ = await PostRpcAsync("admin_save_timetable", new { p_timetable = timetable, p_periods = periods }, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default)
     {
         if (weekday is < 0 or > 6) throw new ArgumentOutOfRangeException(nameof(weekday));
-        return SendRequestExpectingOneAsync(HttpMethod.Patch, $"rest/v1/week_schedule?weekday=eq.{weekday}",
-            new Dictionary<string, object?> { ["timetable_id"] = timetableId }, cancellationToken);
+        Guid orgId = await GetCurrentOrganizationIdAsync(cancellationToken).ConfigureAwait(false);
+        await SendRequestExpectingOneAsync(HttpMethod.Post, "rest/v1/week_schedule?on_conflict=org_id,weekday",
+            new Dictionary<string, object?> { ["org_id"] = orgId, ["weekday"] = weekday, ["timetable_id"] = timetableId },
+            cancellationToken, "resolution=merge-duplicates,return=representation").ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default)
@@ -300,10 +307,10 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         await EnsureWriteSuccessAsync(response, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task SendRequestExpectingOneAsync(HttpMethod method, string path, object row, CancellationToken cancellationToken)
+    private async Task SendRequestExpectingOneAsync(HttpMethod method, string path, object row, CancellationToken cancellationToken, string prefer = "return=representation")
     {
         using HttpRequestMessage request = CreateRequest(method, path);
-        request.Headers.Add("Prefer", "return=representation");
+        request.Headers.Add("Prefer", prefer);
         request.Content = JsonContent.Create(row, row.GetType(), options: JsonOptions);
         using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         CheckClockSkew(response);
@@ -353,9 +360,8 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
             request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         CheckClockSkew(response);
         await EnsureWriteSuccessAsync(response, cancellationToken).ConfigureAwait(false);
-        await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        return await JsonDocument.ParseAsync(
-            stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        byte[] payload = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        return payload.Length == 0 ? JsonDocument.Parse("null") : JsonDocument.Parse(payload);
     }
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string path)
