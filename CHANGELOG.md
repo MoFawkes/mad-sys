@@ -28,7 +28,17 @@ Held for physical Android device acceptance; see `docs/MANUAL-TESTS.md`.
 - Surface inactive teacher accounts explicitly instead of showing an unexplained empty timetable.
 - Stopped student sessions reporting "Your account is inactive". Students synced the `profiles` table, whose empty RLS snapshot was read as a deactivated account, flipping the session into teacher mode and disabling class filtering.
 
-## 0.11.1 - Unreleased
+## 0.11.2 - Unreleased
+
+Desktop teacher patch; 0.12.0 remains reserved for the Expo mobile release pending Android device acceptance.
+
+### Fixed
+
+- Stopped provisional cached admin roles and sign-out states being reported as confirmed role demotions; transient admin banners now reset between editor sessions.
+- Student desktop sessions now receive notifications for untagged periods, matching mobile's school-wide rule.
+- Added notification-plan health in Settings and structured suppression logs; clarified that end warnings are the end-of-lesson alert and that desktop notifications require the app to remain running or in the tray.
+
+## 0.11.1 - 2026-08-03
 
 Desktop patch; 0.12.0 remains reserved for the Expo mobile release pending Android device acceptance.
 
@@ -37,9 +47,6 @@ Desktop patch; 0.12.0 remains reserved for the Expo mobile release pending Andro
 - Period reordering, middle insertion, deletion, and name swaps now save atomically without false duplicate-name errors or partial updates.
 - Day-to-timetable assignments now save for organisations that never ran the local fixture seed.
 - Admin table cells now honour their padding, and Classes / Audiences keeps the Name and Order columns clearly separated.
-- Stopped provisional cached admin roles and sign-out states being reported as confirmed role demotions; transient admin banners now reset between editor sessions.
-- Student desktop sessions now receive notifications for untagged periods, matching mobile's school-wide rule.
-- Added notification-plan health in Settings and structured suppression logs; clarified that end warnings are the end-of-lesson alert and that desktop notifications require the app to remain running or in the tray.
 
 ## 0.11.0 - 2026-08-02
 
