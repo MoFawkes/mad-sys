@@ -84,3 +84,9 @@ Same rules as a restart (rule 6): the app detects the time jump within a second,
 | Closed vs empty | "Closed" (override) and "no timetable assigned" display identically to staff ("No lessons today") |
 | Staff cannot write | Read-only for staff is enforced by the server (RLS), not just hidden buttons |
 | Every edit is audited | Who/what/when/before/after, recorded server-side, not forgeable from the app |
+## Audience-aware schedules and notifications
+
+- An untagged period applies to everyone, including student devices. Class tags narrow a period only when at least one tag exists.
+- A class-specific week-schedule row takes precedence over the default row. A matched row whose timetable is null means closed and never falls through to the default.
+- If several selected classes match, the row with the lowest class UUID by ordinal comparison wins. Operationally, students should select exactly one track class.
+- Desktop lesson notifications run only while AQI Clock is running. Minimising or closing to the notification area keeps them active; fully closing the process does not. End warnings are the end-of-lesson alert—there is no separate lesson-finished notification.

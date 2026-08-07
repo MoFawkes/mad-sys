@@ -8,6 +8,7 @@ import {
 import { getSupabaseClient } from '@/src/data/sessionStore';
 import {
   DeviceAudience,
+  filterScheduleForAudience,
   getNotificationEvents,
   matchesPeriod,
   ScheduleSnapshot,
@@ -184,7 +185,7 @@ export async function reconcileScheduledNotificationsFromCache(): Promise<void> 
     };
   }
   await reconcileScheduledNotifications(
-    snapshot,
+    filterScheduleForAudience(snapshot, audience),
     audience,
     await getNotificationSettings(),
   );

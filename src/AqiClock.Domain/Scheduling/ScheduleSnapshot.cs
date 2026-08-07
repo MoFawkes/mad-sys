@@ -13,13 +13,16 @@ public sealed class ScheduleSnapshot
 
     private readonly Dictionary<Guid, Timetable> _timetablesById;
     private readonly Dictionary<DateOnly, DateOverride> _overridesByDate;
+    private readonly WeekScheduleEntry?[] _resolvedWeek = new WeekScheduleEntry?[7];
 
     public WeekSchedule WeekSchedule { get; }
+    public IReadOnlySet<Guid> ViewerClassIds { get; }
 
     public ScheduleSnapshot(
         IEnumerable<Timetable> timetables,
         WeekSchedule weekSchedule,
-        IEnumerable<DateOverride> dateOverrides)
+        IEnumerable<DateOverride> dateOverrides,
+        IReadOnlySet<Guid>? viewerClassIds = null)
     {
         ArgumentNullException.ThrowIfNull(timetables);
         ArgumentNullException.ThrowIfNull(weekSchedule);
@@ -27,6 +30,9 @@ public sealed class ScheduleSnapshot
 
         _timetablesById = timetables.ToDictionary(t => t.Id);
         WeekSchedule = weekSchedule;
+        ViewerClassIds = viewerClassIds ?? new HashSet<Guid>();
+        foreach (DayOfWeek day in Enum.GetValues<DayOfWeek>())
+            _resolvedWeek[(int)day] = weekSchedule.ResolveFor(day, ViewerClassIds);
 
         // The server enforces one override per date; tolerate duplicates defensively (last wins).
         _overridesByDate = [];
@@ -39,4 +45,5 @@ public sealed class ScheduleSnapshot
     public Timetable? FindTimetable(Guid timetableId) => _timetablesById.GetValueOrDefault(timetableId);
 
     public DateOverride? FindOverride(DateOnly date) => _overridesByDate.GetValueOrDefault(date);
+    public WeekScheduleEntry? ResolveWeekEntry(DayOfWeek weekday) => _resolvedWeek[(int)weekday];
 }

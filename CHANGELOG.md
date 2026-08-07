@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.13.0 - Unreleased (audience-aware week schedules)
+
+- Added default and class-specific timetable rows per weekday across the database, desktop, cache, and mobile schedule engines.
+- Added secured save/delete RPCs, cache schema v3, deterministic audience resolution, and the null-track-means-closed rule.
+- v0.11.3 is the migration prerequisite and preserves default-row saves through the two-argument compatibility RPC. Remaining rollout gate: apply the migration, upgrade every client to cache schema v3, and only then create the first class-specific row; older caches cannot store two rows for one weekday.
+
 ## 0.12.0 - Unreleased (Expo mobile companion)
 
 Held for physical Android device acceptance; see `docs/MANUAL-TESTS.md`.

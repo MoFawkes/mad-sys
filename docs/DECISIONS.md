@@ -129,3 +129,7 @@ Admin and Settings leave their XAML `CenterOwner` startup location untouched unt
 
 ## Open items awaiting owner input (not architectural blockers)
 See SPECIFICATION.md §5 (B-1 … B-8): timezone, school week, default warning minutes, account model, audit retention, Supabase tier, update hosting, branding.
+## Audience week-schedule follow-ups
+
+- Teacher preview of a non-default track needs a separate persisted `PreviewClassIds` concept and UI; it must not reuse student audience selection because that changes announcement visibility.
+- Filtering the desktop clock's periods by period-level class tags remains separate from selecting the audience-specific timetable.

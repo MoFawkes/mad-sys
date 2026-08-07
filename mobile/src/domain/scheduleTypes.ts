@@ -15,7 +15,8 @@ export type Timetable = {
   periods: readonly Period[];
 };
 
-export type WeekSchedule = Readonly<Record<number, string | null | undefined>>;
+export type WeekScheduleEntry = { id: string; weekday: number; audienceClassId: string | null; timetableId: string | null };
+export type WeekSchedule = readonly WeekScheduleEntry[];
 
 export type DateOverride = {
   id: string;
@@ -28,6 +29,7 @@ export type ScheduleSnapshot = {
   timetables: readonly Timetable[];
   weekSchedule: WeekSchedule;
   dateOverrides: readonly DateOverride[];
+  viewerClassIds?: ReadonlySet<string>;
 };
 
 export type EffectiveDaySource = 'none' | 'week-schedule' | 'override';
@@ -67,6 +69,6 @@ export type LessonStatus = {
 
 export const EMPTY_SNAPSHOT: ScheduleSnapshot = {
   timetables: [],
-  weekSchedule: {},
+  weekSchedule: [],
   dateOverrides: [],
 };

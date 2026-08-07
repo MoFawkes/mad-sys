@@ -387,3 +387,12 @@ still require device verification.
 - [ ] **MOB-T05 — Reboot reschedule (Pixel 9 Pro):** reboot and confirm `RECEIVE_BOOT_COMPLETED` restores pending notifications.
 
 **Android acceptance split:** emulator functional, audience, exact-alarm, rescheduling, permission-denied, and forced-Doze checks are valid evidence. Notification drift and endurance timing require the stock-Android Pixel 9 Pro; emulator timing is not accepted as evidence. The app declares both `USE_EXACT_ALARM` and `SCHEDULE_EXACT_ALARM`; with exact-alarm access granted, record numerical scheduled and delivered timestamps and treat material multi-minute Doze batching as a failure, not expected behaviour.
+
+## Audience-aware week schedule rollout gate
+
+1. Release v0.11.3 and allow the estate to upgrade before applying `20260807120000_week_schedule_audiences.sql`. This moves legacy default-row saves onto the compatibility RPC; without it, applying the migration removes their PostgREST conflict arbiter and admin week-schedule edits fail.
+2. Apply the v0.13.0 migration while every organisation still has only its seven default rows. Clocks and reads remain compatible, and v0.11.3 clients can continue editing default rows through the preserved two-argument RPC.
+3. Upgrade every desktop and mobile client and confirm the estate is on a cache-v3 build.
+4. Only then create or announce class-specific rows. The first second row for a weekday makes older clients' weekday-primary-key cache fail and freeze at its last good snapshot.
+
+Verify a default plus class row on one weekday, a closed matching track, deterministic multiple-match selection, and teacher/default versus student/track clock and toast behaviour.

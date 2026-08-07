@@ -63,8 +63,8 @@ const INSERTS: Record<SyncTable, InsertSpec> = {
     values: (row) => [text(row.period_id), text(row.class_id)],
   },
   week_schedule: {
-    sql: 'INSERT INTO week_schedule(weekday,timetable_id) VALUES (?, ?)',
-    values: (row) => [number(row.weekday), nullableText(row.timetable_id)],
+    sql: 'INSERT INTO week_schedule(id,weekday,audience_class_id,timetable_id) VALUES (?, ?, ?, ?)',
+    values: (row) => [text(row.id), number(row.weekday), nullableText(row.audience_class_id), nullableText(row.timetable_id)],
   },
   date_overrides: {
     sql: 'INSERT INTO date_overrides(id,date,timetable_id,note) VALUES (?, ?, ?, ?)',

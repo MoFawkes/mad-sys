@@ -1,6 +1,6 @@
 import { buildLessonStatus, getStatus } from '@/src/domain/scheduleEngine';
 
-import { at, localDate, monday, normalDay, override, period, timetable, tuesday, weekOf } from '../test/testData';
+import { at, localDate, monday, normalDay, override, period, timetable, tuesday, week, weekOf } from '../test/testData';
 
 describe('getStatus', () => {
   it('reports remaining time and progress during a lesson', () => {
@@ -50,7 +50,7 @@ describe('getStatus', () => {
     const springForward = localDate(2026, 3, 29);
     const item = timetable('Early', period('Fajr class', '00:30', '03:30'));
     const status = getStatus(
-      { timetables: [item], weekSchedule: { 6: item.id }, dateOverrides: [] },
+      { timetables: [item], weekSchedule: week([6, item.id]), dateOverrides: [] },
       at(springForward, '03:00'),
     );
     expect(status.current?.period.name).toBe('Fajr class');

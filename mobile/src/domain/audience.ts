@@ -65,11 +65,10 @@ export function filterScheduleForAudience(
   snapshot: ScheduleSnapshot,
   audience: DeviceAudience,
 ): ScheduleSnapshot {
-  if (audience.role !== 'StudentDevice') return snapshot;
-
   return {
     ...snapshot,
-    timetables: snapshot.timetables.map((timetable) => ({
+    viewerClassIds: audience.selectedClassIds,
+    timetables: audience.role !== 'StudentDevice' ? snapshot.timetables : snapshot.timetables.map((timetable) => ({
       ...timetable,
       periods: timetable.periods.filter((period) =>
         matchesPeriod(audience, new Set(period.classIds ?? [])),

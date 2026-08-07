@@ -232,15 +232,22 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         using JsonDocument _ = await PostRpcAsync("admin_save_timetable", new { p_timetable = timetable, p_periods = periods }, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default)
+    public async Task SaveWeekScheduleRowAsync(int weekday, Guid? audienceClassId, Guid? timetableId, CancellationToken cancellationToken = default)
     {
         if (weekday is < 0 or > 6) throw new ArgumentOutOfRangeException(nameof(weekday));
         var body = new JsonObject
         {
             ["p_weekday"] = weekday,
-            ["p_timetable_id"] = timetableId is { } id ? JsonValue.Create(id) : null,
+            ["p_audience_class_id"] = audienceClassId is { } classId ? JsonValue.Create(classId) : null,
+            ["p_timetable_id"] = timetableId is { } assignedId ? JsonValue.Create(assignedId) : null,
         };
         using JsonDocument _ = await PostRpcAsync("admin_save_week_schedule", body, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task DeleteWeekScheduleRowAsync(int weekday, Guid audienceClassId, CancellationToken cancellationToken = default)
+    {
+        if (weekday is < 0 or > 6) throw new ArgumentOutOfRangeException(nameof(weekday));
+        using JsonDocument _ = await PostRpcAsync("admin_delete_week_schedule", new { p_weekday = weekday, p_audience_class_id = audienceClassId }, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default)

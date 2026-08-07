@@ -116,19 +116,21 @@ public sealed class SqliteWeekScheduleRepository(SqliteCacheDatabase database) :
 {
     public async Task<WeekSchedule> GetAsync(CancellationToken cancellationToken = default)
     {
-        var assignments = new Dictionary<DayOfWeek, Guid?>();
+        var entries = new List<WeekScheduleEntry>();
         await using SqliteConnection connection = await database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using SqliteCommand command = connection.CreateCommand();
-        command.CommandText = "SELECT weekday,timetable_id FROM week_schedule;";
+        command.CommandText = "SELECT id,weekday,audience_class_id,timetable_id FROM week_schedule;";
         await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            int serverWeekday = reader.GetInt32(0);
+            int serverWeekday = reader.GetInt32(1);
             DayOfWeek day = (DayOfWeek)((serverWeekday + 1) % 7);
-            assignments[day] = reader.IsDBNull(1) ? null : Guid.Parse(reader.GetString(1));
+            entries.Add(new WeekScheduleEntry(Guid.Parse(reader.GetString(0)), day,
+                reader.IsDBNull(2) ? null : Guid.Parse(reader.GetString(2)),
+                reader.IsDBNull(3) ? null : Guid.Parse(reader.GetString(3))));
         }
 
-        return new WeekSchedule(assignments);
+        return new WeekSchedule(entries);
     }
 
 }

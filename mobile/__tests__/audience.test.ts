@@ -54,7 +54,7 @@ describe('audience predicates', () => {
   });
   it('keeps school-wide periods while filtering tagged lessons on the personal clock', () => {
     const snapshot: ScheduleSnapshot = {
-      weekSchedule: {},
+      weekSchedule: [],
       dateOverrides: [],
       timetables: [
         {

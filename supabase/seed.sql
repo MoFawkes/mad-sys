@@ -11,16 +11,17 @@ values (
 )
 on conflict (id) do nothing;
 
-insert into public.week_schedule (id, org_id, weekday, timetable_id)
+insert into public.week_schedule (id, org_id, weekday, audience_class_id, timetable_id)
 select
     ('00000000-0000-0000-0000-' || lpad((200 + weekday)::text, 12, '0'))::uuid,
     '00000000-0000-0000-0000-000000000001'::uuid,
     weekday,
+    null,
     null
 from generate_series(0, 6) as weekday
 -- The organization trigger may already have created these rows during a full
 -- reset. Preserve deterministic fixture IDs used by the integration tests.
-on conflict (org_id, weekday) do update
+on conflict on constraint week_schedule_org_weekday_audience_key do update
 set id = excluded.id,
     timetable_id = excluded.timetable_id;
 
