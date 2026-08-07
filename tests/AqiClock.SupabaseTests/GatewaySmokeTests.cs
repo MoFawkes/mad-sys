@@ -149,7 +149,7 @@ public sealed class GatewaySmokeTests(SupabaseFixture fixture)
         await gateway.SignInAsync(SupabaseFixture.Email("staff1"), SupabaseFixture.Password);
 
         await Assert.ThrowsAsync<ServerDeniedException>(
-            () => gateway.UpdateWeekScheduleAsync(0, SupabaseFixture.SeedTimetableId));
+            () => gateway.SaveWeekScheduleRowAsync(0, null, SupabaseFixture.SeedTimetableId));
     }
 
     [SupabaseFact]
@@ -165,7 +165,7 @@ public sealed class GatewaySmokeTests(SupabaseFixture fixture)
             await gateway.SignInAsync(SupabaseFixture.Email("admin1"), SupabaseFixture.Password);
 
             await Assert.ThrowsAsync<ServerDeniedException>(
-                () => gateway.UpdateWeekScheduleAsync(0, foreignTimetableId));
+                () => gateway.SaveWeekScheduleRowAsync(0, null, foreignTimetableId));
         }
         finally
         {
