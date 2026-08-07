@@ -99,7 +99,9 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
     public void ShowAdminWindow() { if (_session.Current.Role != UserRole.Admin) return; _admin ??= _services.GetRequiredService<AdminWindow>(); _admin.Closed += (_, _) => _admin = null; _admin.Owner = _main; _admin.Show(); _admin.Activate(); }
     public void CloseAdminWindow(string? reason = null)
     {
+        bool hadAdminWindow = _admin is not null;
         _admin?.Close(); _admin = null;
+        if (hadAdminWindow) _services.GetRequiredService<AdminViewModel>().ResetTransientState();
         if (!string.IsNullOrWhiteSpace(reason)) MessageBox.Show(_main, reason, "AQI Clock", MessageBoxButton.OK, MessageBoxImage.Information);
     }
     public bool Confirm(string message, string title)
@@ -133,7 +135,7 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
 
     public void Receive(SessionChanged message)
     {
-        if (message.State.Role == UserRole.Admin || _admin is null) return;
+        if (message.State.Role == UserRole.Admin || !message.State.RoleConfirmed || _admin is null) return;
         void CloseForRoleChange() => CloseAdminWindow("Your role changed. The admin editor has been closed.");
         if (System.Windows.Application.Current.Dispatcher.CheckAccess()) CloseForRoleChange();
         else _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(CloseForRoleChange);

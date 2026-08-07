@@ -153,6 +153,21 @@ public sealed class NotificationSchedulerTests
     }
 
     [Fact]
+    public async Task UntaggedPeriodIsDeliveredToStudentSession()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.SetPeriod(Monday.TimeOfDay, TimeSpan.FromMinutes(45));
+        fixture.Audience.SetStudent([Guid.NewGuid()], []);
+        fixture.Classes.ClassIds = new HashSet<Guid>();
+        using NotificationScheduler scheduler = fixture.Create();
+
+        await scheduler.StartAsync();
+        await scheduler.ProcessAsync(Monday);
+
+        Assert.Equal(1, fixture.Presenter.Starts);
+    }
+
+    [Fact]
     public async Task AudienceChangeToStudentRebuildsPlanAndDeliversClassBoundary()
     {
         DateTime beforeBoundary = Monday.AddMinutes(-1);

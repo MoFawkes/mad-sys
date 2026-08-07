@@ -211,7 +211,7 @@ public sealed class AdminViewModelTests
     {
         var messenger = new WeakReferenceMessenger(); var windows = new Windows(); Gateway gateway = new(); Sync sync = new(); Timetables timetables = new(); Week week = new(); Overrides overrides = new(); Profiles profiles = new(); Session session = new();
         var admin = new AdminViewModel(new(gateway, sync, timetables, week, overrides, windows, messenger), new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, session, new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, session, windows), sync, windows, messenger);
-        messenger.Send(new SessionChanged(new SessionState(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false)));
+        messenger.Send(new SessionChanged(new SessionState(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false, RoleConfirmed: true)));
         Assert.Contains("role changed", admin.Banner, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -224,10 +224,34 @@ public sealed class AdminViewModelTests
         messenger.Send(new ConnectivityChanged(ConnectivityState.Syncing, null));
         Assert.True(admin.IsEditable);
         Assert.Null(admin.Banner);
-        messenger.Send(new SessionChanged(new SessionState(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false)));
+        messenger.Send(new SessionChanged(new SessionState(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false, RoleConfirmed: true)));
         messenger.Send(new ConnectivityChanged(ConnectivityState.Online, DateTimeOffset.UtcNow));
 
         Assert.Contains("role changed", admin.Banner, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ProvisionalRoleAndSignedOutDoNotShowRoleChangedState()
+    {
+        var messenger = new WeakReferenceMessenger(); var windows = new Windows(); Gateway gateway = new(); Sync sync = new(); Timetables timetables = new(); Week week = new(); Overrides overrides = new(); Profiles profiles = new(); Session session = new();
+        var admin = new AdminViewModel(new(gateway, sync, timetables, week, overrides, windows, messenger), new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, session, new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, session, windows), sync, windows, messenger);
+
+        messenger.Send(new SessionChanged(new SessionState(Guid.NewGuid(), "admin@example.test", UserRole.Teacher, true, false)));
+        messenger.Send(new SessionChanged(SessionState.SignedOut));
+
+        Assert.Null(admin.Banner);
+    }
+
+    [Fact]
+    public void ConfirmedAdminClearsExistingRoleChangedState()
+    {
+        var messenger = new WeakReferenceMessenger(); var windows = new Windows(); Gateway gateway = new(); Sync sync = new(); Timetables timetables = new(); Week week = new(); Overrides overrides = new(); Profiles profiles = new(); Session session = new();
+        var admin = new AdminViewModel(new(gateway, sync, timetables, week, overrides, windows, messenger), new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, session, new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, session, windows), sync, windows, messenger);
+        messenger.Send(new SessionChanged(new SessionState(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, true, false, RoleConfirmed: true)));
+
+        messenger.Send(new SessionChanged(new SessionState(Guid.NewGuid(), "admin@example.test", UserRole.Admin, true, false, RoleConfirmed: true)));
+
+        Assert.Null(admin.Banner);
     }
 
     [Fact]

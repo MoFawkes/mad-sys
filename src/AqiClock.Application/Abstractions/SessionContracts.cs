@@ -6,7 +6,7 @@ public sealed record StoredSession(string AccessToken, string RefreshToken, Date
 
 public sealed record AuthenticatedSession(Guid UserId, string Email, string AccessToken, string RefreshToken, DateTimeOffset? ExpiresAt, bool IsAnonymous = false);
 
-public sealed record SessionState(Guid? UserId, string? Email, UserRole? Role, bool IsActive, bool RequiresSignIn, bool IsAnonymous = false)
+public sealed record SessionState(Guid? UserId, string? Email, UserRole? Role, bool IsActive, bool RequiresSignIn, bool IsAnonymous = false, bool RoleConfirmed = false)
 {
     public static SessionState SignedOut { get; } = new(null, null, null, false, false);
     public static SessionState ReauthenticationRequired { get; } = new(null, null, null, false, true);

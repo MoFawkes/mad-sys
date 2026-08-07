@@ -13,6 +13,8 @@ public interface INotificationPresenter
 
 public interface INotificationScheduler
 {
+    string HealthSummary { get; }
+    event EventHandler? HealthChanged;
     Task StartAsync(CancellationToken cancellationToken = default);
     Task RebuildAsync(DateTime now, CancellationToken cancellationToken = default);
     Task ProcessAsync(DateTime now, CancellationToken cancellationToken = default);

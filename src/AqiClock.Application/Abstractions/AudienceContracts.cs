@@ -101,6 +101,7 @@ public sealed class DeviceAudienceContext : IDeviceAudienceContext
 
     public bool MatchesPeriod(IReadOnlySet<Guid> periodClassIds) =>
         Current.Role != DeviceAudienceRole.StudentDevice ||
+        periodClassIds.Count == 0 ||
         periodClassIds.Overlaps(Current.SelectedClassIds);
 }
 

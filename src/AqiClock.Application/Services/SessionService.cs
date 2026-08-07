@@ -207,7 +207,7 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>, I
         if (profile is not null && Current.UserId == userId)
         {
             _audience.SetTeacher(profile.Role);
-            SetState(Current with { Role = profile.Role, IsActive = profile.IsActive });
+            SetState(Current with { Role = profile.Role, IsActive = profile.IsActive, RoleConfirmed = true });
         }
     }
 
