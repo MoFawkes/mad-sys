@@ -64,13 +64,17 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
     }
     public void Receive(SessionChanged message) => RunOnUiThread(() =>
     {
-        if (message.State.Role != UserRole.Admin)
-        {
-            const string reason = "Your role changed. The admin editor has been closed.";
-            _roleBanner = reason;
-            UpdateBanner();
-        }
+        if (message.State.Role == UserRole.Admin) _roleBanner = null;
+        else if (message.State.RoleConfirmed) _roleBanner = "Your role changed. The admin editor has been closed.";
+        else return;
+        UpdateBanner();
     });
+
+    public void ResetTransientState()
+    {
+        _roleBanner = null;
+        UpdateBanner();
+    }
 
     public void Receive(ConnectivityChanged message) => RunOnUiThread(() =>
     {

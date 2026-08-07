@@ -30,6 +30,8 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
     private DateOnly? _pendingDate;
     private Dictionary<string, DateTime> _knownTriggers = new(StringComparer.Ordinal);
     private bool _disposed;
+    public string HealthSummary { get; private set; } = "Today: notification plan not loaded yet";
+    public event EventHandler? HealthChanged;
 
     public NotificationScheduler(
         ITimetableRepository timetables,
@@ -94,6 +96,12 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
 
             TimeSpan lead = TimeSpan.FromMinutes(Math.Clamp(_settings.Current.EndWarningMinutes, 0, 15));
             IReadOnlyList<NotificationEvent> rebuilt = ScheduleEngine.GetNotificationEvents(_snapshot, DateOnly.FromDateTime(now), lead);
+            EffectiveDay day = ScheduleEngine.ResolveDay(_snapshot, DateOnly.FromDateTime(now));
+            HealthSummary = day.Timetable is null
+                ? "Today: no timetable assigned to this weekday"
+                : $"Today: {day.Timetable.Name} · {day.Periods.Count} lessons · {rebuilt.Count} alerts planned";
+            HealthChanged?.Invoke(this, EventArgs.Empty);
+            LogPlanRebuilt(_logger, day.Timetable?.Name ?? "closed", day.Periods.Count, rebuilt.Count);
             foreach (NotificationEvent item in rebuilt)
             {
                 if (_knownTriggers.TryGetValue(item.Key, out DateTime oldTrigger) && oldTrigger <= now && item.TriggerTime > now && oldTrigger != item.TriggerTime)
@@ -130,18 +138,21 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
                 if (await _log.ContainsAsync(item.Key, cancellationToken).ConfigureAwait(false)) continue;
                 if (now - item.TriggerTime > Grace || !IsEnabled(item.Kind))
                 {
+                    LogSuppressed(_logger, item.Key, now - item.TriggerTime > Grace ? "past grace" : "kind disabled");
                     await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
                 if (!await AppliesToDeviceAsync(item.Occurrence.Period, cancellationToken).ConfigureAwait(false))
                 {
+                    LogSuppressed(_logger, item.Key, "audience mismatch");
                     await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
                 if (item.Kind == NotificationEventKind.EndWarning && await SuppressEndWarningAsync(item, now, cancellationToken).ConfigureAwait(false))
                 {
+                    LogSuppressed(_logger, item.Key, "end warning suppressed");
                     await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
                     continue;
                 }
@@ -231,6 +242,12 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Notification scheduler background operation failed")]
     private static partial void LogBackgroundOperationFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Notification plan rebuilt: timetable {TimetableName}, {PeriodCount} periods, {EventCount} planned events")]
+    private static partial void LogPlanRebuilt(ILogger logger, string timetableName, int periodCount, int eventCount);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Notification {EventKey} suppressed: {Reason}")]
+    private static partial void LogSuppressed(ILogger logger, string eventKey, string reason);
 
     public void Dispose()
     {

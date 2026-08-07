@@ -105,7 +105,7 @@ export default function SettingsScreen() {
           value={settings.lessonStartEnabled}
         />
         <ToggleRow
-          label="End warnings"
+          label="Lesson end warnings"
           onValueChange={(value) => void updateSettings({ endWarningEnabled: value })}
           value={settings.endWarningEnabled}
         />

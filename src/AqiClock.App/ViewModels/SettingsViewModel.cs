@@ -20,6 +20,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     private readonly INotificationPresenter _notifications;
     private readonly IUpdateService _updates;
     private readonly IMessenger? _messenger;
+    private readonly INotificationScheduler? _scheduler;
     private readonly Dispatcher _dispatcher;
     private bool _disposed;
     [ObservableProperty] private bool _startWithWindows;
@@ -33,14 +34,15 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     [ObservableProperty] private int _endWarningMinutes;
     [ObservableProperty] private bool _announcementNotifications;
     [ObservableProperty] private string _updateStatus = string.Empty;
+    [ObservableProperty] private string _notificationHealth = "Today: notification plan not loaded yet";
     public string Email => _session.Current.Email ?? "Signed out";
     public string Role => _session.Current.Role == UserRole.Admin ? "Admin" : "Teacher";
     public bool CanSync => _sync.State == Application.Sync.ConnectivityState.Online;
     public IReadOnlyList<AppTheme> Themes { get; } = Enum.GetValues<AppTheme>();
     public string Version { get { _ = _updates.Current; return AppVersion.Current; } }
 
-    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications, IUpdateService updates, IMessenger? messenger = null)
-    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; _updates = updates; _messenger = messenger; _dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher; UpdateStatus = updates.Current.DisplayText; updates.StateChanged += OnUpdateStateChanged; messenger?.Register(this); Copy(settings.Current); }
+    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications, IUpdateService updates, IMessenger? messenger = null, INotificationScheduler? scheduler = null)
+    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; _updates = updates; _messenger = messenger; _scheduler = scheduler; _dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher; UpdateStatus = updates.Current.DisplayText; updates.StateChanged += OnUpdateStateChanged; messenger?.Register(this); if (scheduler is not null) { NotificationHealth = scheduler.HealthSummary; scheduler.HealthChanged += OnNotificationHealthChanged; } Copy(settings.Current); }
 
     public void Receive(ConnectivityChanged message)
     {
@@ -71,10 +73,18 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
         else _ = _dispatcher.BeginInvoke(() => UpdateStatus = state.DisplayText);
     }
 
+    private void OnNotificationHealthChanged(object? sender, EventArgs args)
+    {
+        if (_scheduler is null) return;
+        if (_dispatcher.CheckAccess()) NotificationHealth = _scheduler.HealthSummary;
+        else _ = _dispatcher.BeginInvoke(() => NotificationHealth = _scheduler.HealthSummary);
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
         _updates.StateChanged -= OnUpdateStateChanged;
+        if (_scheduler is not null) _scheduler.HealthChanged -= OnNotificationHealthChanged;
         _messenger?.UnregisterAll(this);
         _disposed = true;
         GC.SuppressFinalize(this);

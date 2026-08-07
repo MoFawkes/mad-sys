@@ -56,8 +56,11 @@
                 <ui:CardControl Margin="0,0,0,6" IsTabStop="False">
                     <ui:CardControl.Header>
                         <StackPanel>
-                            <TextBlock Text="End warnings" FontWeight="SemiBold" />
+                            <TextBlock Text="Lesson end warnings" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding EndWarningMinutes, StringFormat={}{0} minutes before the end}"
+                                       FontSize="{DynamicResource CaptionFontSize}"
+                                       Foreground="{DynamicResource MutedBrush}" />
+                            <TextBlock Text="This is the end-of-lesson alert; there is no separate lesson-finished notification."
                                        FontSize="{DynamicResource CaptionFontSize}"
                                        Foreground="{DynamicResource MutedBrush}" />
                         </StackPanel>
@@ -80,6 +83,9 @@
                 </ui:CardControl>
                 <ui:CardControl Header="Test Windows notifications" Margin="0,0,0,18" IsTabStop="False">
                     <ui:Button Content="Send test notification" Command="{Binding SendTestNotificationCommand}" />
+                </ui:CardControl>
+                <ui:CardControl Header="Notification health" Margin="0,0,0,18" IsTabStop="False">
+                    <TextBlock Text="{Binding NotificationHealth}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" />
                 </ui:CardControl>
 
                 <TextBlock Text="Account" FontSize="{DynamicResource SubtitleFontSize}" FontWeight="SemiBold" Margin="0,0,0,8" />

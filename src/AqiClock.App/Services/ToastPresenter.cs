@@ -35,7 +35,7 @@ public sealed class ToastPresenter : INotificationPresenter, IDisposable
         string nextText = followingPeriod is null ? string.Empty : $" · next: {followingPeriod.Period.Name}";
         new ToastContentBuilder()
             .AddArgument("action", "open")
-            .AddText(string.Create(CultureInfo.CurrentCulture, $"{warningMinutes} minutes left"))
+            .AddText(string.Create(CultureInfo.CurrentCulture, $"Lesson ends in {warningMinutes} minutes"))
             .AddText(string.Create(CultureInfo.CurrentCulture, $"{notification.Occurrence.Period.Name} ends at {notification.Occurrence.Period.EndTime:HH:mm}{nextText}"))
             .Show();
         return Task.CompletedTask;
