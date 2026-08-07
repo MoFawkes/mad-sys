@@ -198,6 +198,16 @@ caption/border/backdrop fixes.
    rapid same-day timetable changes; verify under a normal timetable
    change before treating as a blocker.
 
+   **Concrete repro, 2026-08-07:** with the desktop app running and signed in,
+   insert or change today's live timetable so a new current period arrives by
+   sync. Immediately after `DataChanged` handling, **TODAY'S PERIODS** can show
+   the new period while the current and next cards still read **No lessons
+   today** / **No upcoming lessons**. The state self-corrects without user
+   action and notifications remain correct. Suspected—but not proven—cause:
+   Timetables, Periods, and WeekSchedule signals each start a fire-and-forget
+   `ReloadAsync`, allowing concurrent snapshot replacements. Capture timestamps
+   and reload completion order before treating that hypothesis as diagnosed.
+
 **Unverified (retime windows missed):** class-B-tagged period suppression
 for a Class-A session (the announcement-side equivalent passed); the
 teacher regression pass is blocked by item 3.
@@ -334,7 +344,7 @@ rehearsal runs automatically in CI.
 - [ ] Edit a period on desktop machine A and confirm it reaches machine B through Realtime without restarting either app.
 - [ ] Enter a wrong password and confirm the message is **Incorrect email or password**. Revoke a stored refresh token and confirm restart returns to the sign-in window rather than leaving a silent dead session.
 
-## v0.11.0 mobile notification checks
+## v0.14.0 mobile acceptance checks
 
 **Preview APK evidence (2026-08-01):** EAS build
 `f2b8871d-919f-41df-96e6-104b621cbee4` was built from merged `main` commit
@@ -349,29 +359,31 @@ drift measurements below are recorded. The Lessons channel is configured as
 `HIGH` in source, but heads-up behavior and the installed channel importance
 still require device verification.
 
-- [ ] Visual alignment: compare all seven native routes with `mobile/design/` at the target phone size. Confirm no hamburger on tab roots, no tabs in setup, Settings retains tabs, and the clock list scrolls fully clear of its status strip.
-- [ ] Clock composition: confirm NOW contains the remaining-time pill, end time, progress, and next lesson; past rows dim and the active Today row has its left marker.
-- [ ] Announcements composition: confirm category, relative timestamp, unread dot, two-line body clamp, and standalone eMasjid row without clipping at large text sizes.
-- [ ] Class picker: confirm classes and independent optional AM/PM choices remain visually separate and the validation state still says **Select at least one class.**
-- [ ] Teacher: sign in with an invited active account, compare the mobile and desktop current/next lesson against the same wall clock, and verify pull-to-refresh plus Settings → Sync now.
-- [ ] Inactive teacher: deactivate the account, sync, and confirm the clock shows **Your account is inactive; contact an administrator** rather than an empty timetable.
-- [ ] Teacher sign-out: confirm the session, SQLite cache, announcement/read state, and pending lesson notifications are removed.
-- [ ] Student fresh install: sign in anonymously, enter the join code, select at least one class plus AM only, and confirm the choices survive an app restart.
-- [ ] Student audience: confirm other-class periods/notifications are absent, untagged breaks/assemblies remain visible, a PM announcement is hidden, and a teachers announcement is absent from the API response.
-- [ ] Student settings: confirm there is no role switch or teacher-only surface, **Change my classes** reopens the picker, and **End student session** clears selection/session/cache.
-- [ ] Admin join-code distribution: open desktop **Student devices**, confirm the grouped code and QR render, scan with the phone camera, and confirm `/student-setup` opens prefilled without auto-submitting.
-- [ ] Enter the same code manually with spaces and confirm enrolment succeeds. Verify lowercase and dash-separated input also work.
-- [ ] Rotate the code on desktop: the old code cannot enrol a new phone, the new code can, and an already-enrolled phone continues syncing.
-- [ ] Remove all student devices on desktop: the phone routes to setup with **This device is no longer enrolled. Ask for a new join code.**
-- [ ] Sign in as a non-admin teacher: the desktop tab and mobile section are absent, and a direct admin RPC call is refused.
-- [ ] App icon: rebuild/install the preview APK and inspect launcher circle/squircle masks and navy splash at device size for clipping or aliasing.
-- [ ] Settings: verify all three notification toggles persist, end-warning clamps at 0 and 15, About reports v0.11.0, and the tab label is **Announcements** with no tab-screen back arrows.
-- [ ] On a physical Android 13+ device, set a lesson start at least 10 minutes ahead, background the app, and record scheduled time, delivered time, and drift.
-- [ ] Repeat the drift measurement for a 2-minute end warning.
-- [ ] Move a period from the desktop, foreground the phone, and confirm the old pending notifications are removed and replacements use the new time.
-- [ ] Deny notification permission and confirm the clock, sync, and announcements screens continue working.
-- [ ] Leave the phone offline overnight and confirm the next day's previously scheduled notifications still arrive.
-- [ ] Background/close the app for three days without opening it and confirm the best-effort background task keeps extending the pending notification window.
-- [ ] Offline day: after a complete sync, enable airplane mode overnight; confirm the next morning's timetable renders, the offline last-sync banner is correct, and the previously scheduled notifications still fire.
+- [ ] **MOB-F01 — Visual alignment:** compare all seven native routes with `mobile/design/` at the target phone size. Confirm no hamburger on tab roots, no tabs in setup, Settings retains tabs, and the clock list scrolls fully clear of its status strip.
+- [ ] **MOB-F02 — Clock composition:** confirm NOW contains the remaining-time pill, end time, progress, and next lesson; past rows dim and the active Today row has its left marker.
+- [ ] **MOB-F03 — Announcements:** confirm category, relative timestamp, unread dot, two-line body clamp, and standalone eMasjid row without clipping at large text sizes.
+- [ ] **MOB-F04 — Class picker:** confirm classes and independent optional AM/PM choices remain visually separate and the validation state still says **Select at least one class.**
+- [ ] **MOB-F05 — Teacher:** sign in with an invited active account, compare the mobile and desktop current/next lesson against the same wall clock, and verify pull-to-refresh plus Settings → Sync now.
+- [ ] **MOB-F06 — Inactive teacher:** deactivate the account, sync, and confirm the clock shows **Your account is inactive; contact an administrator** rather than an empty timetable.
+- [ ] **MOB-F07 — Teacher sign-out:** confirm the session, SQLite cache, announcement/read state, and pending lesson notifications are removed.
+- [ ] **MOB-F08 — Student fresh install:** sign in anonymously, enter the join code, select at least one class plus AM only, and confirm the choices survive an app restart.
+- [ ] **MOB-F09 — Student audience:** confirm other-class periods/notifications are absent, untagged breaks/assemblies remain visible, a PM announcement is hidden, and a teachers announcement is absent from the API response.
+- [ ] **MOB-F10 — Student settings:** confirm there is no role switch or teacher-only surface, **Change my classes** reopens the picker, and **End student session** clears selection/session/cache.
+- [ ] **MOB-F11 — Join-code QR:** open desktop **Student devices**, confirm the grouped code and QR render, scan with the emulator virtual scene or enter it manually (record which), and confirm `/student-setup` opens prefilled without auto-submitting.
+- [ ] **MOB-F12 — Join-code normalisation:** enter the same code manually with spaces and confirm enrolment succeeds. Verify lowercase and dash-separated input also work.
+- [ ] **MOB-F13 — Join-code rotation:** rotate the code on desktop; the old code cannot enrol a new phone, the new code can, and an already-enrolled phone continues syncing.
+- [ ] **MOB-F14 — Device revocation:** remove all student devices on desktop; the phone routes to setup with **This device is no longer enrolled. Ask for a new join code.**
+- [ ] **MOB-F15 — Non-admin refusal:** sign in as a non-admin teacher; the desktop tab and mobile section are absent, and a direct admin RPC call is refused.
+- [ ] **MOB-F16 — App identity:** inspect launcher circle/squircle masks and navy splash at device size for clipping or aliasing.
+- [ ] **MOB-F17 — Settings:** verify all three notification toggles persist, end-warning clamps at 0 and 15, About reports v0.14.0, and the tab label is **Announcements** with no tab-screen back arrows.
+- [ ] **MOB-A01 — Exact alarms (emulator):** confirm `SCHEDULE_EXACT_ALARM` is allowed and `dumpsys alarm` shows exact alarms for `com.mofawkes.aqiclock`.
+- [ ] **MOB-A02 — Forced Doze (emulator):** force idle, observe an exact lesson notification, then leave forced idle.
+- [ ] **MOB-A03 — Rescheduling (emulator):** move a period on desktop, foreground the phone, and confirm old pending notifications are cancelled and replacements use the new time.
+- [ ] **MOB-A04 — Permission denied (emulator):** deny notification permission and confirm clock, sync, and announcements continue working.
+- [ ] **MOB-T01 — Start drift (Pixel 9 Pro):** unplug the phone, leave battery optimisation at **Optimised**, background the app with a lesson start at least 10 minutes ahead, and record scheduled time, delivered time, and drift from Notification history.
+- [ ] **MOB-T02 — End-warning drift (Pixel 9 Pro):** repeat for a 2-minute end warning and record scheduled time, delivered time, and drift.
+- [ ] **MOB-T03 — Overnight offline (Pixel 9 Pro):** leave the phone offline overnight and confirm the next day's previously scheduled notifications arrive; record delivery timestamps from Notification history.
+- [ ] **MOB-T04 — Three-day background (Pixel 9 Pro):** background/close the app for three days without opening it and confirm the background task keeps extending the pending notification window.
+- [ ] **MOB-T05 — Reboot reschedule (Pixel 9 Pro):** reboot and confirm `RECEIVE_BOOT_COMPLETED` restores pending notifications.
 
-**Android drift result:** Not yet measured — no physical Android device was connected during implementation. This remains a release-blocking manual measurement; emulator timing is not accepted as evidence. The app intentionally does not request `USE_EXACT_ALARM` or `SCHEDULE_EXACT_ALARM`.
+**Android acceptance split:** emulator functional, audience, exact-alarm, rescheduling, permission-denied, and forced-Doze checks are valid evidence. Notification drift and endurance timing require the stock-Android Pixel 9 Pro; emulator timing is not accepted as evidence. The app declares both `USE_EXACT_ALARM` and `SCHEDULE_EXACT_ALARM`; with exact-alarm access granted, record numerical scheduled and delivered timestamps and treat material multi-minute Doze batching as a failure, not expected behaviour.

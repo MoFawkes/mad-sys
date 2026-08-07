@@ -28,7 +28,15 @@ Held for physical Android device acceptance; see `docs/MANUAL-TESTS.md`.
 - Surface inactive teacher accounts explicitly instead of showing an unexplained empty timetable.
 - Stopped student sessions reporting "Your account is inactive". Students synced the `profiles` table, whose empty RLS snapshot was read as a deactivated account, flipping the session into teacher mode and disabling class filtering.
 
-## 0.11.2 - Unreleased
+## 0.11.3 - Unreleased
+
+Desktop compatibility release required before the audience-aware week-schedule migration.
+
+### Fixed
+
+- Moved admin week-schedule saves from PostgREST conflict inference to a secured RPC, preserving default-row edits before and after the v0.13.0 schema change.
+
+## 0.11.2 - 2026-08-07
 
 Desktop teacher patch; 0.12.0 remains reserved for the Expo mobile release pending Android device acceptance.
 
