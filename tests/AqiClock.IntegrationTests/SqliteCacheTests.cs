@@ -15,7 +15,7 @@ public sealed class SqliteCacheTests : IDisposable
         await database.InitializeAsync();
         await database.InitializeAsync();
 
-        Assert.Equal("2", await database.GetMetaAsync("schema_version"));
+        Assert.Equal("3", await database.GetMetaAsync("schema_version"));
     }
 
     [Fact]
@@ -28,7 +28,7 @@ public sealed class SqliteCacheTests : IDisposable
 
         await database.InitializeAsync();
 
-        Assert.Equal("2", await database.GetMetaAsync("schema_version"));
+        Assert.Equal("3", await database.GetMetaAsync("schema_version"));
     }
 
     [Fact]

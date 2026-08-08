@@ -3,6 +3,7 @@ import {
   Period,
   ScheduleSnapshot,
   Timetable,
+  WeekSchedule,
 } from '@/src/domain/scheduleTypes';
 
 export const monday = localDate(2026, 7, 13);
@@ -40,9 +41,13 @@ export function normalDay(): Timetable {
 export function weekOf(item: Timetable, ...dateOverrides: DateOverride[]): ScheduleSnapshot {
   return {
     timetables: [item],
-    weekSchedule: { 0: item.id, 1: item.id, 2: item.id, 3: item.id, 4: item.id },
+    weekSchedule: week([0, item.id], [1, item.id], [2, item.id], [3, item.id], [4, item.id]),
     dateOverrides,
   };
+}
+
+export function week(...entries: readonly [number, string | null][]): WeekSchedule {
+  return entries.map(([weekday, timetableId], index) => ({ id: `week-${weekday}-${index}`, weekday, audienceClassId: null, timetableId }));
 }
 
 export function override(date: Date, timetableId: string | null): DateOverride {

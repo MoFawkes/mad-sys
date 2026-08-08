@@ -25,7 +25,7 @@ const student: DeviceAudience = {
 
 function snapshot(periodCount = 2): ScheduleSnapshot {
   return {
-    weekSchedule: Object.fromEntries(Array.from({ length: 7 }, (_, weekday) => [weekday, 'day'])),
+    weekSchedule: Array.from({ length: 7 }, (_, weekday) => ({ id: `week-${weekday}`, weekday, audienceClassId: null, timetableId: 'day' })),
     dateOverrides: [],
     timetables: [
       {

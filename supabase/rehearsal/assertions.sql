@@ -4,14 +4,43 @@
 -- production_state.sql.
 -- Every failure raises, which fails the psql run via ON_ERROR_STOP.
 
--- Migration history took the incremental path: all nine versions recorded.
+-- Migration history took the incremental path: all ten versions recorded.
 do $$
 declare versions text;
 begin
     select string_agg(version, ',' order by version) into versions
     from supabase_migrations.schema_migrations;
-    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000,20260807110000' then
+    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000,20260807110000,20260807120000' then
         raise exception 'Unexpected migration history: %', versions;
+    end if;
+end $$;
+
+-- v0.13.0 adds audience-aware rows without changing any existing default row.
+-- The compatibility and audience RPC signatures must coexist after migration.
+do $$
+begin
+    if not exists (
+        select 1 from information_schema.columns
+        where table_schema = 'public' and table_name = 'week_schedule'
+          and column_name = 'audience_class_id' and is_nullable = 'YES'
+    ) then
+        raise exception 'week_schedule.audience_class_id is missing or not nullable';
+    end if;
+    if not exists (
+        select 1 from pg_constraint
+        where conrelid = 'public.week_schedule'::regclass
+          and conname = 'week_schedule_org_weekday_audience_key'
+    ) then
+        raise exception 'Audience-aware week_schedule uniqueness constraint is missing';
+    end if;
+    if exists (select 1 from public.week_schedule where audience_class_id is not null) then
+        raise exception 'Migration unexpectedly created class-specific week_schedule rows';
+    end if;
+    if to_regprocedure('public.admin_save_week_schedule(smallint,uuid,uuid)') is null then
+        raise exception 'admin_save_week_schedule(smallint,uuid,uuid) is missing';
+    end if;
+    if to_regprocedure('public.admin_delete_week_schedule(smallint,uuid)') is null then
+        raise exception 'admin_delete_week_schedule(smallint,uuid) is missing';
     end if;
 end $$;
 

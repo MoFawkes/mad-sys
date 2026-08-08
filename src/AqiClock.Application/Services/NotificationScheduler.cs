@@ -92,7 +92,8 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
             _snapshot = new ScheduleSnapshot(
                 await _timetables.GetAllAsync(cancellationToken).ConfigureAwait(false),
                 await _weekSchedule.GetAsync(cancellationToken).ConfigureAwait(false),
-                await _overrides.GetAllAsync(cancellationToken).ConfigureAwait(false));
+                await _overrides.GetAllAsync(cancellationToken).ConfigureAwait(false),
+                _audience.Current.SelectedClassIds);
 
             TimeSpan lead = TimeSpan.FromMinutes(Math.Clamp(_settings.Current.EndWarningMinutes, 0, 15));
             IReadOnlyList<NotificationEvent> rebuilt = ScheduleEngine.GetNotificationEvents(_snapshot, DateOnly.FromDateTime(now), lead);

@@ -1,7 +1,7 @@
 import { resolveDay } from '@/src/domain/scheduleEngine';
 import { EMPTY_SNAPSHOT, ScheduleSnapshot } from '@/src/domain/scheduleTypes';
 
-import { id, localDate, monday, normalDay, override, period, timetable, weekOf } from '../test/testData';
+import { id, localDate, monday, normalDay, override, period, timetable, week, weekOf } from '../test/testData';
 
 describe('resolveDay', () => {
   it('gives an override precedence over the week schedule', () => {
@@ -9,7 +9,7 @@ describe('resolveDay', () => {
     const exam = timetable('Exam Day', period('Exam', '08:30', '12:00'));
     const snapshot: ScheduleSnapshot = {
       timetables: [normal, exam],
-      weekSchedule: { 0: normal.id },
+      weekSchedule: week([0, normal.id]),
       dateOverrides: [override(monday, exam.id)],
     };
     const day = resolveDay(snapshot, monday);
@@ -37,7 +37,7 @@ describe('resolveDay', () => {
   });
 
   it('treats a null weekday assignment as no school', () => {
-    const day = resolveDay({ timetables: [normalDay()], weekSchedule: { 0: null }, dateOverrides: [] }, monday);
+    const day = resolveDay({ timetables: [normalDay()], weekSchedule: week([0, null]), dateOverrides: [] }, monday);
     expect(day.source).toBe('none');
     expect(day.isSchoolDay).toBe(false);
   });
@@ -48,8 +48,26 @@ describe('resolveDay', () => {
   });
 
   it('keeps week-schedule source for a missing referenced timetable', () => {
-    const day = resolveDay({ timetables: [], weekSchedule: { 0: id() }, dateOverrides: [] }, monday);
+    const day = resolveDay({ timetables: [], weekSchedule: week([0, id()]), dateOverrides: [] }, monday);
     expect(day).toMatchObject({ source: 'week-schedule', timetable: null, isSchoolDay: false });
+  });
+
+  it('uses canonical UUID ordering when multiple selected tracks match', () => {
+    const lower = timetable('Lower', period('Lower lesson', '09:00', '10:00'));
+    const higher = timetable('Higher', period('Higher lesson', '09:00', '10:00'));
+    const lowClass = '7fffffff-0000-0000-0000-000000000001';
+    const highClass = '80000000-0000-0000-0000-000000000002';
+    const day = resolveDay({
+      timetables: [lower, higher],
+      weekSchedule: [
+        { id: id(), weekday: 0, audienceClassId: highClass, timetableId: higher.id },
+        { id: id(), weekday: 0, audienceClassId: lowClass, timetableId: lower.id },
+      ],
+      dateOverrides: [],
+      viewerClassIds: new Set([highClass, lowClass]),
+    }, monday);
+
+    expect(day.timetable?.id).toBe(lower.id);
   });
 
   it('excludes invalid periods', () => {

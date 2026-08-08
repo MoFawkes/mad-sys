@@ -14,11 +14,12 @@ public sealed record PeriodDisplay(string Name, string Time, bool IsCurrent, boo
     public bool IsUpcoming => !IsCurrent && !IsPast;
 }
 
-public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, IRecipient<TimeJumped>, IRecipient<DataChanged>
+public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, IRecipient<TimeJumped>, IRecipient<DataChanged>, IRecipient<AudienceChanged>
 {
     private readonly ITimetableRepository _timetables;
     private readonly IWeekScheduleRepository _weekSchedule;
     private readonly IDateOverrideRepository _overrides;
+    private readonly IDeviceAudienceContext _audience;
     private ScheduleSnapshot _snapshot = ScheduleSnapshot.Empty;
 
     [ObservableProperty] private string _timeText = "--:--:--";
@@ -35,18 +36,21 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
 
     public ObservableCollection<PeriodDisplay> TodayPeriods { get; } = [];
 
-    public ClockViewModel(ITimetableRepository timetables, IWeekScheduleRepository weekSchedule, IDateOverrideRepository overrides, IMessenger messenger)
+    public ClockViewModel(ITimetableRepository timetables, IWeekScheduleRepository weekSchedule, IDateOverrideRepository overrides, IDeviceAudienceContext audience, IMessenger messenger)
     {
-        _timetables = timetables; _weekSchedule = weekSchedule; _overrides = overrides;
-        messenger.Register<ClockTick>(this); messenger.Register<TimeJumped>(this); messenger.Register<DataChanged>(this);
+        _timetables = timetables; _weekSchedule = weekSchedule; _overrides = overrides; _audience = audience;
+        messenger.Register<ClockTick>(this); messenger.Register<TimeJumped>(this); messenger.Register<DataChanged>(this); messenger.Register<AudienceChanged>(this);
     }
+
+    public ClockViewModel(ITimetableRepository timetables, IWeekScheduleRepository weekSchedule, IDateOverrideRepository overrides, IMessenger messenger)
+        : this(timetables, weekSchedule, overrides, new DeviceAudienceContext(messenger), messenger) { }
 
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
         IReadOnlyList<Timetable> timetables = await _timetables.GetAllAsync(cancellationToken);
         WeekSchedule schedule = await _weekSchedule.GetAsync(cancellationToken);
         IReadOnlyList<DateOverride> overrides = await _overrides.GetAllAsync(cancellationToken);
-        _snapshot = new ScheduleSnapshot(timetables, schedule, overrides);
+        _snapshot = new ScheduleSnapshot(timetables, schedule, overrides, _audience.Current.SelectedClassIds);
     }
 
     public void Receive(ClockTick message) => Recompute(message.Now);
@@ -56,6 +60,7 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
         if (message.Table is CacheTable.Timetables or CacheTable.Periods or CacheTable.WeekSchedule or CacheTable.DateOverrides)
             _ = ReloadAsync();
     }
+    public void Receive(AudienceChanged message) => _ = ReloadAsync();
 
     private async Task ReloadAsync() { await LoadAsync(); Recompute(DateTime.Now); }
 

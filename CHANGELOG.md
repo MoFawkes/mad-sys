@@ -2,9 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.12.0 - Unreleased (Expo mobile companion)
+## 0.13.0 - 2026-08-08 (audience-aware week schedules)
 
-Held for physical Android device acceptance; see `docs/MANUAL-TESTS.md`.
+- Added default and class-specific timetable rows per weekday across the database, desktop, cache, and mobile schedule engines.
+- Added secured save/delete RPCs, cache schema v3, deterministic audience resolution, and the null-track-means-closed rule.
+- v0.11.3 is the migration prerequisite and preserves default-row saves through the two-argument compatibility RPC. Remaining rollout gate: apply the migration, upgrade every client to cache schema v3, and only then create the first class-specific row; older caches cannot store two rows for one weekday.
+
+## 0.14.0 - Unreleased (Expo mobile companion)
+
+Renumbered from the held 0.12.0 scope because the mobile companion now follows
+the desktop v0.13.0 release. Held for emulator and physical-device Android
+acceptance; see `docs/MANUAL-TESTS.md`.
 
 ### Added
 
@@ -28,7 +36,7 @@ Held for physical Android device acceptance; see `docs/MANUAL-TESTS.md`.
 - Surface inactive teacher accounts explicitly instead of showing an unexplained empty timetable.
 - Stopped student sessions reporting "Your account is inactive". Students synced the `profiles` table, whose empty RLS snapshot was read as a deactivated account, flipping the session into teacher mode and disabling class filtering.
 
-## 0.11.3 - Unreleased
+## 0.11.3 - 2026-08-08
 
 Desktop compatibility release required before the audience-aware week-schedule migration.
 

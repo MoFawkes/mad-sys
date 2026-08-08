@@ -29,7 +29,7 @@ public static class ScheduleEngine
                 ? snapshot.FindTimetable(overrideTimetableId)
                 : null;
         }
-        else if (snapshot.WeekSchedule.TimetableIdFor(date.DayOfWeek) is { } weekdayTimetableId)
+        else if (snapshot.ResolveWeekEntry(date.DayOfWeek)?.TimetableId is { } weekdayTimetableId)
         {
             source = EffectiveDaySource.WeekSchedule;
             timetable = snapshot.FindTimetable(weekdayTimetableId);

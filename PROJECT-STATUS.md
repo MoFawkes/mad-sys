@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-08-03
+Last updated: 2026-08-08
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -12,18 +12,22 @@ the acceptance script.
 
 | Area | State |
 |---|---|
-| Staff pilot | v0.9.2 installed on 3 staff machines |
-| Public release channel | v0.10.0 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main` at `357e48f`; v0.10.0 tagged at merge commit `15ecb86` |
+| Staff pilot | v0.11.3 is published; confirm every installed desktop has upgraded before the v0.13.0 production migration |
+| Public release channel | v0.11.3 is live on `MoFawkes/aqi-clock-releases` |
+| Source | `main` at `a6844a8`; v0.11.3 tagged at that merge commit |
 | Production backend | Supabase project active and healthy |
-| Latest release | v0.10.0 — audience-aware sign-in, classes, announcements, and Navy/Cream theme |
-| Next release | v0.11.1 desktop admin-save fixes; v0.12.0 Expo mobile companion remains pending device acceptance |
-| Candidate CI | Merged-main run `30722069814` green at `357e48f` |
-| Release workflow | v0.10.0 tag-bound run `30049223114` green; public assets verified |
+| Latest release | v0.11.3 — desktop compatibility RPC required before audience-aware week schedules |
+| Next release | v0.13.0 audience-aware week schedules; v0.14.0 Expo mobile acceptance follows |
+| Candidate CI | Merged-main run `31230574731` green at `a6844a8` |
+| Release workflow | v0.11.3 tag-bound run `31230757653` green; public assets verified |
 
 ## Release split — decided 2026-08-02
 
 v0.11.0 is the **desktop** release; the Expo companion moves to **v0.12.0**.
+
+Release train update, 2026-08-08: v0.11.3 supplies the compatibility RPC,
+v0.13.0 introduces audience-aware week schedules and cache schema v3, and the
+held Expo companion is renumbered to v0.14.0 so it follows those prerequisites.
 
 The desktop work was previously recorded as unable to ship alone because enrolment needs
 `enroll_student_device` and the student RLS migrations. That dependency is **already
@@ -33,7 +37,7 @@ publishes only the Windows Velopack artifact, and the mobile APK is distributed 
 it stays invisible to users until one is shared. Teachers therefore do not need to wait for
 mobile device acceptance to receive fixes they asked for.
 
-## v0.12.0 mobile state
+## v0.14.0 mobile state
 
 - Phases 0–10 are implemented: the original mobile scope, visual alignment, isolated/admin-distributed join codes with desktop QR and mobile sharing, revoked-device recovery, and desktop-brand icon parity.
 - The additive student-device migration and signup hook are covered by the release-gating Supabase matrix; the existing staff/admin matrix remains in scope.

@@ -354,7 +354,8 @@ public sealed class Phase5ViewModelTests
         public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task SaveTimetableAsync(TimetableRow timetable, IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task SaveWeekScheduleRowAsync(int weekday, Guid? audienceClassId, Guid? timetableId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task DeleteWeekScheduleRowAsync(int weekday, Guid audienceClassId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }

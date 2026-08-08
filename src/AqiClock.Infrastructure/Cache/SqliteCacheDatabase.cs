@@ -9,7 +9,7 @@ namespace AqiClock.Infrastructure.Cache;
 
 public sealed class SqliteCacheDatabase : ILocalCache, IDisposable
 {
-    private const int CurrentSchemaVersion = 2;
+    private const int CurrentSchemaVersion = 3;
     private readonly IReadOnlyList<string> _migrationScripts;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
@@ -186,7 +186,7 @@ public sealed class SqliteCacheDatabase : ILocalCache, IDisposable
             case (CacheTable.PeriodClasses, PeriodClassRow x):
                 sql = "INSERT INTO period_classes VALUES($period,$class);"; values = [("$period", x.PeriodId), ("$class", x.ClassId)]; break;
             case (CacheTable.WeekSchedule, WeekScheduleRow x):
-                sql = "INSERT INTO week_schedule VALUES($weekday,$timetable);"; values = [("$weekday", x.Weekday), ("$timetable", x.TimetableId)]; break;
+                sql = "INSERT INTO week_schedule(id,weekday,audience_class_id,timetable_id) VALUES($id,$weekday,$audience,$timetable);"; values = [("$id", x.Id), ("$weekday", x.Weekday), ("$audience", x.AudienceClassId), ("$timetable", x.TimetableId)]; break;
             case (CacheTable.DateOverrides, DateOverrideRow x):
                 sql = "INSERT INTO date_overrides VALUES($id,$date,$timetable,$note);"; values = [("$id", x.Id), ("$date", x.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)), ("$timetable", x.TimetableId), ("$note", x.Note)]; break;
             case (CacheTable.Announcements, AnnouncementRow x):

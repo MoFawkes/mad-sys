@@ -238,7 +238,7 @@ public partial class PeriodEditorItem : ObservableObject
 
 public partial class TimetableEditorViewModel : ObservableObject, IRecipient<DataChanged>
 {
-    private readonly ISupabaseGateway _gateway; private readonly ISyncService _sync; private readonly ITimetableRepository _repository; private readonly IWeekScheduleRepository _week; private readonly IDateOverrideRepository _overrides; private readonly IWindowService _windows;
+    private readonly ISupabaseGateway _gateway; private readonly ISyncService _sync; private readonly ITimetableRepository _repository; private readonly IWeekScheduleRepository _week; private readonly IDateOverrideRepository _overrides; private readonly IWindowService _windows; private readonly IClassRepository? _classes;
     private bool _loading;
     private int _ownWriteDepth;
     [ObservableProperty] private Timetable? _selected;
@@ -253,6 +253,9 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
 
     public TimetableEditorViewModel(ISupabaseGateway gateway, ISyncService sync, ITimetableRepository repository, IWeekScheduleRepository week, IDateOverrideRepository overrides, IWindowService windows, IMessenger messenger)
     { _gateway = gateway; _sync = sync; _repository = repository; _week = week; _overrides = overrides; _windows = windows; Periods.CollectionChanged += OnPeriodsChanged; messenger.Register(this); }
+
+    public TimetableEditorViewModel(ISupabaseGateway gateway, ISyncService sync, ITimetableRepository repository, IWeekScheduleRepository week, IDateOverrideRepository overrides, IClassRepository classes, IWindowService windows, IMessenger messenger)
+        : this(gateway, sync, repository, week, overrides, windows, messenger) => _classes = classes;
 
     public async Task LoadAsync(CancellationToken token = default)
     {
@@ -320,7 +323,17 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
     {
         if (Selected is null) return;
         List<string> used = [];
-        WeekSchedule week = await _week.GetAsync(token); foreach (DayOfWeek day in Enum.GetValues<DayOfWeek>()) if (week.TimetableIdFor(day) == Selected.Id) used.Add(day.ToString());
+        WeekSchedule week = await _week.GetAsync(token);
+        Dictionary<Guid, string> classNames = _classes is null
+            ? new Dictionary<Guid, string>()
+            : (await _classes.GetAllAsync(token)).ToDictionary(item => item.Id, item => item.Name);
+        foreach (WeekScheduleEntry entry in week.AllEntries.Where(entry => entry.TimetableId == Selected.Id))
+        {
+            string qualifier = entry.AudienceClassId is { } classId && classNames.TryGetValue(classId, out string? className)
+                ? $" ({className})"
+                : entry.AudienceClassId is not null ? " (class-specific)" : string.Empty;
+            used.Add($"{entry.Weekday}{qualifier}");
+        }
         foreach (DateOverride item in await _overrides.GetAllAsync(token)) if (item.TimetableId == Selected.Id) used.Add(item.Date.ToString("d MMM", CultureInfo.CurrentCulture));
         if (used.Count > 0) { ValidationMessage = $"Used by: {string.Join(", ", used)} — reassign first"; return; }
         if (!_windows.Confirm($"Delete '{Selected.Name}' and all of its periods? This cannot be undone.", "Delete timetable")) return;
@@ -357,12 +370,51 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
     }
 }
 
-public partial class WeekScheduleItem : ObservableObject { public Guid Id { get; init; } public int Weekday { get; init; } public string Day => ((DayOfWeek)((Weekday + 1) % 7)).ToString(); [ObservableProperty] private Guid? _timetableId; [ObservableProperty] private string? _error; }
-public partial class WeekScheduleViewModel(IWeekScheduleRepository repository, ITimetableRepository timetables, ISupabaseGateway gateway, ISyncService sync, IWindowService windows) : ObservableObject
+public sealed record AudienceOption(Guid? Id, string Name);
+public partial class WeekScheduleItem : ObservableObject
 {
-    public ObservableCollection<WeekScheduleItem> Rows { get; } = []; public ObservableCollection<Timetable> Timetables { get; } = [];
-    public async Task LoadAsync(CancellationToken token = default) { WeekSchedule schedule = await repository.GetAsync(token); Rows.Clear(); for (int weekday = 0; weekday < 7; weekday++) { DayOfWeek day = (DayOfWeek)((weekday + 1) % 7); Rows.Add(new() { Weekday = weekday, TimetableId = schedule.TimetableIdFor(day) }); } Timetables.Clear(); foreach (Timetable t in (await timetables.GetAllAsync(token)).Where(x => !x.IsArchived)) Timetables.Add(t); }
-    [RelayCommand] private async Task SaveRowAsync(WeekScheduleItem row, CancellationToken token) { try { await gateway.UpdateWeekScheduleAsync(row.Weekday, row.TimetableId, token); await sync.SyncTableAsync(CacheTable.WeekSchedule, token); row.Error = null; } catch (ServerDeniedException) { row.Error = "Your role changed."; windows.CloseAdminWindow(); } catch (ServerWriteException ex) { row.Error = ex.Message; } }
+    public Guid Id { get; init; }
+    public int Weekday { get; init; }
+    public string DayLabel { get; init; } = string.Empty;
+    public bool IsNew { get; init; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDefault))]
+    [NotifyPropertyChangedFor(nameof(CanDelete))]
+    private Guid? _audienceClassId;
+    [ObservableProperty] private Guid? _timetableId;
+    [ObservableProperty] private string? _error;
+    public bool IsDefault => AudienceClassId is null && !IsNew;
+    public bool CanDelete => IsNew || AudienceClassId is not null;
+}
+public partial class WeekScheduleViewModel(IWeekScheduleRepository repository, ITimetableRepository timetables, ISupabaseGateway gateway, ISyncService sync, IWindowService windows, IClassRepository? classes = null) : ObservableObject
+{
+    public ObservableCollection<WeekScheduleItem> Rows { get; } = []; public ObservableCollection<Timetable> Timetables { get; } = []; public ObservableCollection<AudienceOption> Audiences { get; } = [];
+    public async Task LoadAsync(CancellationToken token = default)
+    {
+        WeekSchedule schedule = await repository.GetAsync(token); var classItems = classes is null ? [] : await classes.GetAllAsync(token);
+        Audiences.Clear(); Audiences.Add(new(null, "Default (everyone)")); foreach (var item in classItems.OrderBy(x => x.SortOrder).ThenBy(x => x.Name)) Audiences.Add(new(item.Id, item.Name));
+        Rows.Clear();
+        for (int weekday = 0; weekday < 7; weekday++)
+        {
+            DayOfWeek day = (DayOfWeek)((weekday + 1) % 7); bool first = true;
+            IReadOnlyList<WeekScheduleEntry> dayEntries = schedule.EntriesFor(day);
+            if (dayEntries.Count == 0) dayEntries = [new WeekScheduleEntry(Guid.Empty, day, null, null)];
+            foreach (WeekScheduleEntry entry in dayEntries.OrderBy(x => x.AudienceClassId is null ? 0 : 1).ThenBy(x => Audiences.FirstOrDefault(a => a.Id == x.AudienceClassId)?.Name))
+            { Rows.Add(new() { Id = entry.Id, Weekday = weekday, DayLabel = first ? day.ToString() : string.Empty, AudienceClassId = entry.AudienceClassId, TimetableId = entry.TimetableId }); first = false; }
+        }
+        Timetables.Clear(); foreach (Timetable t in (await timetables.GetAllAsync(token)).Where(x => !x.IsArchived)) Timetables.Add(t);
+    }
+    [RelayCommand] private void AddRow(WeekScheduleItem row) => Rows.Insert(Rows.IndexOf(row) + 1, new() { Id = Guid.NewGuid(), Weekday = row.Weekday, IsNew = true });
+    [RelayCommand]
+    private async Task DeleteRowAsync(WeekScheduleItem row, CancellationToken token)
+    {
+        if (row.IsNew) { Rows.Remove(row); return; }
+        if (row.AudienceClassId is not { } classId || !windows.Confirm("Delete this class-specific week schedule row?", "Delete row")) return;
+        try { await gateway.DeleteWeekScheduleRowAsync(row.Weekday, classId, token); await sync.SyncTableAsync(CacheTable.WeekSchedule, token); await LoadAsync(token); }
+        catch (ServerDeniedException) { row.Error = "Your role changed."; windows.CloseAdminWindow(); }
+        catch (ServerWriteException ex) { row.Error = ex.Message; }
+    }
+    [RelayCommand] private async Task SaveRowAsync(WeekScheduleItem row, CancellationToken token) { if (Rows.Any(x => x != row && x.Weekday == row.Weekday && x.AudienceClassId == row.AudienceClassId)) { row.Error = $"That class already has a row for {((DayOfWeek)((row.Weekday + 1) % 7))}."; return; } try { await gateway.SaveWeekScheduleRowAsync(row.Weekday, row.AudienceClassId, row.TimetableId, token); await sync.SyncTableAsync(CacheTable.WeekSchedule, token); row.Error = null; if (row.IsNew) await LoadAsync(token); } catch (ServerDeniedException) { row.Error = "Your role changed."; windows.CloseAdminWindow(); } catch (DuplicateRowException) { row.Error = $"That class already has a row for {((DayOfWeek)((row.Weekday + 1) % 7))}."; } catch (ServerWriteException ex) { row.Error = ex.Message; } }
     [RelayCommand] private static void SetNoSchool(WeekScheduleItem row) => row.TimetableId = null;
 }
 
@@ -431,7 +483,7 @@ public partial class ClassesViewModel(IClassRepository repository, ITimetableRep
     [RelayCommand] private async Task DeleteAsync(ClassEditorItem item, CancellationToken token)
     {
         try { await gateway.DeleteAsync(CacheTable.Classes, item.Id, token); await sync.SyncTableAsync(CacheTable.Classes, token); await LoadAsync(token); Error = null; }
-        catch (ReferencedRowException) { Error = "This class is referenced by an announcement. Reassign or delete the announcement first."; }
+        catch (ReferencedRowException) { Error = "This class is referenced by an announcement or the week schedule. Reassign or delete that reference first."; }
     }
     [RelayCommand] private async Task SaveTagsAsync(PeriodClassEditorItem item, CancellationToken token)
     {

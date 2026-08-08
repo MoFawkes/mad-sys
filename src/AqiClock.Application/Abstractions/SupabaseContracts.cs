@@ -29,7 +29,10 @@ public interface ISupabaseGateway
     Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default);
     Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default);
     Task SaveTimetableAsync(TimetableRow timetable, IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default);
-    Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default);
+    Task SaveWeekScheduleRowAsync(int weekday, Guid? audienceClassId, Guid? timetableId, CancellationToken cancellationToken = default);
+    Task DeleteWeekScheduleRowAsync(int weekday, Guid audienceClassId, CancellationToken cancellationToken = default);
+    [Obsolete("Compatibility only; use SaveWeekScheduleRowAsync.")]
+    Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => SaveWeekScheduleRowAsync(weekday, null, timetableId, cancellationToken);
     Task SetPeriodClassesAsync(Guid periodId, IReadOnlyCollection<Guid> classIds, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
     Task<string> GetStudentJoinCodeAsync(CancellationToken cancellationToken = default) =>

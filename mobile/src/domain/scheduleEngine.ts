@@ -6,6 +6,7 @@ import {
   PeriodOccurrence,
   ScheduleSnapshot,
   Timetable,
+  WeekScheduleEntry,
 } from './scheduleTypes';
 import { jsDayToDbWeekday } from './weekday';
 
@@ -41,10 +42,10 @@ export function resolveDay(snapshot: ScheduleSnapshot, date: Date): EffectiveDay
       ? (snapshot.timetables.find((item) => item.id === override.timetableId) ?? null)
       : null;
   } else {
-    const timetableId = snapshot.weekSchedule[jsDayToDbWeekday(dateOnly)];
-    if (timetableId) {
+    const weekEntry = resolveWeekEntry(snapshot, jsDayToDbWeekday(dateOnly));
+    if (weekEntry?.timetableId) {
       source = 'week-schedule';
-      timetable = snapshot.timetables.find((item) => item.id === timetableId) ?? null;
+      timetable = snapshot.timetables.find((item) => item.id === weekEntry.timetableId) ?? null;
     } else {
       source = 'none';
       timetable = null;
@@ -69,6 +70,14 @@ export function resolveDay(snapshot: ScheduleSnapshot, date: Date): EffectiveDay
     periods,
     isSchoolDay: periods.length > 0,
   };
+}
+
+export function resolveWeekEntry(snapshot: ScheduleSnapshot, weekday: number): WeekScheduleEntry | undefined {
+  const classes = snapshot.viewerClassIds ?? new Set<string>();
+  const match = snapshot.weekSchedule
+    .filter((entry) => entry.weekday === weekday && entry.audienceClassId != null && classes.has(entry.audienceClassId))
+    .sort((left, right) => ordinalCompare(left.audienceClassId!, right.audienceClassId!))[0];
+  return match ?? snapshot.weekSchedule.find((entry) => entry.weekday === weekday && entry.audienceClassId == null);
 }
 
 export function findCurrentPeriod(day: EffectiveDay, time: string | number): PeriodOccurrence | null {

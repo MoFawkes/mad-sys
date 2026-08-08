@@ -142,7 +142,7 @@ jobs:
         run: supabase start
 
       - name: Reset to the released v0.9.6 baseline schema
-        run: supabase db reset --local --yes --version 20260716000300
+        run: supabase db reset --local --yes --no-seed --version 20260716000300
 
       - name: Load production-like data at the baseline schema
         shell: bash

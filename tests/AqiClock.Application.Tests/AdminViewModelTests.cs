@@ -270,6 +270,62 @@ public sealed class AdminViewModelTests
     }
 
     [Fact]
+    public async Task TimetableUsedOnlyByTrackReportsQualifiedUsageBeforeDelete()
+    {
+        Guid timetableId = Guid.NewGuid(), classId = Guid.NewGuid();
+        var timetable = new Timetable(timetableId, "Part-Time", false, []);
+        var week = new Week(new WeekScheduleEntry(Guid.NewGuid(), DayOfWeek.Monday, classId, timetableId));
+        var gateway = new Gateway();
+        var vm = new TimetableEditorViewModel(gateway, new Sync(), new Timetables(timetable), week, new Overrides(), new Classes(new AqiClock.Domain.Entities.Class(classId, "Part-Time", 0)), new Windows(), new WeakReferenceMessenger());
+        await vm.LoadAsync();
+
+        await vm.DeleteCommand.ExecuteAsync(null);
+
+        Assert.Contains("Monday (Part-Time)", vm.ValidationMessage, StringComparison.Ordinal);
+        Assert.Equal(0, gateway.DeleteCalls);
+    }
+
+    [Fact]
+    public async Task WeekScheduleAddSaveAndDeleteCommandsUseAudienceRpcContract()
+    {
+        Guid classId = Guid.NewGuid(), timetableId = Guid.NewGuid();
+        var gateway = new Gateway();
+        var vm = new WeekScheduleViewModel(new Week(), new Timetables(new Timetable(timetableId, "Part-Time", false, [])), gateway, new Sync(), new Windows(), new Classes(new AqiClock.Domain.Entities.Class(classId, "Part-Time", 0)));
+        await vm.LoadAsync();
+        WeekScheduleItem monday = vm.Rows.Single(row => row.Weekday == 0);
+
+        vm.AddRowCommand.Execute(monday);
+        WeekScheduleItem added = vm.Rows.Single(row => row.Weekday == 0 && row.IsNew);
+        added.AudienceClassId = classId;
+        added.TimetableId = timetableId;
+        await vm.SaveRowCommand.ExecuteAsync(added);
+
+        Assert.Equal(0, gateway.SavedWeekday);
+        Assert.Equal(classId, gateway.SavedAudienceClassId);
+        Assert.Equal(timetableId, gateway.SavedWeekTimetableId);
+
+        vm.AddRowCommand.Execute(monday);
+        WeekScheduleItem unsaved = vm.Rows.Last(row => row.Weekday == 0 && row.IsNew);
+        Assert.True(unsaved.CanDelete);
+        await vm.DeleteRowCommand.ExecuteAsync(unsaved);
+        Assert.DoesNotContain(unsaved, vm.Rows);
+    }
+
+    [Fact]
+    public async Task WeekScheduleDeletePersistedTrackUsesDeleteRpc()
+    {
+        Guid classId = Guid.NewGuid();
+        var gateway = new Gateway();
+        var vm = new WeekScheduleViewModel(new Week(new WeekScheduleEntry(Guid.NewGuid(), DayOfWeek.Monday, classId, null)), new Timetables(), gateway, new Sync(), new Windows(), new Classes(new AqiClock.Domain.Entities.Class(classId, "Part-Time", 0)));
+        await vm.LoadAsync();
+
+        await vm.DeleteRowCommand.ExecuteAsync(vm.Rows.Single(row => row.AudienceClassId == classId));
+
+        Assert.Equal(0, gateway.DeletedWeekday);
+        Assert.Equal(classId, gateway.DeletedAudienceClassId);
+    }
+
+    [Fact]
     public async Task OverrideDeleteCancelDoesNotWrite()
     {
         DateOverride value = new(Guid.NewGuid(), DateOnly.FromDateTime(DateTime.Today), null, "test");
@@ -407,7 +463,7 @@ public sealed class AdminViewModelTests
 
     private static TimetableEditorViewModel Editor(IMessenger messenger, params Timetable[] rows) => new(new Gateway(), new Sync(), new Timetables(rows), new Week(), new Overrides(), new Windows(), messenger);
     private sealed class Timetables(params Timetable[] rows) : ITimetableRepository { public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Timetable>>(rows); }
-    private sealed class Week : IWeekScheduleRepository { public Task<WeekSchedule> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(WeekSchedule.Empty); }
+    private sealed class Week(params WeekScheduleEntry[] entries) : IWeekScheduleRepository { public Task<WeekSchedule> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(entries.Length == 0 ? WeekSchedule.Empty : new WeekSchedule(entries)); }
     private sealed class Overrides(params DateOverride[] rows) : IDateOverrideRepository { public Task<IReadOnlyList<DateOverride>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<DateOverride>>(rows); }
     private sealed class Announcements(params Announcement[] rows) : IAnnouncementRepository { public Task<IReadOnlyList<Announcement>> GetCurrentAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Announcement>>(rows); }
     private sealed class Profiles(params Profile[] rows) : IProfileRepository { public Task<IReadOnlyList<Profile>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Profile>>(rows); public Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(rows.FirstOrDefault(x => x.Id == id)); }
@@ -439,7 +495,14 @@ public sealed class AdminViewModelTests
         public int ProfileUpdateCalls { get; private set; }
         public TimetableRow? SavedTimetable { get; private set; }
         public IReadOnlyList<PeriodRow>? SavedPeriods { get; private set; }
+        public int? SavedWeekday { get; private set; }
+        public Guid? SavedAudienceClassId { get; private set; }
+        public Guid? SavedWeekTimetableId { get; private set; }
+        public int? DeletedWeekday { get; private set; }
+        public Guid? DeletedAudienceClassId { get; private set; }
         public Task SaveTimetableAsync(TimetableRow timetable, IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default) { SavedTimetable = timetable; SavedPeriods = periods; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); }
+        public Task SaveWeekScheduleRowAsync(int weekday, Guid? audienceClassId, Guid? timetableId, CancellationToken cancellationToken = default) { SavedWeekday = weekday; SavedAudienceClassId = audienceClassId; SavedWeekTimetableId = timetableId; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); }
+        public Task DeleteWeekScheduleRowAsync(int weekday, Guid audienceClassId, CancellationToken cancellationToken = default) { DeletedWeekday = weekday; DeletedAudienceClassId = audienceClassId; return DeleteFailure is null ? Task.CompletedTask : Task.FromException(DeleteFailure); }
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(Guid.NewGuid()); public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) { LastInsertedRow = row; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); } public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) { UpdateCalls++; LastUpdatedRow = row; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); } public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) { DeleteCalls++; return DeleteFailure is null ? Task.CompletedTask : Task.FromException(DeleteFailure); } public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default) { ProfileUpdateCalls++; return ProfileFailure is null ? Task.CompletedTask : Task.FromException(ProfileFailure); } public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AuditEntry>>([]); public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 

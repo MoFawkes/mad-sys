@@ -150,7 +150,7 @@ public sealed class StudentDeviceRlsTests(SupabaseFixture fixture)
                     """
                     insert into public.week_schedule (id, org_id, weekday, timetable_id)
                     values ('00000000-0000-0000-0000-000000000206', $1, 6, null)
-                    on conflict (org_id, weekday) do nothing
+                    on conflict on constraint week_schedule_org_weekday_audience_key do nothing
                     """,
                     SupabaseFixture.OrgAId);
             }

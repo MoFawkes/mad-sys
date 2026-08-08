@@ -111,8 +111,8 @@ export async function loadScheduleSnapshot(): Promise<ScheduleSnapshot> {
     database.getAllAsync<PeriodRow>(
       'SELECT id,timetable_id,name,start_time,end_time,sort_order,is_lesson FROM periods ORDER BY sort_order',
     ),
-    database.getAllAsync<{ weekday: number; timetable_id: string | null }>(
-      'SELECT weekday,timetable_id FROM week_schedule',
+    database.getAllAsync<{ id: string; weekday: number; audience_class_id: string | null; timetable_id: string | null }>(
+      'SELECT id,weekday,audience_class_id,timetable_id FROM week_schedule',
     ),
     database.getAllAsync<{
       id: string;
@@ -153,9 +153,7 @@ export async function loadScheduleSnapshot(): Promise<ScheduleSnapshot> {
     isArchived: row.is_archived !== 0,
     periods: periodsByTimetable.get(row.id) ?? [],
   }));
-  const weekSchedule: WeekSchedule = Object.fromEntries(
-    weekRows.map((row) => [row.weekday, row.timetable_id]),
-  );
+  const weekSchedule: WeekSchedule = weekRows.map((row) => ({ id: row.id, weekday: row.weekday, audienceClassId: row.audience_class_id, timetableId: row.timetable_id }));
   const dateOverrides: DateOverride[] = overrideRows.map((row) => ({
     id: row.id,
     date: row.date,

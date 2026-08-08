@@ -234,7 +234,7 @@ public sealed class RlsMatrixTests(SupabaseFixture fixture)
                 await fixture.SqlAsync(
                     "delete from public.week_schedule where org_id = $1 and weekday = 6", SupabaseFixture.OrgAId);
                 await fixture.SqlAsync(
-                    "insert into public.week_schedule (id, org_id, weekday, timetable_id) values ('00000000-0000-0000-0000-000000000206', $1, 6, null) on conflict (org_id, weekday) do nothing",
+                    "insert into public.week_schedule (id, org_id, weekday, timetable_id) values ('00000000-0000-0000-0000-000000000206', $1, 6, null) on conflict on constraint week_schedule_org_weekday_audience_key do nothing",
                     SupabaseFixture.OrgAId);
             }
         }
@@ -360,7 +360,7 @@ public sealed class RlsMatrixTests(SupabaseFixture fixture)
             if (table == "week_schedule")
             {
                 await fixture.SqlAsync(
-                    "insert into public.week_schedule (id, org_id, weekday, timetable_id) values ('00000000-0000-0000-0000-000000000206', $1, 6, null) on conflict (org_id, weekday) do nothing",
+                    "insert into public.week_schedule (id, org_id, weekday, timetable_id) values ('00000000-0000-0000-0000-000000000206', $1, 6, null) on conflict on constraint week_schedule_org_weekday_audience_key do nothing",
                     SupabaseFixture.OrgAId);
             }
         }

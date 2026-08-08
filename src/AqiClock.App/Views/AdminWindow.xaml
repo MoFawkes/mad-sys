@@ -12,7 +12,7 @@
         ExtendsContentIntoTitleBar="True"
         WindowBackdropType="Mica">
     <ui:FluentWindow.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <Style TargetType="DataGrid">
             <Setter Property="Background" Value="{DynamicResource CardBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -93,7 +93,7 @@
                             <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBlock Text="{Binding ValidationMessage}" Foreground="{DynamicResource ErrorBrush}" />
                             <TextBlock Text="{Binding WarningMessage}" Foreground="{DynamicResource WarningBrush}" />
-                            <Border Background="{DynamicResource WarningBackgroundBrush}" CornerRadius="8" Padding="10" Visibility="{Binding HasConflict, Converter={StaticResource BoolToVisibility}}">
+                            <Border Background="{DynamicResource WarningBackgroundBrush}" CornerRadius="8" Padding="10" Visibility="{Binding HasConflict, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="Changed remotely just now — " /><Button Content="Reload" Command="{Binding ReloadCommand}" /><Button Content="Overwrite" Command="{Binding OverwriteCommand}" /></StackPanel>
                             </Border>
                         </StackPanel>
@@ -117,13 +117,16 @@
                 </Grid>
             </TabItem>
             <TabItem Header="Week schedule">
-                <DataGrid DataContext="{Binding WeekSchedule}" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" CanUserAddRows="False" Margin="10">
+              <DockPanel DataContext="{Binding WeekSchedule}" Margin="10"><TextBlock DockPanel.Dock="Top" Margin="0,0,0,8" TextWrapping="Wrap" Text="Each day has a default row that applies to everyone. Use ＋ to add a class-specific row; devices whose class matches use that row instead of the default."/>
+                <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" CanUserAddRows="False">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Day" Binding="{Binding Day}" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Day" Binding="{Binding DayLabel}" IsReadOnly="True" />
                         <DataGridTemplateColumn Header="Timetable"><DataGridTemplateColumn.CellTemplate><DataTemplate><ComboBox MinWidth="220" ItemsSource="{Binding DataContext.Timetables, RelativeSource={RelativeSource AncestorType=DataGrid}}" DisplayMemberPath="Name" SelectedValuePath="Id" SelectedValue="{Binding TimetableId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Actions" Width="Auto" MinWidth="150"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal"><Button Content="No school" Command="{Binding DataContext.SetNoSchoolCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /><Button Content="Save" Command="{Binding DataContext.SaveRowCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /><TextBlock Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Applies to"><DataGridTemplateColumn.CellTemplate><DataTemplate><ComboBox MinWidth="180" ItemsSource="{Binding DataContext.Audiences, RelativeSource={RelativeSource AncestorType=DataGrid}}" DisplayMemberPath="Name" SelectedValuePath="Id" SelectedValue="{Binding AudienceClassId, Mode=TwoWay}" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Actions" Width="Auto" MinWidth="220"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal"><Button Content="No school" Command="{Binding DataContext.SetNoSchoolCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /><Button Content="Save" Command="{Binding DataContext.SaveRowCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /><Button Content="＋" Command="{Binding DataContext.AddRowCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /><Button Content="✕" Visibility="{Binding CanDelete, Converter={StaticResource BooleanToVisibilityConverter}}" Command="{Binding DataContext.DeleteRowCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /><TextBlock Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
+              </DockPanel>
             </TabItem>
             <TabItem Header="Date overrides">
                 <DockPanel DataContext="{Binding Overrides}" Margin="10">
