@@ -198,7 +198,7 @@ CI (GitHub Actions): build + unit tests on `windows-latest`; Supabase integratio
 
 **Velopack** (successor to Squirrel) — firm choice, see DECISIONS.md ADR-010:
 - Per-user install (no admin rights), installs to `%LOCALAPPDATA%`, creates Start-menu shortcut (needed for toasts).
-- Auto-update: check on startup + every 6 h; download in background; apply on next restart. Silent for staff — a small "Update ready — restarts on next launch" note in Settings/About.
+- Auto-update: check on startup + every 6 h; download in background; prompt once per launch to restart when ready. Accepting applies and relaunches automatically; declining keeps the Settings/About status and applies on a later exit.
 - Release hosting: GitHub Releases (default, B-7). Channel: single `stable` channel in MVP.
 - App data locations: settings JSON + SQLite + logs in `%LOCALAPPDATA%\AqiClock\` — survives updates, removed only by explicit uninstall cleanup prompt.
 - Code signing: unsigned for the pilot (SmartScreen warning on first install, documented for IT); purchase an OV/EV cert before wide rollout — flagged as pre-rollout task in TASKS.md.

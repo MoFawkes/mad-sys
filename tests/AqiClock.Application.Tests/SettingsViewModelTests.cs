@@ -88,6 +88,7 @@ public sealed class SettingsViewModelTests
         public UpdateState Current { get; } = new(UpdateStatus.UpToDate);
         public event EventHandler<UpdateState>? StateChanged { add { } remove { } }
         public void Start() { }
+        public void RequestRestartToApply() { }
         public void PrepareUpdateOnExit() { }
         public void Dispose() { }
     }

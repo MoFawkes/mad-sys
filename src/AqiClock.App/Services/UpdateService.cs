@@ -14,6 +14,7 @@ public sealed partial class UpdateService : IUpdateService
     private readonly CancellationTokenSource _lifetime = new();
     private UpdateManager? _manager;
     private Task? _loop;
+    private bool _restartRequested;
     private bool _disposed;
 
     public UpdateService(IOptions<AqiClockUpdateOptions> options, ILogger<UpdateService> logger)
@@ -40,8 +41,10 @@ public sealed partial class UpdateService : IUpdateService
     public void PrepareUpdateOnExit()
     {
         VelopackAsset? pending = _manager?.UpdatePendingRestart;
-        if (pending is not null) _manager!.WaitExitThenApplyUpdates(pending, silent: true, restart: false);
+        if (pending is not null) _manager!.WaitExitThenApplyUpdates(pending, silent: true, restart: _restartRequested);
     }
+
+    public void RequestRestartToApply() => _restartRequested = true;
 
     private async Task RunAsync(CancellationToken token)
     {
@@ -58,8 +61,14 @@ public sealed partial class UpdateService : IUpdateService
     {
         try
         {
+            VelopackAsset? pending = _manager!.UpdatePendingRestart;
+            if (pending is not null)
+            {
+                SetState(new(UpdateStatus.Downloaded, pending.Version.ToString()));
+                return;
+            }
             SetState(new(UpdateStatus.Checking));
-            UpdateInfo? update = await _manager!.CheckForUpdatesAsync().ConfigureAwait(false);
+            UpdateInfo? update = await _manager.CheckForUpdatesAsync().ConfigureAwait(false);
             if (update is null) { SetState(new(UpdateStatus.UpToDate)); return; }
             await _manager.DownloadUpdatesAsync(update, cancelToken: token).ConfigureAwait(false);
             SetState(new(UpdateStatus.Downloaded, update.TargetFullRelease.Version.ToString()));

@@ -37,4 +37,75 @@ public sealed class Phase8PackagingTests
         const string executable = @"C:\repo\bin\AqiClock.App.exe";
         Assert.Equal(executable, StartupPathResolver.Resolve(executable, null, null));
     }
+
+    [Fact]
+    public void DownloadedUpdatePromptsAndRequestsAutomaticRestart()
+    {
+        var updates = new UpdateStub(new(UpdateStatus.Downloaded, "0.13.0"));
+        var windows = new WindowStub(confirm: true);
+        using var prompt = new UpdateRestartPrompt(updates, windows);
+
+        prompt.Start();
+
+        Assert.True(updates.RestartRequested);
+        Assert.True(windows.ShutdownRequested);
+        Assert.Equal("Update ready", windows.ConfirmationTitle);
+        Assert.Contains("v0.13.0", windows.ConfirmationMessage);
+    }
+
+    [Fact]
+    public void DeclinedUpdatePromptsOnlyOnceForTheSameVersionPerLaunch()
+    {
+        var state = new UpdateState(UpdateStatus.Downloaded, "0.13.0");
+        var updates = new UpdateStub(state);
+        var windows = new WindowStub(confirm: false);
+        using var prompt = new UpdateRestartPrompt(updates, windows);
+
+        prompt.Start();
+        updates.Raise(state);
+
+        Assert.Equal(1, windows.ConfirmationCount);
+        Assert.False(updates.RestartRequested);
+        Assert.False(windows.ShutdownRequested);
+    }
+
+    private sealed class UpdateStub(UpdateState current) : IUpdateService
+    {
+        public UpdateState Current { get; } = current;
+        public bool RestartRequested { get; private set; }
+        public event EventHandler<UpdateState>? StateChanged;
+        public void Start() { }
+        public void RequestRestartToApply() => RestartRequested = true;
+        public void PrepareUpdateOnExit() { }
+        public void Raise(UpdateState state) => StateChanged?.Invoke(this, state);
+        public void Dispose() { }
+    }
+
+    private sealed class WindowStub(bool confirm) : IWindowService
+    {
+        public int ConfirmationCount { get; private set; }
+        public string ConfirmationMessage { get; private set; } = string.Empty;
+        public string ConfirmationTitle { get; private set; } = string.Empty;
+        public bool ShutdownRequested { get; private set; }
+        public bool Confirm(string message, string title)
+        {
+            ConfirmationCount++;
+            ConfirmationMessage = message;
+            ConfirmationTitle = title;
+            return confirm;
+        }
+        public void ShutdownApplication() => ShutdownRequested = true;
+        public void ShowMainWindow() { }
+        public void ShowSignInWindow() { }
+        public void ShowPasswordRecoveryWindow(PasswordRecoveryRequest request) { }
+        public void ClosePasswordRecoveryWindow() { }
+        public void ShowSettingsWindow() { }
+        public void ShowAdminWindow() { }
+        public void CloseAdminWindow(string? reason = null) { }
+        public void ShowAnnouncements() { }
+        public void HideMainWindow() { }
+        public void ActivateMainWindow() { }
+        public void CloseSignInWindow() { }
+        public void ExitApplication() { }
+    }
 }
