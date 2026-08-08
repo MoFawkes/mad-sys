@@ -98,7 +98,7 @@ Mobile preview builds load the hosted project URL and client-safe publishable ke
 
 Pilot installers are published as unsigned Velopack assets in the public `MoFawkes/aqi-clock-releases` repository. Download `AqiClock.App-stable-Setup.exe`, run it as the staff user, and expect Windows SmartScreen to warn until code signing is added before wide rollout. Installation is per-user and creates a Start-menu shortcut without elevation.
 
-The installed app checks that public repository at startup and every six hours. It downloads updates silently and applies a prepared update after the app next exits; the following launch uses the new version. Settings → About shows the current tag-derived version and update state. `%LOCALAPPDATA%\AqiClock` remains outside Velopack's versioned application directory, so cache, session, settings, and logs survive updates.
+The installed app checks that public repository at startup and every six hours. It downloads updates silently and prompts once per launch to restart when an update is ready; accepting applies the update and relaunches AQI Clock automatically. Declining keeps the app running and leaves the update ready for the next normal exit. Settings → About shows the current tag-derived version and update state. `%LOCALAPPDATA%\AqiClock` remains outside Velopack's versioned application directory, so cache, session, settings, and logs survive updates.
 
 ## Cloud project bootstrap (owner)
 

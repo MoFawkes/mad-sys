@@ -70,7 +70,7 @@ jobs:
         run: dotnet build AqiClock.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test AqiClock.sln --configuration Release --no-build --no-restore
+        run: dotnet test AqiClock.sln --configuration Release --no-build --no-restore --maxcpucount:1
 
   supabase:
     name: Supabase migrations, seed and RLS matrix

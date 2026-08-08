@@ -30,5 +30,7 @@ public interface IUpdateService : IDisposable
 
     void Start();
 
+    void RequestRestartToApply();
+
     void PrepareUpdateOnExit();
 }

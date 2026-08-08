@@ -93,7 +93,7 @@ public partial class App : System.Windows.Application, IDisposable
         builder.Services.AddAqiClockInfrastructure(builder.Configuration);
         builder.Services.AddOptions<AqiClockUpdateOptions>().Bind(builder.Configuration.GetSection(AqiClockUpdateOptions.SectionName));
         builder.Services.AddSingleton<ISettingsService, SettingsService>(); builder.Services.AddSingleton<IClockService, ClockService>(); builder.Services.AddSingleton<IWindowService, WindowService>(); builder.Services.AddSingleton<ThemeService>();
-        builder.Services.AddSingleton<INotificationPresenter, ToastPresenter>(); builder.Services.AddSingleton<INotificationScheduler, NotificationScheduler>(); builder.Services.AddSingleton<TrayService>(); builder.Services.AddSingleton<StartupService>(); builder.Services.AddSingleton<IUpdateService, UpdateService>();
+        builder.Services.AddSingleton<INotificationPresenter, ToastPresenter>(); builder.Services.AddSingleton<INotificationScheduler, NotificationScheduler>(); builder.Services.AddSingleton<TrayService>(); builder.Services.AddSingleton<StartupService>(); builder.Services.AddSingleton<IUpdateService, UpdateService>(); builder.Services.AddSingleton<UpdateRestartPrompt>();
         builder.Services.AddSingleton<ClockViewModel>(); builder.Services.AddSingleton<AnnouncementsViewModel>(); builder.Services.AddSingleton<MainViewModel>(); builder.Services.AddTransient<SignInViewModel>(); builder.Services.AddTransient<SettingsViewModel>();
         builder.Services.AddTransient<PasswordRecoveryViewModel>();
         builder.Services.AddTransient<StudentClassPickerViewModel>();
@@ -112,6 +112,7 @@ public partial class App : System.Windows.Application, IDisposable
         ISessionService session = services.GetRequiredService<ISessionService>(); session.RestoreAsync().GetAwaiter().GetResult();
         if (session.Current.UserId is not null) services.GetRequiredService<MainViewModel>().InitializeAsync().GetAwaiter().GetResult();
         services.GetRequiredService<StartupService>().Start();
+        services.GetRequiredService<UpdateRestartPrompt>().Start();
         services.GetRequiredService<IUpdateService>().Start();
         services.GetRequiredService<TrayService>().Start();
         services.GetRequiredService<INotificationScheduler>().StartAsync().GetAwaiter().GetResult();
