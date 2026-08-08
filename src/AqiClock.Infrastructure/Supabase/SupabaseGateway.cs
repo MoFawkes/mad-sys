@@ -235,10 +235,12 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
     public async Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default)
     {
         if (weekday is < 0 or > 6) throw new ArgumentOutOfRangeException(nameof(weekday));
-        Guid orgId = await GetCurrentOrganizationIdAsync(cancellationToken).ConfigureAwait(false);
-        await SendRequestExpectingOneAsync(HttpMethod.Post, "rest/v1/week_schedule?on_conflict=org_id,weekday",
-            new Dictionary<string, object?> { ["org_id"] = orgId, ["weekday"] = weekday, ["timetable_id"] = timetableId },
-            cancellationToken, "resolution=merge-duplicates,return=representation").ConfigureAwait(false);
+        var body = new JsonObject
+        {
+            ["p_weekday"] = weekday,
+            ["p_timetable_id"] = timetableId is { } id ? JsonValue.Create(id) : null,
+        };
+        using JsonDocument _ = await PostRpcAsync("admin_save_week_schedule", body, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default)

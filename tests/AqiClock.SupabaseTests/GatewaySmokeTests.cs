@@ -142,6 +142,37 @@ public sealed class GatewaySmokeTests(SupabaseFixture fixture)
     }
 
     [SupabaseFact]
+    public async Task NonAdminCannotSaveWeekSchedule()
+    {
+        using SupabaseGateway gateway = CreateGateway();
+        await gateway.SignInAsync(SupabaseFixture.Email("staff1"), SupabaseFixture.Password);
+
+        await Assert.ThrowsAsync<ServerDeniedException>(
+            () => gateway.UpdateWeekScheduleAsync(0, SupabaseFixture.SeedTimetableId));
+    }
+
+    [SupabaseFact]
+    public async Task WeekScheduleSaveRejectsTimetableFromAnotherOrganization()
+    {
+        Guid foreignTimetableId = Guid.NewGuid();
+        await fixture.SqlAsync(
+            "insert into public.timetables (id, org_id, name) values ($1, $2, $3)",
+            foreignTimetableId, fixture.OrgBId, $"Foreign week schedule {fixture.RunId}");
+        try
+        {
+            using SupabaseGateway gateway = CreateGateway();
+            await gateway.SignInAsync(SupabaseFixture.Email("admin1"), SupabaseFixture.Password);
+
+            await Assert.ThrowsAsync<ServerDeniedException>(
+                () => gateway.UpdateWeekScheduleAsync(0, foreignTimetableId));
+        }
+        finally
+        {
+            await fixture.SqlAsync("delete from public.timetables where id = $1", foreignTimetableId);
+        }
+    }
+
+    [SupabaseFact]
     public async Task AtomicTimetableSaveRejectsPeriodFromAnotherOrganization()
     {
         Guid foreignTimetableId = Guid.NewGuid();
