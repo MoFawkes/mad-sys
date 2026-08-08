@@ -222,6 +222,50 @@ public sealed class GatewaySmokeTests(SupabaseFixture fixture)
     }
 
     [SupabaseFact]
+    public async Task LegacyTwoArgumentWeekScheduleRpcWritesClearsAndUpdatesDefaultRow()
+    {
+        const int weekday = 6;
+        Guid? originalTimetableId = await fixture.SqlScalarAsync<Guid?>(
+            "select timetable_id from public.week_schedule where org_id=$1 and weekday=$2 and audience_class_id is null",
+            SupabaseFixture.OrgAId, weekday);
+        try
+        {
+            await CallLegacyWeekScheduleRpcAsync(fixture.AdminUserId, weekday, SupabaseFixture.SeedTimetableId);
+            Assert.Equal(SupabaseFixture.SeedTimetableId, await fixture.SqlScalarAsync<Guid?>(
+                "select timetable_id from public.week_schedule where org_id=$1 and weekday=$2 and audience_class_id is null",
+                SupabaseFixture.OrgAId, weekday));
+            Assert.True(await fixture.SqlScalarAsync<bool>(
+                "select audience_class_id is null from public.week_schedule where org_id=$1 and weekday=$2",
+                SupabaseFixture.OrgAId, weekday));
+
+            await CallLegacyWeekScheduleRpcAsync(fixture.AdminUserId, weekday, null);
+            Assert.Null(await fixture.SqlScalarAsync<Guid?>(
+                "select timetable_id from public.week_schedule where org_id=$1 and weekday=$2 and audience_class_id is null",
+                SupabaseFixture.OrgAId, weekday));
+
+            await CallLegacyWeekScheduleRpcAsync(fixture.AdminUserId, weekday, SupabaseFixture.SeedTimetableId);
+            Assert.Equal(1L, await fixture.SqlScalarAsync<long>(
+                "select count(*) from public.week_schedule where org_id=$1 and weekday=$2 and audience_class_id is null",
+                SupabaseFixture.OrgAId, weekday));
+        }
+        finally
+        {
+            await fixture.SqlAsync(
+                "update public.week_schedule set timetable_id=$1 where org_id=$2 and weekday=$3 and audience_class_id is null",
+                originalTimetableId is { } id ? id : DBNull.Value, SupabaseFixture.OrgAId, weekday);
+        }
+    }
+
+    [SupabaseFact]
+    public async Task LegacyTwoArgumentWeekScheduleRpcRejectsNonAdmin()
+    {
+        PostgresException error = await Assert.ThrowsAsync<PostgresException>(
+            () => CallLegacyWeekScheduleRpcAsync(fixture.StaffUserId, 6, SupabaseFixture.SeedTimetableId));
+
+        Assert.Equal("42501", error.SqlState);
+    }
+
+    [SupabaseFact]
     public async Task WeekScheduleRpcsEnforceAdminOwnershipAndDefaultDeleteGuard()
     {
         Guid foreignClassId = Guid.NewGuid();
@@ -306,4 +350,17 @@ public sealed class GatewaySmokeTests(SupabaseFixture fixture)
         });
         return new SupabaseGateway(options, NullLogger<SupabaseGateway>.Instance);
     }
+
+    private Task CallLegacyWeekScheduleRpcAsync(Guid userId, int weekday, Guid? timetableId) => fixture.SqlAsync(
+        """
+        with role_set as materialized (
+            select set_config('role', 'authenticated', true)
+        ), subject_set as materialized (
+            select set_config('request.jwt.claim.sub', $1::text, true) from role_set
+        ), claim_role_set as materialized (
+            select set_config('request.jwt.claim.role', 'authenticated', true) from subject_set
+        )
+        select public.admin_save_week_schedule($2::smallint, $3::uuid) from claim_role_set;
+        """,
+        userId, weekday, timetableId is { } id ? id : DBNull.Value);
 }
