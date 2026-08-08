@@ -1,16 +1,16 @@
 -- Post-migration assertions for the incremental-migration rehearsal.
--- Runs after `supabase migration up` has applied
--- the pending v0.10.0 and v0.11.0 migrations on top of the production-like
--- baseline loaded by production_state.sql.
+-- Runs after `supabase migration up` has applied every migration released
+-- since v0.9.6 on top of the production-like baseline loaded by
+-- production_state.sql.
 -- Every failure raises, which fails the psql run via ON_ERROR_STOP.
 
--- Migration history took the incremental path: all seven versions recorded.
+-- Migration history took the incremental path: all nine versions recorded.
 do $$
 declare versions text;
 begin
     select string_agg(version, ',' order by version) into versions
     from supabase_migrations.schema_migrations;
-    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000' then
+    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000,20260807110000' then
         raise exception 'Unexpected migration history: %', versions;
     end if;
 end $$;
@@ -39,6 +39,18 @@ begin
           and conname in ('periods_timetable_name_key', 'periods_timetable_sort_order_key')
           and condeferrable) <> 2 then
         raise exception 'period unique constraints are not both deferrable';
+    end if;
+end $$;
+
+-- v0.11.3 exposed the two-argument week-schedule compatibility RPC. Clients
+-- released before v0.13.0 save default rows through it, so it must survive
+-- every later migration; the audience migration drops the conflict arbiter its
+-- predecessor relied on. Behaviour is covered by GatewaySmokeTests, which can
+-- authenticate; this only proves the migration path keeps the signature.
+do $$
+begin
+    if to_regprocedure('public.admin_save_week_schedule(smallint,uuid)') is null then
+        raise exception 'admin_save_week_schedule(smallint,uuid) is missing';
     end if;
 end $$;
 
