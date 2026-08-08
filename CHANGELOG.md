@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.13.0 - Unreleased (audience-aware week schedules)
+## 0.13.0 - 2026-08-08 (audience-aware week schedules)
 
 - Added default and class-specific timetable rows per weekday across the database, desktop, cache, and mobile schedule engines.
 - Added secured save/delete RPCs, cache schema v3, deterministic audience resolution, and the null-track-means-closed rule.
