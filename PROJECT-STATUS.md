@@ -12,14 +12,14 @@ the acceptance script.
 
 | Area | State |
 |---|---|
-| Staff pilot | v0.11.3 is published; confirm every installed desktop has upgraded before the v0.13.0 production migration |
-| Public release channel | v0.11.3 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main` at `a6844a8`; v0.11.3 tagged at that merge commit |
-| Production backend | Supabase project active and healthy |
-| Latest release | v0.11.3 — desktop compatibility RPC required before audience-aware week schedules |
-| Next release | v0.13.0 audience-aware week schedules; v0.14.0 Expo mobile acceptance follows |
-| Candidate CI | Merged-main run `31230574731` green at `a6844a8` |
-| Release workflow | v0.11.3 tag-bound run `31230757653` green; public assets verified |
+| Staff pilot | v0.13.0 is published; allow every desktop to reach cache schema v3 before enabling class-specific week-schedule rows |
+| Public release channel | v0.13.0 is live on `MoFawkes/aqi-clock-releases` |
+| Source | `main` at `c99bada`; v0.13.0 tagged at that merge commit |
+| Production backend | Migration `20260807120000` applied; audience-aware schema and RPCs verified |
+| Latest release | v0.13.0 — audience-aware week schedules, cache schema v3, and update restart prompting |
+| Next release | v0.14.0 Expo mobile acceptance |
+| Candidate CI | Merged-main run `31263296370` green at `c99bada` |
+| Release workflow | v0.13.0 tag-bound run `31263452228` green; public assets and stable feed verified |
 
 ## Release split — decided 2026-08-02
 
