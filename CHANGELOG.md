@@ -2,7 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.13.2 - Unreleased (institute time)
+## 0.13.2 - 2026-08-11 (institute time and teacher feedback)
+
+Ships the teacher-feedback work alongside institute time zones; 0.13.1 was never tagged as its own release.
 
 ### Added
 
@@ -12,11 +14,6 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Suppressed repeated `DataChanged` messages for identical snapshots, preventing redundant notification-plan rebuild storms.
-
-## 0.13.1 - Unreleased (teacher feedback)
-
-### Changed
-
 - Simplified lesson toast copy and placed the next lesson on its own, capitalised line.
 - Clarified the student-session Naseehah choices and added a Windows Do Not Disturb reminder.
 - Removed the redundant per-period class-tag editor; class-specific targeting now uses week-schedule rows.
@@ -25,6 +22,7 @@ All notable changes to this project will be documented in this file.
 
 - Marshalled sync-driven clock and announcement collection reloads to the WPF UI thread, preventing recurring list virtualisation crashes, and limited the global error dialog to once per run.
 - Displayed enrolled student devices correctly in Settings instead of showing `Signed out` with a `Teacher` badge.
+- Stopped the timetable editor discarding period edits typed while a background sync arrived, including partially typed values that never reach the view model.
 
 ## 0.13.0 - 2026-08-08 (audience-aware week schedules)
 
