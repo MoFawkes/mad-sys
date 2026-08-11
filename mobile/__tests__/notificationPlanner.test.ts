@@ -97,6 +97,14 @@ describe('notification desired set', () => {
     );
     expect(desired.every((item) => item.kind === 'end-warning')).toBe(true);
   });
+
+  it('anchors lesson triggers to the institute timezone', () => {
+    const desired = buildDesiredNotifications(
+      snapshot(1), student, DEFAULT_NOTIFICATION_SETTINGS,
+      new Date('2026-07-27T06:00:00.000Z'), 'Europe/London',
+    );
+    expect(desired.find((item) => item.kind === 'start')?.triggerTime.toISOString()).toBe('2026-07-27T07:00:00.000Z');
+  });
 });
 
 describe('notification set diff', () => {

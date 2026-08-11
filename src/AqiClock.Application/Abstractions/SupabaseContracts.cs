@@ -33,8 +33,6 @@ public interface ISupabaseGateway
     Task DeleteWeekScheduleRowAsync(int weekday, Guid audienceClassId, CancellationToken cancellationToken = default);
     [Obsolete("Compatibility only; use SaveWeekScheduleRowAsync.")]
     Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => SaveWeekScheduleRowAsync(weekday, null, timetableId, cancellationToken);
-    Task SetPeriodClassesAsync(Guid periodId, IReadOnlyCollection<Guid> classIds, CancellationToken cancellationToken = default) =>
-        Task.CompletedTask;
     Task<string> GetStudentJoinCodeAsync(CancellationToken cancellationToken = default) =>
         Task.FromException<string>(new NotSupportedException());
     Task<string> RotateStudentJoinCodeAsync(CancellationToken cancellationToken = default) =>

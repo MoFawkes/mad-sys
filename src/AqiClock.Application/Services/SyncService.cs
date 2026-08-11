@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
 using System.Net.NetworkInformation;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Messages;
 using AqiClock.Application.Sync;
@@ -20,6 +23,7 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
     private readonly IDeviceAudienceContext? audience;
     private static readonly CacheTable[] Tables = Enum.GetValues<CacheTable>();
     private readonly ConcurrentDictionary<CacheTable, CancellationTokenSource> _debounces = new();
+    private readonly ConcurrentDictionary<CacheTable, string> _snapshotFingerprints = new();
     private readonly SemaphoreSlim _syncGate = new(1, 1);
     private readonly SemaphoreSlim _subscriptionGate = new(1, 1);
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
@@ -223,7 +227,16 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
     {
         CacheSnapshot snapshot = await gateway.PullAsync(table, cancellationToken).ConfigureAwait(false);
         await cache.ReplaceSnapshotAsync(snapshot, cancellationToken).ConfigureAwait(false);
-        messenger.Send(new DataChanged(table));
+        string fingerprint = SnapshotFingerprint(snapshot.Rows);
+        bool changed = !_snapshotFingerprints.TryGetValue(table, out string? previous) || previous != fingerprint;
+        _snapshotFingerprints[table] = fingerprint;
+        if (changed) messenger.Send(new DataChanged(table));
+    }
+
+    private static string SnapshotFingerprint(IReadOnlyList<object> rows)
+    {
+        string canonical = string.Join('\n', rows.Select(row => JsonSerializer.Serialize(row, row.GetType())).Order(StringComparer.Ordinal));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
     }
 
     private async Task DebounceAsync(CacheTable table, CancellationTokenSource source)

@@ -216,17 +216,6 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         return SendRequestExpectingOneAsync(HttpMethod.Patch, $"rest/v1/profiles?id=eq.{id}", row, cancellationToken);
     }
 
-    public async Task SetPeriodClassesAsync(Guid periodId, IReadOnlyCollection<Guid> classIds, CancellationToken cancellationToken = default)
-    {
-        using (HttpRequestMessage delete = CreateRequest(HttpMethod.Delete, $"rest/v1/period_classes?period_id=eq.{periodId}"))
-        {
-            using HttpResponseMessage response = await _httpClient.SendAsync(delete, cancellationToken).ConfigureAwait(false);
-            await EnsureWriteSuccessAsync(response, cancellationToken).ConfigureAwait(false);
-        }
-        foreach (Guid classId in classIds)
-            await SendWriteAsync(HttpMethod.Post, CacheTable.PeriodClasses, null, new PeriodClassRow(periodId, classId), cancellationToken).ConfigureAwait(false);
-    }
-
     public async Task SaveTimetableAsync(TimetableRow timetable, IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default)
     {
         using JsonDocument _ = await PostRpcAsync("admin_save_timetable", new { p_timetable = timetable, p_periods = periods }, cancellationToken).ConfigureAwait(false);

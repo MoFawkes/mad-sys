@@ -3,6 +3,7 @@ using System.Windows;
 using AqiClock.Application.Abstractions;
 using AqiClock.Domain.Entities;
 using AqiClock.Domain.Scheduling;
+using AqiClock.Domain.Time;
 using Microsoft.Toolkit.Uwp.Notifications;
 
 namespace AqiClock.App.Services;
@@ -10,11 +11,12 @@ namespace AqiClock.App.Services;
 public sealed class ToastPresenter : INotificationPresenter, IDisposable
 {
     private readonly IWindowService _windows;
+    private readonly IClock? _clock;
     private bool _disposed;
 
-    public ToastPresenter(IWindowService windows)
+    public ToastPresenter(IWindowService windows, IClock? clock = null)
     {
-        _windows = windows;
+        _windows = windows; _clock = clock;
         ToastNotificationManagerCompat.OnActivated += OnActivated;
     }
 
@@ -24,7 +26,7 @@ public sealed class ToastPresenter : INotificationPresenter, IDisposable
         new ToastContentBuilder()
             .AddArgument("action", "open")
             .AddText(notification.Occurrence.Period.Name)
-            .AddText(string.Create(CultureInfo.CurrentCulture, $"Started now · ends {notification.Occurrence.Period.EndTime:HH:mm}"))
+            .AddText(string.Create(CultureInfo.CurrentCulture, $"Started now · ends {notification.Occurrence.Period.EndTime:HH:mm}{InstituteSuffix()}"))
             .Show();
         return Task.CompletedTask;
     }
@@ -35,7 +37,7 @@ public sealed class ToastPresenter : INotificationPresenter, IDisposable
         ToastContentBuilder toast = new ToastContentBuilder()
             .AddArgument("action", "open")
             .AddText(string.Create(CultureInfo.CurrentCulture, $"Lesson ends in {warningMinutes} minutes"))
-            .AddText(string.Create(CultureInfo.CurrentCulture, $"{notification.Occurrence.Period.Name} ends at {notification.Occurrence.Period.EndTime:HH:mm}"));
+            .AddText(string.Create(CultureInfo.CurrentCulture, $"{notification.Occurrence.Period.Name} ends at {notification.Occurrence.Period.EndTime:HH:mm}{InstituteSuffix()}"));
         if (followingPeriod is not null)
             toast.AddText($"Next: {followingPeriod.Period.Name}");
         toast.Show();
@@ -75,4 +77,6 @@ public sealed class ToastPresenter : INotificationPresenter, IDisposable
         ToastNotificationManagerCompat.OnActivated -= OnActivated;
         _disposed = true;
     }
+
+    private string InstituteSuffix() => _clock is IInstituteClock institute && institute.DiffersFromDeviceZone ? " (institute time)" : string.Empty;
 }

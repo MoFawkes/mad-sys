@@ -13,12 +13,10 @@
                FontSize="54"
                FontWeight="Light"
                HorizontalAlignment="Center" />
-    <TextBlock Grid.Row="1"
-               Text="{Binding DateText}"
-               FontSize="{DynamicResource BodyFontSize}"
-               HorizontalAlignment="Center"
-               Foreground="{DynamicResource MutedBrush}"
-               Margin="0,2,0,0" />
+    <StackPanel Grid.Row="1">
+      <TextBlock Text="{Binding DateText}" FontSize="{DynamicResource BodyFontSize}" HorizontalAlignment="Center" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" />
+      <TextBlock Text="{Binding TimeZoneNote}" FontSize="{DynamicResource CaptionFontSize}" HorizontalAlignment="Center" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" />
+    </StackPanel>
     <Border Grid.Row="2"
             Margin="16,18,16,12"
             Padding="22,16"

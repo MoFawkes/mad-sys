@@ -58,6 +58,9 @@ This checklist is the ADR-011 acceptance script for Windows surfaces that are no
 
 ## Clock discontinuities
 
+- [ ] Set the desktop and phone to a zone different from `Europe/London`; both show institute time, label the mismatch, and fire a lesson notification at the correct absolute instant.
+- [ ] Repeat around the 2026-03-29 and 2026-10-25 London DST transitions; lesson wall times remain unchanged and each notification fires once.
+
 - [ ] Sleep through a lesson boundary for more than 120 seconds, resume, and confirm the missed notification is silently marked skipped rather than fired late.
 - [ ] Sleep through a boundary for no more than 120 seconds, resume, and confirm it fires once.
 - [ ] Move a future lesson after its old boundary fired; confirm the new future boundary can fire once. Removing a future boundary must stay silent.

@@ -33,13 +33,15 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection(SupabaseOptions.SectionName))
             .ValidateDataAnnotations();
 
-        services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IInstituteClock, InstituteClock>();
+        services.AddSingleton<IClock>(provider => provider.GetRequiredService<IInstituteClock>());
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
         services.AddSingleton(new DebouncePolicy(TimeSpan.FromMilliseconds(500)));
 
         services.AddSingleton<SqliteCacheDatabase>();
         services.AddSingleton<ILocalCache>(static provider => provider.GetRequiredService<SqliteCacheDatabase>());
+        services.AddSingleton<IOrganizationRepository, SqliteOrganizationRepository>();
         services.AddSingleton<ITimetableRepository, SqliteTimetableRepository>();
         services.AddSingleton<IAnnouncementRepository, SqliteAnnouncementRepository>();
         services.AddSingleton<IClassRepository, SqliteClassRepository>();

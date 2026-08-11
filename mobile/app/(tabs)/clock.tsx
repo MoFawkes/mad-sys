@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getStatus, Period, resolveDay } from '@/src/domain';
 import { useApp } from '@/src/ui/AppProvider';
+import { getOrganization } from '@/src/data/repositories';
+import { deviceZoneDiffers, toInstituteWallClock } from '@/src/time/instituteTime';
 import { theme } from '@/src/ui/theme';
 
 const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
@@ -12,14 +14,18 @@ const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 export default function ClockScreen() {
   const { session, snapshot, sync, syncNow } = useApp();
   const [now, setNow] = useState(() => new Date());
+  const [instituteTimeZone, setInstituteTimeZone] = useState<string>();
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const status = useMemo(() => getStatus(snapshot, now), [now, snapshot]);
-  const day = useMemo(() => resolveDay(snapshot, now), [now, snapshot]);
+  useEffect(() => { void getOrganization().then((organization) => setInstituteTimeZone(organization?.timeZone)); }, [sync.lastSyncedAt]);
+  const instituteNow = useMemo(() => toInstituteWallClock(now, instituteTimeZone), [now, instituteTimeZone]);
+
+  const status = useMemo(() => getStatus(snapshot, instituteNow), [instituteNow, snapshot]);
+  const day = useMemo(() => resolveDay(snapshot, instituteNow), [instituteNow, snapshot]);
 
   if (session.status !== 'signedIn') return <Redirect href="/role-choice" />;
   if (session.mode === 'student' && !session.selectionComplete) {
@@ -61,8 +67,9 @@ export default function ClockScreen() {
           </View>
         )}
 
-        <Text style={styles.clock}>{formatClock(now)}</Text>
-        <Text style={styles.date}>{formatDate(now)}</Text>
+        <Text style={styles.clock}>{formatClock(instituteNow)}</Text>
+        <Text style={styles.date}>{formatDate(instituteNow)}</Text>
+        {deviceZoneDiffers(instituteTimeZone) && <Text style={styles.timeZoneNote}>Institute time ({instituteTimeZone}) · your time {formatClock(now).slice(0, 5)}</Text>}
 
         <View style={styles.hero}>
           <View style={styles.heroHeading}>
@@ -102,7 +109,7 @@ export default function ClockScreen() {
         ) : (
           day.periods.map((period) => {
             const active = status.current?.period.id === period.id;
-            const past = period.endTime.slice(0, 5) <= formatTimeKey(now) && !active;
+            const past = period.endTime.slice(0, 5) <= formatTimeKey(instituteNow) && !active;
             return (
               <View
                 key={period.id}
@@ -294,4 +301,5 @@ const styles = StyleSheet.create({
     right: 0,
   },
   statusText: { color: theme.colors.textOnNavy, fontSize: 15, fontWeight: '600' },
+  timeZoneNote: { color: theme.colors.textOnNavy, fontSize: 14, textAlign: 'center' },
 });

@@ -25,6 +25,6 @@ public sealed class DependencyInjectionTests
             .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
 
         Assert.NotNull(provider);
-        Assert.IsType<SystemClock>(provider.GetRequiredService<IClock>());
+        Assert.IsType<InstituteClock>(provider.GetRequiredService<IClock>());
     }
 }

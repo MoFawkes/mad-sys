@@ -4,6 +4,7 @@ using AqiClock.Application.Abstractions;
 using AqiClock.Application.Messages;
 using AqiClock.Domain.Entities;
 using AqiClock.Domain.Scheduling;
+using AqiClock.Domain.Time;
 using AqiClock.App.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
@@ -21,6 +22,7 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
     private readonly IWeekScheduleRepository _weekSchedule;
     private readonly IDateOverrideRepository _overrides;
     private readonly IDeviceAudienceContext _audience;
+    private readonly IClock _clock;
     private ScheduleSnapshot _snapshot = ScheduleSnapshot.Empty;
 
     [ObservableProperty] private string _timeText = "--:--:--";
@@ -34,12 +36,13 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
     [ObservableProperty] private double _progress;
     [ObservableProperty] private bool _hasCurrentLesson;
     [ObservableProperty] private bool _hasPeriods;
+    [ObservableProperty] private string _timeZoneNote = string.Empty;
 
     public ObservableCollection<PeriodDisplay> TodayPeriods { get; } = [];
 
-    public ClockViewModel(ITimetableRepository timetables, IWeekScheduleRepository weekSchedule, IDateOverrideRepository overrides, IDeviceAudienceContext audience, IMessenger messenger)
+    public ClockViewModel(ITimetableRepository timetables, IWeekScheduleRepository weekSchedule, IDateOverrideRepository overrides, IDeviceAudienceContext audience, IMessenger messenger, IClock? clock = null)
     {
-        _timetables = timetables; _weekSchedule = weekSchedule; _overrides = overrides; _audience = audience;
+        _timetables = timetables; _weekSchedule = weekSchedule; _overrides = overrides; _audience = audience; _clock = clock ?? DeviceClock.Instance;
         messenger.Register<ClockTick>(this); messenger.Register<TimeJumped>(this); messenger.Register<DataChanged>(this); messenger.Register<AudienceChanged>(this);
     }
 
@@ -63,13 +66,16 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
     }
     public void Receive(AudienceChanged message) => UiDispatch.Run(ReloadAsync);
 
-    private async Task ReloadAsync() { await LoadAsync(); Recompute(DateTime.Now); }
+    private async Task ReloadAsync() { await LoadAsync(); Recompute(_clock.Now); }
 
     private void Recompute(DateTime now)
     {
         TimeText = now.ToString("HH:mm:ss", CultureInfo.CurrentCulture);
         ShortTimeText = now.ToString("HH:mm", CultureInfo.CurrentCulture);
         DateText = now.ToString("dddd, d MMMM yyyy", CultureInfo.CurrentCulture);
+        TimeZoneNote = _clock is IInstituteClock institute && institute.DiffersFromDeviceZone
+            ? $"Institute time ({institute.TimeZoneId}) · your time {institute.DeviceNow:HH:mm}"
+            : string.Empty;
         LessonStatus status = ScheduleEngine.GetStatus(_snapshot, now);
         HasCurrentLesson = status.Current is not null;
         CurrentLesson = status.Current?.Period.Name ?? (status.Day.IsSchoolDay ? "No lesson right now" : "No lessons today");
@@ -97,5 +103,12 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
     {
         string day = next.Date == today ? string.Empty : $"{next.Date:dddd}, ";
         return $"Next: {day}{next.Period.Name} at {next.Period.StartTime:HH:mm}";
+    }
+
+    private sealed class DeviceClock : IClock
+    {
+        public static DeviceClock Instance { get; } = new();
+        public DateTime Now => DateTime.Now;
+        public DateOnly LocalToday => DateOnly.FromDateTime(Now);
     }
 }

@@ -43,6 +43,14 @@ export type StudentPreferences = {
   optedPm: boolean;
 };
 
+export async function getOrganization(): Promise<{ id: string; name: string; timeZone: string } | null> {
+  const database = await getDatabase();
+  const row = await database.getFirstAsync<{ id: string; name: string; timezone: string }>(
+    'SELECT id,name,timezone FROM organizations LIMIT 1',
+  );
+  return row ? { id: row.id, name: row.name, timeZone: row.timezone } : null;
+}
+
 export async function getClasses(): Promise<CachedClass[]> {
   const database = await getDatabase();
   const rows = await database.getAllAsync<{

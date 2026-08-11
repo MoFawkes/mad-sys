@@ -133,7 +133,7 @@ These do not block architecture; defaults are chosen so implementation can start
 
 | # | Question | Default assumed |
 |---|---|---|
-| B-1 | Organisation timezone | `Europe/London` (stored per-organisation, changeable) |
+| B-1 | Organisation timezone | `Europe/London`; authoritative institute wall clock, stored per organisation and currently changed through Supabase |
 | B-2 | School week (which weekdays have lessons) | Mon–Fri (configurable via week schedule anyway) |
 | B-3 | End-warning default minutes | 5 |
 | B-4 | Should staff accounts be personal emails or shared device accounts? | Personal email per staff member |

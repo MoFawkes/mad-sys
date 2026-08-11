@@ -3,6 +3,7 @@ import * as SQLite from 'expo-sqlite';
 import { applyCacheMigrations } from './migrations';
 
 export const SYNC_TABLES = [
+  'organizations',
   'timetables',
   'periods',
   'week_schedule',
@@ -34,6 +35,10 @@ type InsertSpec = {
 };
 
 const INSERTS: Record<SyncTable, InsertSpec> = {
+  organizations: {
+    sql: 'INSERT INTO organizations(id,name,timezone) VALUES (?, ?, ?)',
+    values: (row) => [text(row.id), text(row.name), text(row.timezone)],
+  },
   profiles: {
     sql: 'INSERT INTO profiles(id,display_name,role,is_active) VALUES (?, ?, ?, ?)',
     values: (row) => [text(row.id), text(row.display_name), text(row.role), bool(row.is_active)],

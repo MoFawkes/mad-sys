@@ -55,6 +55,12 @@ CREATE TABLE week_schedule (id TEXT PRIMARY KEY, weekday INTEGER NOT NULL, audie
 CREATE INDEX ix_week_schedule_weekday ON week_schedule(weekday);
 `,
   },
+  {
+    version: 4,
+    sql: `
+CREATE TABLE organizations (id TEXT PRIMARY KEY, name TEXT NOT NULL, timezone TEXT NOT NULL);
+`,
+  },
 ];
 
 export async function applyCacheMigrations(database: SQLiteDatabase): Promise<void> {

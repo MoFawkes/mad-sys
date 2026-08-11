@@ -2,6 +2,13 @@ using AqiClock.Domain.Entities;
 
 namespace AqiClock.Application.Abstractions;
 
+public sealed record OrganizationInfo(Guid Id, string Name, string TimeZone);
+
+public interface IOrganizationRepository
+{
+    Task<OrganizationInfo?> GetAsync(CancellationToken cancellationToken = default);
+}
+
 public interface ITimetableRepository
 {
     Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default);

@@ -10,7 +10,7 @@ All organisation-owned tables use UUID keys and server timestamps. Period times 
 
 | Table | Purpose and important columns |
 |---|---|
-| `organizations` | `name` and informational IANA `timezone`; contains no student credential |
+| `organizations` | `name` and authoritative IANA `timezone` used by every clock and lesson notification; contains no student credential |
 | `organization_join_codes` | One ungranted 16-character code per organisation, plus rotation timestamp/actor; accessible only through admin RPCs |
 | `profiles` | One row per non-anonymous staff user: `org_id`, `display_name`, `role` (`teacher`, `admin`, or reserved `graduate`), `is_active` |
 | `timetables` | Named day template with `is_archived` |

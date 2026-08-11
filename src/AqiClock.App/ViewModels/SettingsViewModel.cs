@@ -8,6 +8,7 @@ using AqiClock.App.Services;
 using AqiClock.Application.Messages;
 using CommunityToolkit.Mvvm.Messaging;
 using System.Windows.Threading;
+using AqiClock.Domain.Time;
 
 namespace AqiClock.App.ViewModels;
 
@@ -22,6 +23,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     private readonly IMessenger? _messenger;
     private readonly INotificationScheduler? _scheduler;
     private readonly IDeviceAudienceContext? _audience;
+    private readonly IClock? _clock;
     private readonly Dispatcher _dispatcher;
     private bool _disposed;
     [ObservableProperty] private bool _startWithWindows;
@@ -38,14 +40,16 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     [ObservableProperty] private string _notificationHealth = "Today: notification plan not loaded yet";
     private bool IsStudentDevice => _session.Current.IsAnonymous || _audience?.Current.Role == DeviceAudienceRole.StudentDevice;
     public string Email => IsStudentDevice ? "Student device" : _session.Current.Email ?? "Signed out";
+    public string AccountCaption => IsStudentDevice ? "Enrolled account" : _session.Current.UserId is null ? "Account" : "Signed-in account";
     public string Role => IsStudentDevice ? "Student" : _session.Current.UserId is null ? string.Empty : _session.Current.Role == UserRole.Admin ? "Admin" : "Teacher";
     public bool HasRole => !string.IsNullOrEmpty(Role);
+    public string InstituteTimeZone => _clock is IInstituteClock institute ? institute.TimeZoneId : TimeZoneInfo.Local.Id;
     public bool CanSync => _sync.State == Application.Sync.ConnectivityState.Online;
     public IReadOnlyList<AppTheme> Themes { get; } = Enum.GetValues<AppTheme>();
     public string Version { get { _ = _updates.Current; return AppVersion.Current; } }
 
-    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications, IUpdateService updates, IMessenger? messenger = null, INotificationScheduler? scheduler = null, IDeviceAudienceContext? audience = null)
-    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; _updates = updates; _messenger = messenger; _scheduler = scheduler; _audience = audience; _dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher; UpdateStatus = updates.Current.DisplayText; updates.StateChanged += OnUpdateStateChanged; messenger?.Register(this); if (scheduler is not null) { NotificationHealth = scheduler.HealthSummary; scheduler.HealthChanged += OnNotificationHealthChanged; } Copy(settings.Current); }
+    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications, IUpdateService updates, IMessenger? messenger = null, INotificationScheduler? scheduler = null, IDeviceAudienceContext? audience = null, IClock? clock = null)
+    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; _updates = updates; _messenger = messenger; _scheduler = scheduler; _audience = audience; _clock = clock; _dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher; UpdateStatus = updates.Current.DisplayText; updates.StateChanged += OnUpdateStateChanged; messenger?.Register(this); if (scheduler is not null) { NotificationHealth = scheduler.HealthSummary; scheduler.HealthChanged += OnNotificationHealthChanged; } Copy(settings.Current); }
 
     public void Receive(ConnectivityChanged message)
     {
