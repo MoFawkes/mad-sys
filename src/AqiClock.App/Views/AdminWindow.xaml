@@ -103,7 +103,7 @@
                             <Button Content="Cancel" Command="{Binding CancelCommand}" />
                             <ui:Button Content="Delete timetable" Command="{Binding DeleteCommand}" Appearance="Danger" />
                         </StackPanel>
-                        <DataGrid ItemsSource="{Binding Periods}" AutoGenerateColumns="False" CanUserAddRows="False">
+                        <DataGrid ItemsSource="{Binding Periods}" AutoGenerateColumns="False" CanUserAddRows="False" BeginningEdit="OnPeriodBeginningEdit">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
                                 <DataGridTextColumn Header="Start" Binding="{Binding Start, UpdateSourceTrigger=PropertyChanged}" />

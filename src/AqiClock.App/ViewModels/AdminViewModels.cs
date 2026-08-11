@@ -266,10 +266,13 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
     }
 
     partial void OnSelectedChanged(Timetable? value) { if (value is not null) Select(value); }
-    private void Select(Timetable value) { _loading = true; Name = value.Name; IsArchived = value.IsArchived; Periods.Clear(); foreach (Period p in value.Periods.OrderBy(x => x.SortOrder)) Periods.Add(new() { Id = p.Id, Name = p.Name, Start = p.StartTime.ToTimeSpan(), End = p.EndTime.ToTimeSpan(), IsLesson = p.IsLesson, SortOrder = p.SortOrder }); IsDirty = false; HasConflict = false; ValidationMessage = null; _loading = false; }
+    private void Select(Timetable value) { _loading = true; Name = value.Name; IsArchived = value.IsArchived; DetachPeriodHandlers(); Periods.Clear(); foreach (Period p in value.Periods.OrderBy(x => x.SortOrder)) Periods.Add(new() { Id = p.Id, Name = p.Name, Start = p.StartTime.ToTimeSpan(), End = p.EndTime.ToTimeSpan(), IsLesson = p.IsLesson, SortOrder = p.SortOrder }); IsDirty = false; HasConflict = false; ValidationMessage = null; _loading = false; }
+
+    /// <summary>Clear() raises a Reset with no OldItems, so discarded rows must be detached here or they keep marking the editor dirty.</summary>
+    private void DetachPeriodHandlers() { foreach (PeriodEditorItem item in Periods) item.PropertyChanged -= OnPeriodChanged; }
     partial void OnNameChanged(string value) { if (!_loading) IsDirty = true; }
     partial void OnIsArchivedChanged(bool value) { if (!_loading) IsDirty = true; }
-    private void OnPeriodsChanged(object? sender, NotifyCollectionChangedEventArgs args) { if (args.NewItems is not null) foreach (PeriodEditorItem item in args.NewItems) item.PropertyChanged += OnPeriodChanged; if (!_loading) IsDirty = true; }
+    private void OnPeriodsChanged(object? sender, NotifyCollectionChangedEventArgs args) { if (args.OldItems is not null) foreach (PeriodEditorItem item in args.OldItems) item.PropertyChanged -= OnPeriodChanged; if (args.NewItems is not null) foreach (PeriodEditorItem item in args.NewItems) item.PropertyChanged += OnPeriodChanged; if (!_loading) IsDirty = true; }
     private void OnPeriodChanged(object? sender, PropertyChangedEventArgs args) { if (!_loading) IsDirty = true; }
 
     [RelayCommand] private void NewTimetable() { Selected = new Timetable(Guid.NewGuid(), "New timetable", false, []); IsDirty = true; }

@@ -497,6 +497,83 @@ public sealed class AdminViewModelTests
         if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
     }
 
+    [Fact]
+    public async Task DiscardedPeriodRowsStopMarkingTheEditorDirty()
+    {
+        Period period = new(Guid.NewGuid(), "Lesson 1", new(9, 10), new(9, 40), 0);
+        var timetable = new Timetable(Guid.NewGuid(), "Normal Day", false, [period]);
+        var vm = Editor(new WeakReferenceMessenger(), timetable);
+        await vm.LoadAsync();
+
+        PeriodEditorItem discarded = vm.Periods[0];
+        await vm.LoadAsync();                       // rebuilds Periods with fresh instances
+        Assert.NotSame(discarded, vm.Periods[0]);
+        Assert.False(vm.IsDirty);
+
+        discarded.Start = new(11, 0, 0);            // a row no longer shown must not dirty the editor
+        Assert.False(vm.IsDirty);
+
+        PeriodEditorItem removed = vm.Periods[0];
+        vm.RemovePeriodCommand.Execute(removed);
+        vm.IsDirty = false;
+        removed.Start = new(12, 0, 0);
+        Assert.False(vm.IsDirty);
+    }
+
+    [Fact]
+    public void PartialCellEntryStillLatchesConflictOnRemoteChange()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                Period period = new(Guid.NewGuid(), "Lesson 1", new(9, 10), new(9, 40), 0);
+                var timetable = new Timetable(Guid.NewGuid(), "Normal Day", false, [period]);
+                var messenger = new WeakReferenceMessenger();
+                var gateway = new Gateway(); var sync = new Sync(); var windows = new Windows();
+                var timetables = new Timetables(timetable); var week = new Week(); var overrides = new Overrides();
+                var profiles = new Profiles();
+                var editor = new TimetableEditorViewModel(gateway, sync, timetables, week, overrides, windows, messenger);
+                var admin = new AdminViewModel(editor, new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, new Session(Guid.NewGuid()), new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, new Session(Guid.NewGuid()), windows), sync, windows, messenger);
+                admin.InitializeAsync().GetAwaiter().GetResult();
+
+                var window = new AdminWindow(admin, new Settings(), Microsoft.Extensions.Logging.Abstractions.NullLogger<AqiClock.App.Services.WindowPlacementController>.Instance);
+                WpfUiTestResources.Attach(window);
+                window.Show();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+                var tabs = FindVisualChild<TabControl>(window) ?? throw new InvalidOperationException("Admin tabs did not render.");
+                tabs.SelectedIndex = 0; window.UpdateLayout();
+                DataGrid grid = FindVisualChild<DataGrid>((DependencyObject)tabs.SelectedContent) ?? throw new InvalidOperationException("Periods grid did not render.");
+
+                PeriodEditorItem item = editor.Periods[0];
+                grid.ScrollIntoView(item);
+                grid.CurrentCell = new DataGridCellInfo(item, grid.Columns[1]);
+                grid.BeginEdit();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+                Assert.True(editor.IsDirty, "Opening a cell editor must mark the editor dirty.");
+
+                var editingBox = grid.Columns[1].GetCellContent(item) as TextBox ?? throw new InvalidOperationException("Start cell did not enter edit mode.");
+                editingBox.Text = "1:";             // half-typed: cannot convert to TimeSpan, so it never reaches the view model
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+                Assert.Equal(new TimeSpan(9, 10, 0), editor.Periods[0].Start);
+
+                messenger.Send(new DataChanged(CacheTable.Periods));
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+                bool latched = editor.HasConflict;
+                window.Close();
+                Assert.True(latched, "A partially typed cell value was discarded by the remote-change reload without latching a conflict.");
+            }
+            catch (Exception exception) { failure = exception; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
+    }
+
     private static TimetableEditorViewModel Editor(IMessenger messenger, params Timetable[] rows) => new(new Gateway(), new Sync(), new Timetables(rows), new Week(), new Overrides(), new Windows(), messenger);
     private sealed class Timetables(params Timetable[] rows) : ITimetableRepository { public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Timetable>>(rows); }
     private sealed class Week(params WeekScheduleEntry[] entries) : IWeekScheduleRepository { public Task<WeekSchedule> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(entries.Length == 0 ? WeekSchedule.Empty : new WeekSchedule(entries)); }
