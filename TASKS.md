@@ -134,6 +134,12 @@ Ordered by implementation dependency: each phase builds only on the phases above
 
 ## Post-MVP backlog (unordered — see SPECIFICATION.md §4)
 
+### Next teacher meeting — scheduling workflow
+
+- [ ] Discuss automatic Naseehah and Salah timing: edit anchors once and reflow lesson rows around them.
+- [ ] Discuss faster timetable creation from start time, lesson count, lesson length, and the Naseehah/Salah anchors.
+- [ ] Confirm whether non-lesson rows remain fixed anchors while lesson rows flow; the existing whole-list save supports this without a schema change.
+
 - [ ] Align Settings/Admin fine detail to the approved concept (for example,
   Settings sidebar navigation); main-window concept alignment ships separately
   in v0.9.5.

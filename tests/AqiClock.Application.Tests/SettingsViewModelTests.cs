@@ -12,6 +12,33 @@ namespace AqiClock.Application.Tests;
 public sealed class SettingsViewModelTests
 {
     [Fact]
+    public void StudentDeviceUsesStudentAccountCopy()
+    {
+        var session = new SessionStub(new SessionState(Guid.NewGuid(), null, null, true, false, IsAnonymous: true));
+        var audience = new DeviceAudienceContext(new WeakReferenceMessenger());
+        audience.SetStudent([], []);
+        using var viewModel = new SettingsViewModel(
+            new SettingsStub(), session, new SyncStub(), new WindowStub(),
+            new NotificationStub(), new UpdateStub(), audience: audience);
+
+        Assert.Equal("Student device", viewModel.Email);
+        Assert.Equal("Student", viewModel.Role);
+        Assert.True(viewModel.HasRole);
+    }
+
+    [Fact]
+    public void SignedOutAccountHasNoRoleBadge()
+    {
+        using var viewModel = new SettingsViewModel(
+            new SettingsStub(), new SessionStub(), new SyncStub(), new WindowStub(),
+            new NotificationStub(), new UpdateStub());
+
+        Assert.Equal("Signed out", viewModel.Email);
+        Assert.Equal(string.Empty, viewModel.Role);
+        Assert.False(viewModel.HasRole);
+    }
+
+    [Fact]
     public async Task ConnectivityChangeFromWorkerThreadIsMarshalledAndDisposeUnregisters()
     {
         Dispatcher dispatcher = WpfDispatcherHost.Dispatcher;
@@ -63,9 +90,9 @@ public sealed class SettingsViewModelTests
         public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private sealed class SessionStub : ISessionService
+    private sealed class SessionStub(SessionState? state = null) : ISessionService
     {
-        public SessionState Current => SessionState.SignedOut;
+        public SessionState Current => state ?? SessionState.SignedOut;
         public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -95,7 +122,7 @@ public sealed class SettingsViewModelTests
 
     private sealed class NotificationStub : INotificationPresenter
     {
-        public Task ShowLessonStartAsync(NotificationEvent notification, int periodNumber, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task ShowLessonStartAsync(NotificationEvent notification, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task ShowEndWarningAsync(NotificationEvent notification, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task ShowAnnouncementAsync(Announcement announcement, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task ShowTestAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

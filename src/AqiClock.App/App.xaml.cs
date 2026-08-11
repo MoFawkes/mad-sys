@@ -31,6 +31,7 @@ public partial class App : System.Windows.Application, IDisposable
     private bool _ownsMutex;
     private bool _disposed;
     private bool _startMinimized;
+    private bool _dispatcherErrorShown;
 
     [STAThread]
     private static void Main(string[] args)
@@ -193,6 +194,15 @@ public partial class App : System.Windows.Application, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e) { Log.Error(e.Exception, "Unhandled UI exception"); MessageBox.Show("AQI Clock encountered a problem. Details were written to the log.", "AQI Clock", MessageBoxButton.OK, MessageBoxImage.Error); e.Handled = true; }
+    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        Log.Error(e.Exception, "Unhandled UI exception");
+        if (!_dispatcherErrorShown)
+        {
+            _dispatcherErrorShown = true;
+            MessageBox.Show("AQI Clock encountered a problem. Details were written to the log.", "AQI Clock", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        e.Handled = true;
+    }
     private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e) { if (e.ExceptionObject is Exception exception) Log.Fatal(exception, "Unhandled application exception"); }
 }

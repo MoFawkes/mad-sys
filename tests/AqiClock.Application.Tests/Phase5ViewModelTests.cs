@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 
 namespace AqiClock.Application.Tests;
 
@@ -172,6 +173,27 @@ public sealed class Phase5ViewModelTests
     }
 
     [Fact]
+    public async Task NextLessonOnLaterDayIncludesWeekday()
+    {
+        DateTime saturday = new(2026, 8, 8, 16, 21, 2);
+        Guid timetableId = Guid.NewGuid();
+        Timetable timetable = new(timetableId, "Normal", false,
+            [new(Guid.NewGuid(), "Lesson 1", new(9, 10), new(10, 0), 0)]);
+        var messenger = new WeakReferenceMessenger();
+        var vm = new ClockViewModel(
+            new TimetableRepository(timetable),
+            new WeekRepository(timetableId, DayOfWeek.Monday),
+            new OverrideRepository(),
+            messenger);
+
+        await vm.LoadAsync();
+        messenger.Send(new ClockTick(saturday));
+
+        Assert.Equal("No lessons today", vm.CurrentLesson);
+        Assert.Equal("Next: Monday, Lesson 1 at 09:10", vm.NextLesson);
+    }
+
+    [Fact]
     public async Task TimetableChangeReloadsLessonCardWithoutWaitingForAnotherTick()
     {
         DateTime now = DateTime.Now;
@@ -192,6 +214,38 @@ public sealed class Phase5ViewModelTests
         await WaitUntilAsync(() => vm.CurrentLesson == "Lesson");
 
         Assert.Equal($"Ends at {end:HH:mm}", vm.CurrentDetail);
+    }
+
+    [Fact]
+    public async Task DataChangedFromBackgroundThreadReloadsBoundPeriodsOnUiThread()
+    {
+        Dispatcher dispatcher = DispatcherHost.Dispatcher;
+        UiDispatch.TestDispatcher = dispatcher;
+        try
+        {
+            Guid timetableId = Guid.NewGuid();
+            var repository = new MutableTimetableRepository(
+                new Timetable(timetableId, "Normal", false, [new Period(Guid.NewGuid(), "Lesson", new(0, 0), new(23, 59, 59), 0)]));
+            var messenger = new WeakReferenceMessenger();
+            ClockViewModel? vm = null;
+            int collectionThreadId = -1;
+
+            await dispatcher.InvokeAsync(async () =>
+            {
+                vm = new ClockViewModel(repository, new WeekRepository(timetableId, DateTime.Now.DayOfWeek), new OverrideRepository(), messenger);
+                await vm.LoadAsync();
+                vm.TodayPeriods.CollectionChanged += (_, _) => collectionThreadId = Environment.CurrentManagedThreadId;
+            }).Task.Unwrap();
+
+            await Task.Run(() => messenger.Send(new DataChanged(CacheTable.Periods)));
+            await dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+
+            Assert.Equal(dispatcher.Thread.ManagedThreadId, collectionThreadId);
+        }
+        finally
+        {
+            UiDispatch.TestDispatcher = null;
+        }
     }
 
     [Fact]
@@ -332,6 +386,22 @@ public sealed class Phase5ViewModelTests
     private sealed class AnnouncementRepository(params Announcement[] rows) : IAnnouncementRepository { public Task<IReadOnlyList<Announcement>> GetCurrentAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Announcement>>(rows); }
     private sealed class ProfileRepository(params Profile[] rows) : IProfileRepository { public Task<IReadOnlyList<Profile>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Profile>>(rows); public Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(rows.FirstOrDefault(x => x.Id == id)); }
     private sealed class ReadStore : IAnnouncementReadStore { private readonly HashSet<Guid> _read = []; public Task<bool> IsReadAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(_read.Contains(id)); public Task MarkReadAsync(Guid id, DateTimeOffset at, CancellationToken cancellationToken = default) { _read.Add(id); return Task.CompletedTask; } }
+    private static class DispatcherHost
+    {
+        private static readonly TaskCompletionSource<Dispatcher> Ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public static Dispatcher Dispatcher => Ready.Task.GetAwaiter().GetResult();
+
+        static DispatcherHost()
+        {
+            var thread = new Thread(() =>
+            {
+                Ready.SetResult(Dispatcher.CurrentDispatcher);
+                Dispatcher.Run();
+            }) { IsBackground = true };
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+        }
+    }
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));

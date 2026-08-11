@@ -422,30 +422,11 @@ public sealed class AdminViewModelTests
     }
 
     [Fact]
-    public async Task PeriodTagUnknownClassSetsBannerAndSuccessfulSaveClearsIt()
-    {
-        var classes = new Classes(new AqiClock.Domain.Entities.Class(Guid.NewGuid(), "Class A", 0));
-        var vm = new ClassesViewModel(classes, new Timetables(), new Gateway(), new Sync());
-        var item = new PeriodClassEditorItem { PeriodId = Guid.NewGuid(), PeriodName = "Normal — Period 1", ClassNames = "Class X" };
-
-        await vm.SaveTagsCommand.ExecuteAsync(item);
-
-        Assert.Contains("Class X", item.Error);
-        Assert.Contains("Period tags — Normal — Period 1", vm.Error);
-
-        item.ClassNames = "Class A";
-        await vm.SaveTagsCommand.ExecuteAsync(item);
-
-        Assert.Null(item.Error);
-        Assert.Null(vm.Error);
-    }
-
-    [Fact]
     public async Task ClassAddUsesNextAvailableSortOrderAndConstraintErrorsAreFriendly()
     {
         var classes = new Classes(new AqiClock.Domain.Entities.Class(Guid.NewGuid(), "A", 0), new AqiClock.Domain.Entities.Class(Guid.NewGuid(), "C", 2));
         var gateway = new Gateway();
-        var vm = new ClassesViewModel(classes, new Timetables(), gateway, new Sync());
+        var vm = new ClassesViewModel(classes, gateway, new Sync());
         await vm.LoadAsync();
 
         vm.AddCommand.Execute(null);
@@ -459,6 +440,138 @@ public sealed class AdminViewModelTests
         gateway.DeleteFailure = new ReferencedRowException("referenced");
         await vm.DeleteCommand.ExecuteAsync(vm.Items[0]);
         Assert.Contains("referenced by an announcement", vm.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void InProgressCellEditSurvivesRemoteChangeInsteadOfBeingDiscarded()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                Period period = new(Guid.NewGuid(), "Lesson 1", new(9, 10), new(9, 40), 0);
+                var timetable = new Timetable(Guid.NewGuid(), "Normal Day", false, [period]);
+                var messenger = new WeakReferenceMessenger();
+                var gateway = new Gateway(); var sync = new Sync(); var windows = new Windows();
+                var timetables = new Timetables(timetable); var week = new Week(); var overrides = new Overrides();
+                var profiles = new Profiles();
+                var editor = new TimetableEditorViewModel(gateway, sync, timetables, week, overrides, windows, messenger);
+                var admin = new AdminViewModel(editor, new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, new Session(Guid.NewGuid()), new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, new Session(Guid.NewGuid()), windows), sync, windows, messenger);
+                admin.InitializeAsync().GetAwaiter().GetResult();
+
+                var window = new AdminWindow(admin, new Settings(), Microsoft.Extensions.Logging.Abstractions.NullLogger<AqiClock.App.Services.WindowPlacementController>.Instance);
+                WpfUiTestResources.Attach(window);
+                window.Show();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+                var tabs = FindVisualChild<TabControl>(window) ?? throw new InvalidOperationException("Admin tabs did not render.");
+                tabs.SelectedIndex = 0; window.UpdateLayout();
+                DataGrid grid = FindVisualChild<DataGrid>((DependencyObject)tabs.SelectedContent) ?? throw new InvalidOperationException("Periods grid did not render.");
+
+                PeriodEditorItem item = editor.Periods[0];
+                grid.ScrollIntoView(item);
+                grid.CurrentCell = new DataGridCellInfo(item, grid.Columns[1]);   // Start column
+                grid.BeginEdit();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+
+                var editingBox = grid.Columns[1].GetCellContent(item) as TextBox ?? throw new InvalidOperationException("Start cell did not enter edit mode.");
+                editingBox.Text = "10:00:00";   // teacher has typed, not yet committed
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+
+                // a routine background sync lands mid-edit
+                messenger.Send(new DataChanged(CacheTable.Periods));
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+                bool preserved = editor.Periods.Count > 0 && editor.Periods[0].Start == TimeSpan.FromHours(10);
+                window.Close();
+                Assert.True(
+                    preserved || editor.HasConflict,
+                    "An in-progress cell edit was discarded by the remote-change reload without latching a conflict.");
+            }
+            catch (Exception exception) { failure = exception; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
+    }
+
+    [Fact]
+    public async Task DiscardedPeriodRowsStopMarkingTheEditorDirty()
+    {
+        Period period = new(Guid.NewGuid(), "Lesson 1", new(9, 10), new(9, 40), 0);
+        var timetable = new Timetable(Guid.NewGuid(), "Normal Day", false, [period]);
+        var vm = Editor(new WeakReferenceMessenger(), timetable);
+        await vm.LoadAsync();
+
+        PeriodEditorItem discarded = vm.Periods[0];
+        await vm.LoadAsync();                       // rebuilds Periods with fresh instances
+        Assert.NotSame(discarded, vm.Periods[0]);
+        Assert.False(vm.IsDirty);
+
+        discarded.Start = new(11, 0, 0);            // a row no longer shown must not dirty the editor
+        Assert.False(vm.IsDirty);
+
+        PeriodEditorItem removed = vm.Periods[0];
+        vm.RemovePeriodCommand.Execute(removed);
+        vm.IsDirty = false;
+        removed.Start = new(12, 0, 0);
+        Assert.False(vm.IsDirty);
+    }
+
+    [Fact]
+    public void PartialCellEntryStillLatchesConflictOnRemoteChange()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                Period period = new(Guid.NewGuid(), "Lesson 1", new(9, 10), new(9, 40), 0);
+                var timetable = new Timetable(Guid.NewGuid(), "Normal Day", false, [period]);
+                var messenger = new WeakReferenceMessenger();
+                var gateway = new Gateway(); var sync = new Sync(); var windows = new Windows();
+                var timetables = new Timetables(timetable); var week = new Week(); var overrides = new Overrides();
+                var profiles = new Profiles();
+                var editor = new TimetableEditorViewModel(gateway, sync, timetables, week, overrides, windows, messenger);
+                var admin = new AdminViewModel(editor, new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, new Session(Guid.NewGuid()), new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, new Session(Guid.NewGuid()), windows), sync, windows, messenger);
+                admin.InitializeAsync().GetAwaiter().GetResult();
+
+                var window = new AdminWindow(admin, new Settings(), Microsoft.Extensions.Logging.Abstractions.NullLogger<AqiClock.App.Services.WindowPlacementController>.Instance);
+                WpfUiTestResources.Attach(window);
+                window.Show();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+                var tabs = FindVisualChild<TabControl>(window) ?? throw new InvalidOperationException("Admin tabs did not render.");
+                tabs.SelectedIndex = 0; window.UpdateLayout();
+                DataGrid grid = FindVisualChild<DataGrid>((DependencyObject)tabs.SelectedContent) ?? throw new InvalidOperationException("Periods grid did not render.");
+
+                PeriodEditorItem item = editor.Periods[0];
+                grid.ScrollIntoView(item);
+                grid.CurrentCell = new DataGridCellInfo(item, grid.Columns[1]);
+                grid.BeginEdit();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+                Assert.True(editor.IsDirty, "Opening a cell editor must mark the editor dirty.");
+
+                var editingBox = grid.Columns[1].GetCellContent(item) as TextBox ?? throw new InvalidOperationException("Start cell did not enter edit mode.");
+                editingBox.Text = "1:";             // half-typed: cannot convert to TimeSpan, so it never reaches the view model
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+                Assert.Equal(new TimeSpan(9, 10, 0), editor.Periods[0].Start);
+
+                messenger.Send(new DataChanged(CacheTable.Periods));
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+                bool latched = editor.HasConflict;
+                window.Close();
+                Assert.True(latched, "A partially typed cell value was discarded by the remote-change reload without latching a conflict.");
+            }
+            catch (Exception exception) { failure = exception; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
     }
 
     private static TimetableEditorViewModel Editor(IMessenger messenger, params Timetable[] rows) => new(new Gateway(), new Sync(), new Timetables(rows), new Week(), new Overrides(), new Windows(), messenger);

@@ -1,6 +1,7 @@
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Messages;
 using AqiClock.Application.Sync;
+using AqiClock.App.Services;
 using AqiClock.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -50,7 +51,7 @@ public partial class MainViewModel : ObservableObject, IRecipient<ConnectivityCh
     [RelayCommand(CanExecute = nameof(CanEdit))] private void EditTimetables() => _windows.ShowAdminWindow();
     [RelayCommand(CanExecute = nameof(CanEdit))] private void ManageAnnouncements() => _windows.ShowAdminWindow();
 
-    public void Receive(ConnectivityChanged message) => RunOnUiThread(() =>
+    public void Receive(ConnectivityChanged message) => UiDispatch.Run(() =>
     {
         ApplyConnectivity(message.State, message.LastSyncedAt);
         SyncNowCommand.NotifyCanExecuteChanged();
@@ -59,20 +60,13 @@ public partial class MainViewModel : ObservableObject, IRecipient<ConnectivityCh
         OnPropertyChanged(nameof(CanEdit));
     });
 
-    public void Receive(SessionChanged message) => RunOnUiThread(() =>
+    public void Receive(SessionChanged message) => UiDispatch.Run(() =>
     {
         ApplySession(message.State);
         EditTimetablesCommand.NotifyCanExecuteChanged();
         ManageAnnouncementsCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanEdit));
     });
-
-    private static void RunOnUiThread(Action action)
-    {
-        System.Windows.Threading.Dispatcher? dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher is null || !dispatcher.Thread.IsAlive || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished || dispatcher.CheckAccess()) action();
-        else _ = dispatcher.BeginInvoke(action);
-    }
 
     private void ApplySession(SessionState state) { IsAdmin = state.Role == UserRole.Admin; if (state.RequiresSignIn) SyncStatus = "Sign in again to sync"; }
     private void ApplyConnectivity(ConnectivityState state, DateTimeOffset? synced)

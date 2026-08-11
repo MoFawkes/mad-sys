@@ -18,12 +18,12 @@ public sealed class ToastPresenter : INotificationPresenter, IDisposable
         ToastNotificationManagerCompat.OnActivated += OnActivated;
     }
 
-    public Task ShowLessonStartAsync(NotificationEvent notification, int periodNumber, CancellationToken cancellationToken = default)
+    public Task ShowLessonStartAsync(NotificationEvent notification, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         new ToastContentBuilder()
             .AddArgument("action", "open")
-            .AddText(string.Create(CultureInfo.CurrentCulture, $"Period {periodNumber} — {notification.Occurrence.Period.Name}"))
+            .AddText(notification.Occurrence.Period.Name)
             .AddText(string.Create(CultureInfo.CurrentCulture, $"Started now · ends {notification.Occurrence.Period.EndTime:HH:mm}"))
             .Show();
         return Task.CompletedTask;
@@ -32,12 +32,13 @@ public sealed class ToastPresenter : INotificationPresenter, IDisposable
     public Task ShowEndWarningAsync(NotificationEvent notification, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string nextText = followingPeriod is null ? string.Empty : $" · next: {followingPeriod.Period.Name}";
-        new ToastContentBuilder()
+        ToastContentBuilder toast = new ToastContentBuilder()
             .AddArgument("action", "open")
             .AddText(string.Create(CultureInfo.CurrentCulture, $"Lesson ends in {warningMinutes} minutes"))
-            .AddText(string.Create(CultureInfo.CurrentCulture, $"{notification.Occurrence.Period.Name} ends at {notification.Occurrence.Period.EndTime:HH:mm}{nextText}"))
-            .Show();
+            .AddText(string.Create(CultureInfo.CurrentCulture, $"{notification.Occurrence.Period.Name} ends at {notification.Occurrence.Period.EndTime:HH:mm}"));
+        if (followingPeriod is not null)
+            toast.AddText($"Next: {followingPeriod.Period.Name}");
+        toast.Show();
         return Task.CompletedTask;
     }
 

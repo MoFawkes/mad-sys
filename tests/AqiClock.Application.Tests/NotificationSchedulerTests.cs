@@ -272,7 +272,7 @@ public sealed class NotificationSchedulerTests
     {
         public int Starts { get; private set; } public int EndWarnings { get; private set; } public int Announcements { get; private set; }
         public List<AudienceType> AnnouncementAudiences { get; } = [];
-        public Task ShowLessonStartAsync(NotificationEvent notification, int periodNumber, CancellationToken cancellationToken = default) { Starts++; return Task.CompletedTask; }
+        public Task ShowLessonStartAsync(NotificationEvent notification, CancellationToken cancellationToken = default) { Starts++; return Task.CompletedTask; }
         public Task ShowEndWarningAsync(NotificationEvent notification, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default) { EndWarnings++; return Task.CompletedTask; }
         public Task ShowAnnouncementAsync(Announcement announcement, CancellationToken cancellationToken = default) { Announcements++; AnnouncementAudiences.Add(announcement.AudienceType); return Task.CompletedTask; }
         public Task ShowTestAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

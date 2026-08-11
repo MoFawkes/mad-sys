@@ -12,6 +12,7 @@
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Mica">
     <Grid Background="{DynamicResource WindowBrush}">
+        <Grid.Resources><BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" /></Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition />
@@ -96,7 +97,7 @@
                             <TextBlock Text="Signed-in account" FontSize="{DynamicResource CaptionFontSize}" Foreground="{DynamicResource MutedBrush}" />
                         </StackPanel>
                     </ui:CardControl.Header>
-                    <Border Background="{DynamicResource AccentBrush}" CornerRadius="12" Padding="10,4">
+                    <Border Background="{DynamicResource AccentBrush}" CornerRadius="12" Padding="10,4" Visibility="{Binding HasRole, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="{Binding Role}" Foreground="White" FontWeight="SemiBold" />
                     </Border>
                 </ui:CardControl>

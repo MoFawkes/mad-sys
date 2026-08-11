@@ -160,9 +160,7 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
 
                 if (item.Kind == NotificationEventKind.LessonStart)
                 {
-                    EffectiveDay day = ScheduleEngine.ResolveDay(_snapshot, item.Occurrence.Date);
-                    int ordinal = Array.FindIndex(day.Periods.ToArray(), period => period.Id == item.Occurrence.Period.Id) + 1;
-                    await _presenter.ShowLessonStartAsync(item, ordinal, cancellationToken).ConfigureAwait(false);
+                    await _presenter.ShowLessonStartAsync(item, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {

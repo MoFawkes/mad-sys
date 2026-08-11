@@ -103,12 +103,12 @@
                             <Button Content="Cancel" Command="{Binding CancelCommand}" />
                             <ui:Button Content="Delete timetable" Command="{Binding DeleteCommand}" Appearance="Danger" />
                         </StackPanel>
-                        <DataGrid ItemsSource="{Binding Periods}" AutoGenerateColumns="False" CanUserAddRows="False">
+                        <DataGrid ItemsSource="{Binding Periods}" AutoGenerateColumns="False" CanUserAddRows="False" BeginningEdit="OnPeriodBeginningEdit">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" />
-                                <DataGridTextColumn Header="Start" Binding="{Binding Start}" />
-                                <DataGridTextColumn Header="End" Binding="{Binding End}" />
-                                <DataGridCheckBoxColumn Header="Lesson?" Binding="{Binding IsLesson}" />
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridTextColumn Header="Start" Binding="{Binding Start, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridTextColumn Header="End" Binding="{Binding End, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridCheckBoxColumn Header="Lesson?" Binding="{Binding IsLesson, UpdateSourceTrigger=PropertyChanged}" />
                                 <DataGridTemplateColumn Header="Order" Width="Auto" MinWidth="92"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal"><ui:Button Content="↑" ToolTip="Move up" Appearance="Transparent" MinWidth="32" Height="32" Padding="4" Margin="2,0" Command="{Binding DataContext.MoveUpCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /><ui:Button Content="↓" ToolTip="Move down" Appearance="Transparent" MinWidth="32" Height="32" Padding="4" Margin="2,0" Command="{Binding DataContext.MoveDownCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                                 <DataGridTemplateColumn Header=" " Width="Auto" MinWidth="56"><DataGridTemplateColumn.CellTemplate><DataTemplate><ui:Button Content="✕" ToolTip="Delete period" Appearance="Danger" MinWidth="32" Height="32" Padding="4" Margin="2,0" Command="{Binding DataContext.RemovePeriodCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                             </DataGrid.Columns>
@@ -143,17 +143,13 @@
                 </DockPanel>
             </TabItem>
             <TabItem Header="Classes / Audiences">
-              <Grid DataContext="{Binding Classes}" Margin="10"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="1.3*"/></Grid.ColumnDefinitions>
-                <DockPanel Margin="0,0,10,0"><ui:Button DockPanel.Dock="Top" Content="Add class" Command="{Binding AddCommand}" HorizontalAlignment="Left"/>
+              <Grid DataContext="{Binding Classes}" Margin="10">
+                <DockPanel><ui:Button DockPanel.Dock="Top" Content="Add class" Command="{Binding AddCommand}" HorizontalAlignment="Left"/>
                   <TextBlock DockPanel.Dock="Top" Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}"/>
                   <DataGrid ItemsSource="{Binding Items}" AutoGenerateColumns="False" CanUserAddRows="False"><DataGrid.Columns>
                     <DataGridTextColumn Header="Name" Width="*" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/><DataGridTextColumn Header="Order" Width="90" Binding="{Binding SortOrder, UpdateSourceTrigger=PropertyChanged}"/>
                     <DataGridTemplateColumn Header="Actions" Width="Auto" MinWidth="140"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal"><ui:Button Content="Save" Command="{Binding DataContext.SaveCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/><ui:Button Content="Delete" Appearance="Danger" Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Margin="4,0,0,0"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                   </DataGrid.Columns></DataGrid></DockPanel>
-                <DataGrid Grid.Column="1" ItemsSource="{Binding PeriodTags}" AutoGenerateColumns="False" CanUserAddRows="False"><DataGrid.Columns>
-                  <DataGridTextColumn Header="Period" Binding="{Binding PeriodName}" IsReadOnly="True"/><DataGridTextColumn Header="Classes (comma-separated)" Binding="{Binding ClassNames, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
-                  <DataGridTemplateColumn Width="260"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal"><ui:Button Content="Save tags" Command="{Binding DataContext.SaveTagsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/><TextBlock Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="150" Margin="8,0,0,0"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-                </DataGrid.Columns></DataGrid>
               </Grid>
             </TabItem>
             <TabItem Header="Student devices">

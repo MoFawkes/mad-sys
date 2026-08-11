@@ -35,11 +35,19 @@ This checklist is the ADR-011 acceptance script for Windows surfaces that are no
 
 - [ ] Settings → **Send test notification** produces one native AQI Clock toast.
 - [ ] Clicking the test toast activates the main window.
-- [ ] A near-future period start produces exactly one `Period n — name` toast with the correct end time.
-- [ ] An enabled end warning produces exactly one toast with the configured minutes, current period, end time, and next period.
+- [ ] A near-future period start produces exactly one toast titled with the period name alone and the correct end time.
+- [ ] An enabled end warning produces exactly one toast with the configured minutes, current period and end time, plus a separate capitalised `Next:` line when another period follows.
 - [ ] A newly synced, unexpired announcement produces one toast; its body is limited to 100 characters and clicking it opens Announcements.
 - [ ] Re-syncing or restarting does not repeat already recorded notifications.
 - [ ] Disabling each notification category suppresses that category without affecting the others.
+
+## 2026-08-11 teacher-feedback regression pass
+
+- [ ] Keep the main window open with Today's periods scrolled, force repeated syncs, and confirm no error dialog or new UI exception appears in the log.
+- [ ] Trigger more than one handled UI exception in a development build and confirm only the first shows a modal dialog while every exception is logged.
+- [ ] Open Settings on a student device: the account reads `Student device`, the badge reads `Student`; signed-out state has no badge; teacher/admin displays are unchanged.
+- [ ] Open the student-session picker and confirm the Do Not Disturb notice and the explanatory AM/PM Naseehah copy fit without clipping.
+- [ ] Confirm Classes / Audiences contains only class CRUD, and class add/save/delete plus class-specific week-schedule rows still work.
 
 ## Startup
 
