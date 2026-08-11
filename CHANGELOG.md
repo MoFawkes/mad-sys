@@ -2,11 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased (role choice)
+## 0.13.3 - 2026-08-11 (role choice)
 
 ### Changed
 
 - Rebuilt the desktop Teacher / Student audience chooser as the supplied two-card bento composition, with classroom-screen sizing, theme-aware brushes, hover/press feedback, and visible keyboard focus.
+- Reworded the card actions to `SIGN IN` and `CHOOSE CLASSES` so each names the screen it opens.
+
+### Fixed
+
+- Kept the chooser on screen at 125% and 150% display scaling, where the window previously could not shrink to fit, and stopped the card action labels being clipped at the minimum window size.
 
 ## 0.13.2 - 2026-08-11 (institute time and teacher feedback)
 
