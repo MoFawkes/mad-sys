@@ -1,5 +1,7 @@
+using AqiClock.App.Converters;
 using AqiClock.App.ViewModels;
 using AqiClock.App.Views;
+using System.Globalization;
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Configuration;
 using AqiClock.Application.Messages;
@@ -573,6 +575,32 @@ public sealed class AdminViewModelTests
         thread.Join();
         if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
     }
+
+    [Theory]
+    [InlineData(9, 10, "09:10")]
+    [InlineData(13, 0, "13:00")]
+    [InlineData(0, 5, "00:05")]
+    [InlineData(23, 59, "23:59")]
+    public void PeriodTimesRenderWithoutSeconds(int hours, int minutes, string expected) =>
+        Assert.Equal(expected, new HourMinuteConverter().Convert(new TimeSpan(hours, minutes, 0), typeof(string), null!, CultureInfo.InvariantCulture));
+
+    [Theory]
+    [InlineData("9:10", 9, 10)]
+    [InlineData("09:10", 9, 10)]
+    [InlineData("13:30", 13, 30)]
+    [InlineData(" 17:05 ", 17, 5)]
+    public void PeriodTimesAcceptHourMinuteEntry(string entry, int hours, int minutes) =>
+        Assert.Equal(new TimeSpan(hours, minutes, 0), new HourMinuteConverter().ConvertBack(entry, typeof(TimeSpan), null!, CultureInfo.InvariantCulture));
+
+    [Theory]
+    [InlineData("1")]          // TimeSpan.Parse would read this as one whole day
+    [InlineData("26:00")]      // and this as twenty-six hours
+    [InlineData("13:60")]
+    [InlineData("13:00:00")]   // seconds are no longer part of the contract
+    [InlineData("half nine")]
+    [InlineData("")]
+    public void PeriodTimesRejectEntriesThatAreNotAWallClockMinute(string entry) =>
+        Assert.Equal(DependencyProperty.UnsetValue, new HourMinuteConverter().ConvertBack(entry, typeof(TimeSpan), null!, CultureInfo.InvariantCulture));
 
     private static TimetableEditorViewModel Editor(IMessenger messenger, params Timetable[] rows) => new(new Gateway(), new Sync(), new Timetables(rows), new Week(), new Overrides(), new Windows(), messenger);
     private sealed class Timetables(params Timetable[] rows) : ITimetableRepository { public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Timetable>>(rows); }
