@@ -12,3 +12,10 @@ public interface IClock
     /// <summary>Current local calendar date.</summary>
     DateOnly LocalToday { get; }
 }
+
+public interface IInstituteClock : IClock
+{
+    string TimeZoneId { get; }
+    bool DiffersFromDeviceZone { get; }
+    DateTime DeviceNow { get; }
+}

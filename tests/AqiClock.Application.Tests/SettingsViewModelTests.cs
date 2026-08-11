@@ -22,6 +22,7 @@ public sealed class SettingsViewModelTests
             new NotificationStub(), new UpdateStub(), audience: audience);
 
         Assert.Equal("Student device", viewModel.Email);
+        Assert.Equal("Enrolled account", viewModel.AccountCaption);
         Assert.Equal("Student", viewModel.Role);
         Assert.True(viewModel.HasRole);
     }

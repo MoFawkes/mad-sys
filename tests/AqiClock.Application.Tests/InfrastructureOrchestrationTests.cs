@@ -4,8 +4,10 @@ using AqiClock.Application.Sync;
 using AqiClock.Application.Configuration;
 using AqiClock.Domain.Entities;
 using AqiClock.Infrastructure.Supabase;
+using AqiClock.Infrastructure.Time;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Microsoft.Extensions.Options;
 using Supabase.Realtime.Exceptions;
@@ -18,6 +20,35 @@ namespace AqiClock.Application.Tests;
 
 public sealed class InfrastructureOrchestrationTests
 {
+    [Fact]
+    public void InstituteClockResolvesIanaZoneAndFallsBackForUnknownZone()
+    {
+        var messenger = new WeakReferenceMessenger();
+        var london = new InstituteClock(new OrganizationRepository("Europe/London"), messenger, NullLogger<InstituteClock>.Instance);
+        var unknown = new InstituteClock(new OrganizationRepository("Not/AZone"), messenger, NullLogger<InstituteClock>.Instance);
+
+        Assert.Equal("Europe/London", london.TimeZoneId);
+        Assert.Equal(TimeZoneInfo.Local.Id, unknown.TimeZoneId);
+        Assert.Equal(DateOnly.FromDateTime(london.Now), london.LocalToday);
+    }
+
+    [Fact]
+    public async Task IdenticalPulledSnapshotDoesNotPublishAnotherDataChanged()
+    {
+        var gateway = new FakeGateway();
+        var messenger = new WeakReferenceMessenger();
+        var recipient = new object();
+        int messages = 0;
+        messenger.Register<AqiClock.Application.Messages.DataChanged>(recipient, (_, _) => messages++);
+        await using SyncService sync = CreateSyncService(gateway, messenger: messenger);
+
+        await sync.SyncTableAsync(CacheTable.Periods);
+        await sync.SyncTableAsync(CacheTable.Periods);
+
+        Assert.Equal(1, messages);
+        Assert.Equal(2, gateway.PullCounts[CacheTable.Periods]);
+    }
+
     [Fact]
     public void AudienceMutationsPublishChangedState()
     {
@@ -677,6 +708,12 @@ public sealed class InfrastructureOrchestrationTests
         public Task<StoredSession?> LoadAsync(CancellationToken cancellationToken = default) => Task.FromResult(Session);
         public Task SaveAsync(StoredSession session, CancellationToken cancellationToken = default) { Session = session; return Task.CompletedTask; }
         public Task ClearAsync(CancellationToken cancellationToken = default) { Session = null; return Task.CompletedTask; }
+    }
+
+    private sealed class OrganizationRepository(string timeZone) : IOrganizationRepository
+    {
+        public Task<OrganizationInfo?> GetAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<OrganizationInfo?>(new(Guid.NewGuid(), "AQI", timeZone));
     }
 
     private sealed class FakeProfiles(Profile? profile = null) : IProfileRepository

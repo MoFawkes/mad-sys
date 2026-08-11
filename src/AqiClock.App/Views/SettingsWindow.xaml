@@ -94,7 +94,7 @@
                     <ui:CardControl.Header>
                         <StackPanel>
                             <TextBlock Text="{Binding Email}" FontWeight="SemiBold" />
-                            <TextBlock Text="Signed-in account" FontSize="{DynamicResource CaptionFontSize}" Foreground="{DynamicResource MutedBrush}" />
+                            <TextBlock Text="{Binding AccountCaption}" FontSize="{DynamicResource CaptionFontSize}" Foreground="{DynamicResource MutedBrush}" />
                         </StackPanel>
                     </ui:CardControl.Header>
                     <Border Background="{DynamicResource AccentBrush}" CornerRadius="12" Padding="10,4" Visibility="{Binding HasRole, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -109,6 +109,9 @@
                 </ui:CardControl>
 
                 <TextBlock Text="About" FontSize="{DynamicResource SubtitleFontSize}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                <ui:CardControl Header="Institute time zone" Margin="0,0,0,6" IsTabStop="False">
+                    <TextBlock Text="{Binding InstituteTimeZone}" Foreground="{DynamicResource MutedBrush}" />
+                </ui:CardControl>
                 <ui:CardControl Margin="0,0,0,6" IsTabStop="False">
                     <ui:CardControl.Header>
                         <StackPanel Orientation="Horizontal">

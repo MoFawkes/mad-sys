@@ -59,9 +59,9 @@ Clients talk directly to Supabase (PostgREST + Realtime + Auth) with RLS as the 
 **Accepted** 2026-07-15.
 The cache is 11 small tables with snapshot-replace writes and simple reads. Microsoft.Data.Sqlite + hand-written SQL + a ~50-line migration runner is less code than EF Core configuration, starts faster, and avoids model drift between two databases. Rejected: EF Core (overkill), sqlite-net (weaker typing).
 
-## ADR-006: Period times are local wall-clock `time` values; org timezone is informational
-**Accepted** 2026-07-15.
-School life runs on the wall clock: "Period 1 at 08:30" means 08:30 whatever DST does. Storing UTC instants would shift lessons by an hour across DST transitions — actively wrong. Consequence: the schedule engine computes with local `DateTime` and handles DST by recomputation, never duration arithmetic across transitions (ARCHITECTURE.md §4). `organizations.timezone` exists for future cross-timezone viewing; MVP assumes machines are in the school's timezone.
+## ADR-006: Period times use the institute's wall clock
+**Accepted** 2026-07-15; **superseded** 2026-08-11 for cross-timezone devices.
+School life runs on the wall clock: "Period 1 at 08:30" means 08:30 in the institute's IANA timezone whatever DST does. Periods remain `time` values and the pure schedule engine remains unchanged; clients convert the current instant into `organizations.timezone` before evaluation and convert notification wall times back to absolute instants. Unknown or unavailable zones fall back to the device zone with a warning. Remote devices label institute time explicitly.
 
 ## ADR-007: Editing is online-only; offline is strictly read-only
 **Accepted** 2026-07-15. **The most consequential simplification in the design.**

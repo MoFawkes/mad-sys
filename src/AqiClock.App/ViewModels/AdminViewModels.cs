@@ -362,9 +362,7 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
             else _ = LoadAsync();
         }
 
-        System.Windows.Threading.Dispatcher? dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher is null || !dispatcher.Thread.IsAlive || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished || dispatcher.CheckAccess()) ApplyChange();
-        else _ = dispatcher.BeginInvoke(ApplyChange);
+        UiDispatch.Run(ApplyChange);
     }
 }
 

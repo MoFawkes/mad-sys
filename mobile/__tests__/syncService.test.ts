@@ -23,6 +23,7 @@ describe('sync audience ordering', () => {
   // "Your account is inactive" instead of the timetable.
   it('omits profiles from the student snapshot entirely', () => {
     expect(syncOrderFor('student')).toEqual([
+      'organizations',
       'timetables',
       'periods',
       'week_schedule',

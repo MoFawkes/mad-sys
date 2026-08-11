@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 
 import {
   getCachedProfile,
+  getOrganization,
   getStudentPreferences,
   loadScheduleSnapshot,
 } from '@/src/data/repositories';
@@ -15,6 +16,7 @@ import {
 } from '@/src/domain';
 
 import { getNotificationSettings, NotificationSettings } from './settings';
+import { toInstituteWallClock, wallClockToInstant } from '@/src/time/instituteTime';
 
 export const NOTIFICATION_CHANNEL_ID = 'lessons';
 export const NOTIFICATION_LIMIT = 60;
@@ -43,9 +45,11 @@ export function buildDesiredNotifications(
   audience: DeviceAudience,
   settings: NotificationSettings,
   now = new Date(),
+  instituteTimeZone?: string,
 ): DesiredNotification[] {
   const desired: DesiredNotification[] = [];
-  const firstDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const instituteNow = toInstituteWallClock(now, instituteTimeZone);
+  const firstDate = new Date(instituteNow.getFullYear(), instituteNow.getMonth(), instituteNow.getDate());
 
   for (let offset = 0; offset < HORIZON_DAYS; offset += 1) {
     const date = new Date(
@@ -58,14 +62,15 @@ export function buildDesiredNotifications(
       date,
       settings.endWarningMinutes,
     )) {
-      if (event.triggerTime.getTime() <= now.getTime()) continue;
+      const triggerTime = wallClockToInstant(event.triggerTime, instituteTimeZone);
+      if (triggerTime.getTime() <= now.getTime()) continue;
       if (!matchesPeriod(audience, new Set(event.occurrence.period.classIds ?? []))) continue;
       if (event.kind === 'start' && !settings.lessonStartEnabled) continue;
       if (event.kind === 'end-warning' && !settings.endWarningEnabled) continue;
 
       desired.push({
         identifier: event.key,
-        triggerTime: event.triggerTime,
+        triggerTime,
         kind: event.kind,
         title: event.kind === 'start' ? 'Lesson starting' : 'Lesson ending soon',
         body:
@@ -114,8 +119,9 @@ export async function reconcileScheduledNotifications(
   audience: DeviceAudience,
   settings: NotificationSettings,
   now = new Date(),
+  instituteTimeZone?: string,
 ): Promise<void> {
-  const desired = buildDesiredNotifications(snapshot, audience, settings, now);
+  const desired = buildDesiredNotifications(snapshot, audience, settings, now, instituteTimeZone);
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   const ours = scheduled
     .filter((request) => isLessonIdentifier(request.identifier))
@@ -161,6 +167,7 @@ export async function reconcileScheduledNotificationsFromCache(): Promise<void> 
   if (!data.session) return;
 
   const snapshot = await loadScheduleSnapshot();
+  const organization = await getOrganization();
   let audience: DeviceAudience;
   if (data.session.user.is_anonymous) {
     const preferences = await getStudentPreferences();
@@ -188,6 +195,8 @@ export async function reconcileScheduledNotificationsFromCache(): Promise<void> 
     filterScheduleForAudience(snapshot, audience),
     audience,
     await getNotificationSettings(),
+    new Date(),
+    organization?.timeZone,
   );
 }
 

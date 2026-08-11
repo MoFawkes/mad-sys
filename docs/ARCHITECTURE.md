@@ -173,7 +173,7 @@ Three categories: **lesson start**, **end warning** (N min before end, default 5
 
 ## 8. Cross-cutting concerns
 
-- **Time source**: machine clock. A skewed machine clock skews notifications on that machine only; server timestamps (`updated_at`, audit) always use DB time. During initial sync the app compares local time to the Supabase response `Date` header and shows a one-time warning if skew > 3 min.
+- **Time source**: the current instant converted to the cached organisation's IANA timezone. Schedule arithmetic remains wall-clock based; remote devices display an institute-time label and notification triggers are converted to absolute instants. Empty/invalid timezone cache falls back to the device zone with a logged warning. Server timestamps (`updated_at`, audit) remain absolute DB time.
 - **Errors**: global exception handler → Serilog + friendly dialog; sync errors are non-fatal and surface only as the offline indicator; notification failures log and continue.
 - **Performance**: recompute-on-tick is O(periods of today) ≤ ~20 comparisons/sec — no caching needed. UI virtualisation unnecessary at this data size.
 - **Multi-monitor / DPI**: PerMonitorV2 DPI awareness; saved window position validated against current screen bounds on restore (monitor unplugged case → recentre).

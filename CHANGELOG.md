@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.13.2 - Unreleased (institute time)
+
+### Added
+
+- Anchored desktop and mobile clocks and lesson notifications to the organisation's IANA timezone, with explicit institute-time labels on remote devices and DST-aware trigger conversion.
+- Synced and cached organisation timezone data on mobile and displayed the configured zone read-only in desktop Settings.
+
+### Changed
+
+- Suppressed repeated `DataChanged` messages for identical snapshots, preventing redundant notification-plan rebuild storms.
+
 ## 0.13.1 - Unreleased (teacher feedback)
 
 ### Changed

@@ -5,6 +5,20 @@ using Microsoft.Data.Sqlite;
 
 namespace AqiClock.Infrastructure.Cache;
 
+public sealed class SqliteOrganizationRepository(SqliteCacheDatabase database) : IOrganizationRepository
+{
+    public async Task<OrganizationInfo?> GetAsync(CancellationToken cancellationToken = default)
+    {
+        await using SqliteConnection connection = await database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
+        command.CommandText = "SELECT id,name,timezone FROM organizations LIMIT 1;";
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        return await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
+            ? new OrganizationInfo(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetString(2))
+            : null;
+    }
+}
+
 public sealed class SqliteTimetableRepository(SqliteCacheDatabase database) : ITimetableRepository
 {
     public async Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default)
