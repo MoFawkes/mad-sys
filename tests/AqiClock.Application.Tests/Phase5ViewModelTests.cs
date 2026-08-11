@@ -131,10 +131,18 @@ public sealed class Phase5ViewModelTests
                 window.Show();
                 window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
-                Assert.True(window.Width <= 1366);
-                Assert.True(window.Height <= 728);
+                // A 1366x768 display with a roughly 720px work area exposes only
+                // 911x480 device-independent units at 150% scaling.
+                var scaledWorkArea = new Rect(0, 0, 1366d / 1.5d, 720d / 1.5d);
+                window.FitToWorkArea(scaledWorkArea);
+                window.UpdateLayout();
+                Assert.InRange(window.Width, window.MinWidth, scaledWorkArea.Width);
+                Assert.InRange(window.Height, window.MinHeight, scaledWorkArea.Height);
+                Assert.True(window.ActualHeight <= scaledWorkArea.Height);
                 var teacher = Assert.IsType<Button>(window.FindName("TeacherOption"));
                 var student = Assert.IsType<Button>(window.FindName("StudentOption"));
+                Assert.True(teacher.TranslatePoint(new Point(0, teacher.ActualHeight), window).Y <= window.ActualHeight);
+                Assert.True(student.TranslatePoint(new Point(0, student.ActualHeight), window).Y <= window.ActualHeight);
                 Assert.True(teacher.Focusable);
                 Assert.True(student.Focusable);
                 Assert.Equal(0, KeyboardNavigation.GetTabIndex(teacher));

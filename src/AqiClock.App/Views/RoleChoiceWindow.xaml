@@ -4,7 +4,7 @@
   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
   xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
   Title="Choose how to continue"
-  Width="860" Height="620" MinWidth="680" MinHeight="520"
+  Width="860" Height="620" MinWidth="680" MinHeight="440"
   WindowStartupLocation="CenterScreen" ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica">
   <ui:FluentWindow.Resources>
     <Style x:Key="AudienceCardStyle" TargetType="Button">
@@ -75,9 +75,9 @@
         <TextBlock Text="Choose the audience using this computer." FontSize="18" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,7,0,0" />
       </StackPanel>
 
-      <Grid Grid.Row="1" MaxWidth="760" VerticalAlignment="Center">
+      <Grid Grid.Row="1" MaxWidth="760" MinHeight="210">
         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions>
-        <Button x:Name="TeacherOption" Grid.Column="0" Height="260" Style="{StaticResource AudienceCardStyle}"
+        <Button x:Name="TeacherOption" Grid.Column="0" MinHeight="210" Style="{StaticResource AudienceCardStyle}"
                 Click="OnTeacher" TabIndex="0" automation:AutomationProperties.Name="Continue as teacher">
           <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <Border Width="82" Height="82" CornerRadius="41" Background="{DynamicResource ControlFillColorSecondaryBrush}" HorizontalAlignment="Center">
@@ -91,7 +91,7 @@
           </StackPanel>
         </Button>
 
-        <Button x:Name="StudentOption" Grid.Column="2" Height="260" Style="{StaticResource AudienceCardStyle}"
+        <Button x:Name="StudentOption" Grid.Column="2" MinHeight="210" Style="{StaticResource AudienceCardStyle}"
                 Click="OnStudent" TabIndex="1" automation:AutomationProperties.Name="Continue as student">
           <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <Border Width="82" Height="82" CornerRadius="41" Background="{DynamicResource ControlFillColorSecondaryBrush}" HorizontalAlignment="Center">
