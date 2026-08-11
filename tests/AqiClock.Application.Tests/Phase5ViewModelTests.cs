@@ -11,8 +11,10 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.IO;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
 
 namespace AqiClock.Application.Tests;
@@ -109,6 +111,77 @@ public sealed class Phase5ViewModelTests
         thread.Start();
         Assert.True(thread.Join(TimeSpan.FromSeconds(10)), "Sign-in window render timed out.");
         Assert.Null(failure);
+    }
+
+    [Fact]
+    public void RoleChoiceRendersAtClassroomResolutionWithKeyboardCardsAndWorkingPaths()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            var errors = new List<string>();
+            var listener = new RoleChoiceTraceListener(errors);
+            try
+            {
+                PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
+                PresentationTraceSources.DataBindingSource.Listeners.Add(listener);
+                var windows = new WindowStub();
+                var window = new RoleChoiceWindow(windows);
+                WpfUiTestResources.Attach(window);
+                window.Show();
+                window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+                // A 1366x768 display with a roughly 720px work area exposes only
+                // 911x480 device-independent units at 150% scaling.
+                var scaledWorkArea = new Rect(0, 0, 1366d / 1.5d, 720d / 1.5d);
+                window.FitToWorkArea(scaledWorkArea);
+                window.UpdateLayout();
+                Assert.InRange(window.Width, window.MinWidth, scaledWorkArea.Width);
+                Assert.InRange(window.Height, window.MinHeight, scaledWorkArea.Height);
+                Assert.True(window.ActualHeight <= scaledWorkArea.Height);
+                var teacher = Assert.IsType<Button>(window.FindName("TeacherOption"));
+                var student = Assert.IsType<Button>(window.FindName("StudentOption"));
+                // The clamp leaves the window at the work-area height, which is roomier than the window's
+                // own minimum. Cards only overflow at that minimum, so check there rather than at 480.
+                window.Width = window.MinWidth;
+                window.Height = window.MinHeight;
+                window.UpdateLayout();
+                window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+                static void AssertCardFitsWindow(Window host, Button card, string label)
+                {
+                    double cardBottom = card.TranslatePoint(new Point(0, card.ActualHeight), host).Y;
+                    Assert.True(
+                        cardBottom <= host.ActualHeight,
+                        $"The {label} card overflows the window by {cardBottom - host.ActualHeight:F0} DIP at the minimum size, clipping its action label.");
+                }
+
+                AssertCardFitsWindow(window, teacher, "teacher");
+                AssertCardFitsWindow(window, student, "student");
+                Assert.True(teacher.Focusable);
+                Assert.True(student.Focusable);
+                Assert.Equal(0, KeyboardNavigation.GetTabIndex(teacher));
+                Assert.Equal(1, KeyboardNavigation.GetTabIndex(student));
+                Assert.True(teacher.Focus());
+                Assert.True(teacher.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+                Assert.True(student.IsKeyboardFocused);
+                student.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal(1, windows.StudentPickerCount);
+
+                var teacherWindow = new RoleChoiceWindow(windows);
+                WpfUiTestResources.Attach(teacherWindow);
+                teacherWindow.Show();
+                Assert.IsType<Button>(teacherWindow.FindName("TeacherOption")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal(1, windows.TeacherSignInCount);
+                Assert.Empty(errors);
+            }
+            catch (Exception exception) { failure = exception; }
+            finally { PresentationTraceSources.DataBindingSource.Listeners.Remove(listener); }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        Assert.True(thread.Join(TimeSpan.FromSeconds(10)), "Role-choice render timed out.");
+        if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
     }
 
     [Fact]
@@ -430,5 +503,18 @@ public sealed class Phase5ViewModelTests
         public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
     private sealed class SettingsStub : ISettingsService { public AppSettings Current => new(); public event EventHandler<SettingsChanged>? Changed { add { } remove { } } public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask; }
-    private sealed class WindowStub : IWindowService { public void ShowMainWindow() { } public void ShowSignInWindow() { } public void ShowPasswordRecoveryWindow(PasswordRecoveryRequest request) { } public void ClosePasswordRecoveryWindow() { } public void ShowSettingsWindow() { } public void ShowAdminWindow() { } public void CloseAdminWindow(string? reason = null) { } public bool Confirm(string message, string title) => true; public void ShowAnnouncements() { } public void HideMainWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } public void ExitApplication() { } }
+    private sealed class WindowStub : IWindowService
+    {
+        public int TeacherSignInCount { get; private set; }
+        public int StudentPickerCount { get; private set; }
+        public void ShowMainWindow() { } public void ShowSignInWindow() { }
+        public void ShowTeacherSignInWindow() => TeacherSignInCount++;
+        public void ShowStudentClassPickerWindow() => StudentPickerCount++;
+        public void ShowPasswordRecoveryWindow(PasswordRecoveryRequest request) { } public void ClosePasswordRecoveryWindow() { } public void ShowSettingsWindow() { } public void ShowAdminWindow() { } public void CloseAdminWindow(string? reason = null) { } public bool Confirm(string message, string title) => true; public void ShowAnnouncements() { } public void HideMainWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } public void ExitApplication() { }
+    }
+    private sealed class RoleChoiceTraceListener(List<string> errors) : TraceListener
+    {
+        public override void Write(string? message) { if (!string.IsNullOrWhiteSpace(message)) errors.Add(message); }
+        public override void WriteLine(string? message) => Write(message);
+    }
 }

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased (role choice)
+
+### Changed
+
+- Rebuilt the desktop Teacher / Student audience chooser as the supplied two-card bento composition, with classroom-screen sizing, theme-aware brushes, hover/press feedback, and visible keyboard focus.
+
 ## 0.13.2 - 2026-08-11 (institute time and teacher feedback)
 
 Ships the teacher-feedback work alongside institute time zones; 0.13.1 was never tagged as its own release.

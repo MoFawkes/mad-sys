@@ -21,5 +21,6 @@ Deliberate departures — WPF has no per-element `backdrop-filter`, the ambient 
 too expensive for low-end classroom PCs, the icons come from WPF-UI rather than Material
 Symbols, and `Version 4.2.0 | Secured Environment` is mockup filler.
 
-Not yet implemented. Deferred until after the v0.11.0 release; the implementation brief
-covers sizing constraints for 1366×768 hardware, Light-theme handling, and keyboard access.
+Implemented in `src/AqiClock.App/Views/RoleChoiceWindow.xaml` on 2026-08-11. The WPF version
+preserves the two-card composition, proportions, hover/press treatment and keyboard interaction,
+scaled to fit 1366×768 hardware and themed entirely through the app's dynamic brushes.
