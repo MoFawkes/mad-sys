@@ -2,14 +2,14 @@
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-  Title="Student session" Width="520" Height="650" WindowStartupLocation="CenterScreen"
+  Title="Student session" Width="520" Height="720" WindowStartupLocation="CenterScreen"
   ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica" Loaded="OnLoaded">
   <ui:FluentWindow.Resources><BooleanToVisibilityConverter x:Key="BoolVisibility"/></ui:FluentWindow.Resources>
   <Grid Background="{DynamicResource WindowBrush}">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/></Grid.RowDefinitions>
     <ui:TitleBar Title="Student session"/>
     <Grid Grid.Row="1" Margin="28,12,28,28">
-    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <StackPanel>
       <TextBlock Text="Choose your class(es)" FontSize="{DynamicResource TitleFontSize}" FontWeight="Bold" Foreground="{DynamicResource HeaderBrush}"/>
       <TextBlock Text="Your choices are remembered on this computer." Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,16"/>
@@ -28,7 +28,10 @@
       </ListBox.ItemContainerStyle>
       <ListBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}" Padding="8"/></DataTemplate></ListBox.ItemTemplate>
     </ListBox>
-    <TextBlock Grid.Row="2" Text="Naseehah (optional)" FontWeight="SemiBold" Foreground="{DynamicResource HeaderBrush}" Margin="0,16,0,8"/>
+    <StackPanel Grid.Row="2" Margin="0,16,0,8">
+      <TextBlock Text="Which Naseehah do you attend? (optional)" FontWeight="SemiBold" Foreground="{DynamicResource HeaderBrush}"/>
+      <TextBlock Text="Used to show announcements for the AM or PM Naseehah group. It does not set lesson times." Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+    </StackPanel>
     <ListBox Grid.Row="3" ItemsSource="{Binding NaseehahChoices}" Background="{DynamicResource CardBrush}">
       <ListBox.ItemContainerStyle>
         <Style TargetType="ListBoxItem">
@@ -38,7 +41,10 @@
       </ListBox.ItemContainerStyle>
       <ListBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}" Padding="8"/></DataTemplate></ListBox.ItemTemplate>
     </ListBox>
-    <StackPanel Grid.Row="4" Margin="0,12,0,0">
+    <Border Grid.Row="4" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,12,0,0">
+      <TextBlock Text="Lesson notifications only appear when Do Not Disturb (Focus) is turned off in Windows Settings." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/>
+    </Border>
+    <StackPanel Grid.Row="5" Margin="0,12,0,0">
       <TextBlock Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
       <ui:Button Content="Start student session" Appearance="Primary" HorizontalAlignment="Right" Click="OnStart" IsEnabled="{Binding IsEnrolled}"/>
     </StackPanel>

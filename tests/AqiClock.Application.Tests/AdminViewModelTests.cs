@@ -422,30 +422,11 @@ public sealed class AdminViewModelTests
     }
 
     [Fact]
-    public async Task PeriodTagUnknownClassSetsBannerAndSuccessfulSaveClearsIt()
-    {
-        var classes = new Classes(new AqiClock.Domain.Entities.Class(Guid.NewGuid(), "Class A", 0));
-        var vm = new ClassesViewModel(classes, new Timetables(), new Gateway(), new Sync());
-        var item = new PeriodClassEditorItem { PeriodId = Guid.NewGuid(), PeriodName = "Normal — Period 1", ClassNames = "Class X" };
-
-        await vm.SaveTagsCommand.ExecuteAsync(item);
-
-        Assert.Contains("Class X", item.Error);
-        Assert.Contains("Period tags — Normal — Period 1", vm.Error);
-
-        item.ClassNames = "Class A";
-        await vm.SaveTagsCommand.ExecuteAsync(item);
-
-        Assert.Null(item.Error);
-        Assert.Null(vm.Error);
-    }
-
-    [Fact]
     public async Task ClassAddUsesNextAvailableSortOrderAndConstraintErrorsAreFriendly()
     {
         var classes = new Classes(new AqiClock.Domain.Entities.Class(Guid.NewGuid(), "A", 0), new AqiClock.Domain.Entities.Class(Guid.NewGuid(), "C", 2));
         var gateway = new Gateway();
-        var vm = new ClassesViewModel(classes, new Timetables(), gateway, new Sync());
+        var vm = new ClassesViewModel(classes, gateway, new Sync());
         await vm.LoadAsync();
 
         vm.AddCommand.Execute(null);

@@ -164,8 +164,8 @@ Three categories: **lesson start**, **end warning** (N min before end, default 5
 7. Quiet rule: no lesson toasts on closed/no-school days (trivially true — no events exist).
 
 ### Toast content
-- Start: title "Period 3 — Mathematics", body "Started now · ends 11:05". Click → activate main window.
-- End warning: title "5 minutes left", body "Mathematics ends at 11:05 · next: Break".
+- Start: title "Mathematics", body "Started now · ends 11:05". Click → activate main window.
+- End warning: title "Lesson ends in 5 minutes", followed by "Mathematics ends at 11:05" and, when applicable, a separate "Next: Break" line.
 - Announcement: title = announcement title, body = first 100 chars. Click → open announcements panel.
 - AUMID registration via the Toolkit's `ToastNotificationManagerCompat` (works unpackaged); Velopack install creates the Start-menu shortcut toasts require.
 

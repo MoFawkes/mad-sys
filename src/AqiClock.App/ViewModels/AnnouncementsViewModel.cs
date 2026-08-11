@@ -4,6 +4,7 @@ using AqiClock.Application.Abstractions;
 using AqiClock.Application.Messages;
 using AqiClock.Domain.Entities;
 using AqiClock.Domain.Time;
+using AqiClock.App.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -69,7 +70,7 @@ public partial class AnnouncementsViewModel : ObservableObject, IRecipient<DataC
         UnreadCount = unread;
     }
 
-    public void Receive(DataChanged message) { if (message.Table is CacheTable.Announcements or CacheTable.Profiles) _ = LoadAsync(false); }
+    public void Receive(DataChanged message) { if (message.Table is CacheTable.Announcements or CacheTable.Profiles) UiDispatch.Run(() => LoadAsync(false)); }
     [RelayCommand]
     private static void OpenEMasjidLink(string? link)
     {

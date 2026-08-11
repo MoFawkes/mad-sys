@@ -4,6 +4,7 @@ using AqiClock.Application.Abstractions;
 using AqiClock.Application.Messages;
 using AqiClock.Domain.Entities;
 using AqiClock.Domain.Scheduling;
+using AqiClock.App.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 
@@ -58,9 +59,9 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
     public void Receive(DataChanged message)
     {
         if (message.Table is CacheTable.Timetables or CacheTable.Periods or CacheTable.WeekSchedule or CacheTable.DateOverrides)
-            _ = ReloadAsync();
+            UiDispatch.Run(ReloadAsync);
     }
-    public void Receive(AudienceChanged message) => _ = ReloadAsync();
+    public void Receive(AudienceChanged message) => UiDispatch.Run(ReloadAsync);
 
     private async Task ReloadAsync() { await LoadAsync(); Recompute(DateTime.Now); }
 
@@ -78,7 +79,9 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
             ? $"{CurrentLesson} · {Math.Max(1, (int)Math.Ceiling(compactRemaining.TotalMinutes))} min left"
             : CurrentLesson;
         Progress = (status.Progress ?? 0d) * 100d;
-        NextLesson = status.Next is { } next ? $"Next: {next.Period.Name} at {next.Period.StartTime:HH:mm}" : "No upcoming lessons";
+        NextLesson = status.Next is { } next
+            ? FormatNextLesson(next, DateOnly.FromDateTime(now))
+            : "No upcoming lessons";
         TodayPeriods.Clear();
         TimeOnly time = TimeOnly.FromDateTime(now);
         foreach (Period period in status.Day.Periods)
@@ -89,4 +92,10 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
     public static string FormatDuration(TimeSpan duration) => duration.TotalHours >= 1
         ? string.Create(CultureInfo.InvariantCulture, $"{(int)duration.TotalHours}:{duration.Minutes:00}:{duration.Seconds:00}")
         : string.Create(CultureInfo.InvariantCulture, $"{duration.Minutes:00}:{duration.Seconds:00}");
+
+    private static string FormatNextLesson(PeriodOccurrence next, DateOnly today)
+    {
+        string day = next.Date == today ? string.Empty : $"{next.Date:dddd}, ";
+        return $"Next: {day}{next.Period.Name} at {next.Period.StartTime:HH:mm}";
+    }
 }

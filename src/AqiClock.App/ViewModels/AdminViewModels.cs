@@ -9,6 +9,7 @@ using System.Windows.Media.Imaging;
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Messages;
 using AqiClock.Application.Sync;
+using AqiClock.App.Services;
 using AqiClock.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -62,7 +63,7 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
         if (StudentDevices is not null) tasks.Add(StudentDevices.LoadAsync(token));
         await Task.WhenAll(tasks);
     }
-    public void Receive(SessionChanged message) => RunOnUiThread(() =>
+    public void Receive(SessionChanged message) => UiDispatch.Run(() =>
     {
         if (message.State.Role == UserRole.Admin) _roleBanner = null;
         else if (message.State.RoleConfirmed) _roleBanner = "Your role changed. The admin editor has been closed.";
@@ -76,7 +77,7 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
         UpdateBanner();
     }
 
-    public void Receive(ConnectivityChanged message) => RunOnUiThread(() =>
+    public void Receive(ConnectivityChanged message) => UiDispatch.Run(() =>
     {
         IsOnline = message.State == ConnectivityState.Online;
         IsEditable = message.State != ConnectivityState.Offline;
@@ -94,12 +95,6 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
 
     private void UpdateBanner() => Banner = _roleBanner ?? _offlineBanner;
 
-    private static void RunOnUiThread(Action action)
-    {
-        System.Windows.Threading.Dispatcher? dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher is null || !dispatcher.Thread.IsAlive || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished || dispatcher.CheckAccess()) action();
-        else _ = dispatcher.BeginInvoke(action);
-    }
 }
 
 public partial class StudentDevicesViewModel(
@@ -439,31 +434,15 @@ public partial class ClassEditorItem : ObservableObject
     [ObservableProperty] private int _sortOrder;
 }
 
-public partial class PeriodClassEditorItem : ObservableObject
-{
-    public Guid PeriodId { get; init; }
-    public string PeriodName { get; init; } = string.Empty;
-    [ObservableProperty] private string _classNames = string.Empty;
-    [ObservableProperty] private string? _error;
-}
-
-public partial class ClassesViewModel(IClassRepository repository, ITimetableRepository timetables, ISupabaseGateway gateway, ISyncService sync) : ObservableObject
+public partial class ClassesViewModel(IClassRepository repository, ISupabaseGateway gateway, ISyncService sync) : ObservableObject
 {
     public ObservableCollection<ClassEditorItem> Items { get; } = [];
-    public ObservableCollection<PeriodClassEditorItem> PeriodTags { get; } = [];
     [ObservableProperty] private string? _error;
 
     public async Task LoadAsync(CancellationToken token = default)
     {
         IReadOnlyList<AqiClock.Domain.Entities.Class> classes = await repository.GetAllAsync(token);
         Items.Clear(); foreach (var item in classes) Items.Add(new() { Id = item.Id, Name = item.Name, SortOrder = item.SortOrder });
-        PeriodTags.Clear();
-        foreach (Timetable timetable in await timetables.GetAllAsync(token))
-            foreach (Period period in timetable.Periods.OrderBy(x => x.SortOrder))
-            {
-                IReadOnlySet<Guid> ids = await repository.GetClassIdsForPeriodAsync(period.Id, token);
-                PeriodTags.Add(new() { PeriodId = period.Id, PeriodName = $"{timetable.Name} — {period.Name}", ClassNames = string.Join(", ", classes.Where(x => ids.Contains(x.Id)).Select(x => x.Name)) });
-            }
     }
 
     [RelayCommand] private void Add() => Items.Add(new() { Id = Guid.NewGuid(), Name = "New class", SortOrder = Items.Count == 0 ? 0 : Items.Max(x => x.SortOrder) + 1 });
@@ -484,20 +463,6 @@ public partial class ClassesViewModel(IClassRepository repository, ITimetableRep
     {
         try { await gateway.DeleteAsync(CacheTable.Classes, item.Id, token); await sync.SyncTableAsync(CacheTable.Classes, token); await LoadAsync(token); Error = null; }
         catch (ReferencedRowException) { Error = "This class is referenced by an announcement or the week schedule. Reassign or delete that reference first."; }
-    }
-    [RelayCommand] private async Task SaveTagsAsync(PeriodClassEditorItem item, CancellationToken token)
-    {
-        Dictionary<string, Guid> classes = (await repository.GetAllAsync(token)).ToDictionary(x => x.Name, x => x.Id, StringComparer.OrdinalIgnoreCase);
-        string[] names = item.ClassNames.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        string[] unknown = names.Where(name => !classes.ContainsKey(name)).ToArray();
-        if (unknown.Length > 0)
-        {
-            item.Error = $"Unknown: {string.Join(", ", unknown)}";
-            Error = $"Period tags — {item.PeriodName}: unknown class(es) {string.Join(", ", unknown)}";
-            return;
-        }
-        await gateway.SetPeriodClassesAsync(item.PeriodId, names.Select(name => classes[name]).Distinct().ToArray(), token);
-        await sync.SyncTableAsync(CacheTable.PeriodClasses, token); item.Error = null; Error = null;
     }
 }
 

@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.13.1 - Unreleased (teacher feedback)
+
+### Changed
+
+- Simplified lesson toast copy and placed the next lesson on its own, capitalised line.
+- Clarified the student-session Naseehah choices and added a Windows Do Not Disturb reminder.
+- Removed the redundant per-period class-tag editor; class-specific targeting now uses week-schedule rows.
+
+### Fixed
+
+- Marshalled sync-driven clock and announcement collection reloads to the WPF UI thread, preventing recurring list virtualisation crashes, and limited the global error dialog to once per run.
+- Displayed enrolled student devices correctly in Settings instead of showing `Signed out` with a `Teacher` badge.
+
 ## 0.13.0 - 2026-08-08 (audience-aware week schedules)
 
 - Added default and class-specific timetable rows per weekday across the database, desktop, cache, and mobile schedule engines.

@@ -5,7 +5,7 @@ namespace AqiClock.Application.Abstractions;
 
 public interface INotificationPresenter
 {
-    Task ShowLessonStartAsync(NotificationEvent notification, int periodNumber, CancellationToken cancellationToken = default);
+    Task ShowLessonStartAsync(NotificationEvent notification, CancellationToken cancellationToken = default);
     Task ShowEndWarningAsync(NotificationEvent notification, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default);
     Task ShowAnnouncementAsync(Announcement announcement, CancellationToken cancellationToken = default);
     Task ShowTestAsync(CancellationToken cancellationToken = default);
