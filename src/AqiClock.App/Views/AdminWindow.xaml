@@ -105,10 +105,10 @@
                         </StackPanel>
                         <DataGrid ItemsSource="{Binding Periods}" AutoGenerateColumns="False" CanUserAddRows="False">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" />
-                                <DataGridTextColumn Header="Start" Binding="{Binding Start}" />
-                                <DataGridTextColumn Header="End" Binding="{Binding End}" />
-                                <DataGridCheckBoxColumn Header="Lesson?" Binding="{Binding IsLesson}" />
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridTextColumn Header="Start" Binding="{Binding Start, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridTextColumn Header="End" Binding="{Binding End, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridCheckBoxColumn Header="Lesson?" Binding="{Binding IsLesson, UpdateSourceTrigger=PropertyChanged}" />
                                 <DataGridTemplateColumn Header="Order" Width="Auto" MinWidth="92"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal"><ui:Button Content="↑" ToolTip="Move up" Appearance="Transparent" MinWidth="32" Height="32" Padding="4" Margin="2,0" Command="{Binding DataContext.MoveUpCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /><ui:Button Content="↓" ToolTip="Move down" Appearance="Transparent" MinWidth="32" Height="32" Padding="4" Margin="2,0" Command="{Binding DataContext.MoveDownCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                                 <DataGridTemplateColumn Header=" " Width="Auto" MinWidth="56"><DataGridTemplateColumn.CellTemplate><DataTemplate><ui:Button Content="✕" ToolTip="Delete period" Appearance="Danger" MinWidth="32" Height="32" Padding="4" Margin="2,0" Command="{Binding DataContext.RemovePeriodCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                             </DataGrid.Columns>

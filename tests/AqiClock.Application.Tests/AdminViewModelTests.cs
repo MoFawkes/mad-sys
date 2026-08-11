@@ -442,6 +442,61 @@ public sealed class AdminViewModelTests
         Assert.Contains("referenced by an announcement", vm.Error, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void InProgressCellEditSurvivesRemoteChangeInsteadOfBeingDiscarded()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                Period period = new(Guid.NewGuid(), "Lesson 1", new(9, 10), new(9, 40), 0);
+                var timetable = new Timetable(Guid.NewGuid(), "Normal Day", false, [period]);
+                var messenger = new WeakReferenceMessenger();
+                var gateway = new Gateway(); var sync = new Sync(); var windows = new Windows();
+                var timetables = new Timetables(timetable); var week = new Week(); var overrides = new Overrides();
+                var profiles = new Profiles();
+                var editor = new TimetableEditorViewModel(gateway, sync, timetables, week, overrides, windows, messenger);
+                var admin = new AdminViewModel(editor, new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, new Session(Guid.NewGuid()), new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, new Session(Guid.NewGuid()), windows), sync, windows, messenger);
+                admin.InitializeAsync().GetAwaiter().GetResult();
+
+                var window = new AdminWindow(admin, new Settings(), Microsoft.Extensions.Logging.Abstractions.NullLogger<AqiClock.App.Services.WindowPlacementController>.Instance);
+                WpfUiTestResources.Attach(window);
+                window.Show();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+                var tabs = FindVisualChild<TabControl>(window) ?? throw new InvalidOperationException("Admin tabs did not render.");
+                tabs.SelectedIndex = 0; window.UpdateLayout();
+                DataGrid grid = FindVisualChild<DataGrid>((DependencyObject)tabs.SelectedContent) ?? throw new InvalidOperationException("Periods grid did not render.");
+
+                PeriodEditorItem item = editor.Periods[0];
+                grid.ScrollIntoView(item);
+                grid.CurrentCell = new DataGridCellInfo(item, grid.Columns[1]);   // Start column
+                grid.BeginEdit();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+
+                var editingBox = grid.Columns[1].GetCellContent(item) as TextBox ?? throw new InvalidOperationException("Start cell did not enter edit mode.");
+                editingBox.Text = "10:00:00";   // teacher has typed, not yet committed
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+
+                // a routine background sync lands mid-edit
+                messenger.Send(new DataChanged(CacheTable.Periods));
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+                bool preserved = editor.Periods.Count > 0 && editor.Periods[0].Start == TimeSpan.FromHours(10);
+                window.Close();
+                Assert.True(
+                    preserved || editor.HasConflict,
+                    "An in-progress cell edit was discarded by the remote-change reload without latching a conflict.");
+            }
+            catch (Exception exception) { failure = exception; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
+    }
+
     private static TimetableEditorViewModel Editor(IMessenger messenger, params Timetable[] rows) => new(new Gateway(), new Sync(), new Timetables(rows), new Week(), new Overrides(), new Windows(), messenger);
     private sealed class Timetables(params Timetable[] rows) : ITimetableRepository { public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Timetable>>(rows); }
     private sealed class Week(params WeekScheduleEntry[] entries) : IWeekScheduleRepository { public Task<WeekSchedule> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(entries.Length == 0 ? WeekSchedule.Empty : new WeekSchedule(entries)); }
