@@ -141,8 +141,23 @@ public sealed class Phase5ViewModelTests
                 Assert.True(window.ActualHeight <= scaledWorkArea.Height);
                 var teacher = Assert.IsType<Button>(window.FindName("TeacherOption"));
                 var student = Assert.IsType<Button>(window.FindName("StudentOption"));
-                Assert.True(teacher.TranslatePoint(new Point(0, teacher.ActualHeight), window).Y <= window.ActualHeight);
-                Assert.True(student.TranslatePoint(new Point(0, student.ActualHeight), window).Y <= window.ActualHeight);
+                // The clamp leaves the window at the work-area height, which is roomier than the window's
+                // own minimum. Cards only overflow at that minimum, so check there rather than at 480.
+                window.Width = window.MinWidth;
+                window.Height = window.MinHeight;
+                window.UpdateLayout();
+                window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+                static void AssertCardFitsWindow(Window host, Button card, string label)
+                {
+                    double cardBottom = card.TranslatePoint(new Point(0, card.ActualHeight), host).Y;
+                    Assert.True(
+                        cardBottom <= host.ActualHeight,
+                        $"The {label} card overflows the window by {cardBottom - host.ActualHeight:F0} DIP at the minimum size, clipping its action label.");
+                }
+
+                AssertCardFitsWindow(window, teacher, "teacher");
+                AssertCardFitsWindow(window, student, "student");
                 Assert.True(teacher.Focusable);
                 Assert.True(student.Focusable);
                 Assert.Equal(0, KeyboardNavigation.GetTabIndex(teacher));

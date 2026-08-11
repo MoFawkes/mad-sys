@@ -79,6 +79,7 @@
         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions>
         <Button x:Name="TeacherOption" Grid.Column="0" MinHeight="210" Style="{StaticResource AudienceCardStyle}"
                 Click="OnTeacher" TabIndex="0" automation:AutomationProperties.Name="Continue as teacher">
+          <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
           <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <Border Width="82" Height="82" CornerRadius="41" Background="{DynamicResource ControlFillColorSecondaryBrush}" HorizontalAlignment="Center">
               <ui:SymbolIcon Symbol="HatGraduation24" FontSize="40" Foreground="{DynamicResource AccentBrush}" />
@@ -89,10 +90,12 @@
               <ui:SymbolIcon Symbol="ArrowRight20" Foreground="{DynamicResource AccentBrush}" Margin="7,0,0,0" />
             </StackPanel>
           </StackPanel>
+          </Viewbox>
         </Button>
 
         <Button x:Name="StudentOption" Grid.Column="2" MinHeight="210" Style="{StaticResource AudienceCardStyle}"
                 Click="OnStudent" TabIndex="1" automation:AutomationProperties.Name="Continue as student">
+          <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
           <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <Border Width="82" Height="82" CornerRadius="41" Background="{DynamicResource ControlFillColorSecondaryBrush}" HorizontalAlignment="Center">
               <ui:SymbolIcon Symbol="Person24" FontSize="40" Foreground="{DynamicResource AccentBrush}" />
@@ -103,8 +106,19 @@
               <ui:SymbolIcon Symbol="ArrowRight20" Foreground="{DynamicResource AccentBrush}" Margin="7,0,0,0" />
             </StackPanel>
           </StackPanel>
+          </Viewbox>
         </Button>
       </Grid>
     </Grid>
   </Grid>
 </ui:FluentWindow>
+
+
+
+
+
+
+
+
+
+
