@@ -56,6 +56,24 @@ public sealed class NotificationSchedulerTests
     }
 
     [Fact]
+    public async Task SimultaneousEndWarningsArePresentedOnceAndLoggedIndividually()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.Settings.Value = fixture.Settings.Value with { EndWarningMinutes = 5 };
+        fixture.SetPeriods(
+            new Period(Guid.NewGuid(), "Combined A", new(8, 0), new(8, 35), 0),
+            new Period(Guid.NewGuid(), "Combined B", new(8, 10), new(8, 35), 1));
+        using NotificationScheduler scheduler = fixture.Create();
+
+        await scheduler.StartAsync();
+        await scheduler.ProcessAsync(Monday);
+
+        IReadOnlyList<NotificationEvent> group = Assert.Single(fixture.Presenter.EndWarningGroups);
+        Assert.Equal(["Combined A", "Combined B"], group.Select(item => item.Occurrence.Period.Name).Order());
+        Assert.Equal(2, fixture.Log.Entries.Keys.Count(key => key.StartsWith("end-warning:", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public async Task MovedFutureLessonCanFireAgainWithSameStableKey()
     {
         SchedulerFixture fixture = CreateFixture(Monday);
@@ -291,10 +309,12 @@ public sealed class NotificationSchedulerTests
     {
         public int Starts { get; private set; } public int EndWarnings { get; private set; } public int Announcements { get; private set; }
         public List<IReadOnlyList<NotificationEvent>> StartGroups { get; } = [];
+        public List<IReadOnlyList<NotificationEvent>> EndWarningGroups { get; } = [];
         public List<AudienceType> AnnouncementAudiences { get; } = [];
         public Task ShowLessonStartAsync(NotificationEvent notification, CancellationToken cancellationToken = default) { Starts++; return Task.CompletedTask; }
         public Task ShowLessonStartsAsync(IReadOnlyList<NotificationEvent> notifications, CancellationToken cancellationToken = default) { StartGroups.Add(notifications.ToArray()); Starts += notifications.Count; return Task.CompletedTask; }
         public Task ShowEndWarningAsync(NotificationEvent notification, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default) { EndWarnings++; return Task.CompletedTask; }
+        public Task ShowEndWarningsAsync(IReadOnlyList<NotificationEvent> notifications, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default) { EndWarningGroups.Add(notifications.ToArray()); EndWarnings += notifications.Count; return Task.CompletedTask; }
         public Task ShowAnnouncementAsync(Announcement announcement, CancellationToken cancellationToken = default) { Announcements++; AnnouncementAudiences.Add(announcement.AudienceType); return Task.CompletedTask; }
         public Task ShowTestAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }

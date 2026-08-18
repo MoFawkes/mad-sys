@@ -12,8 +12,11 @@ public interface INotificationPresenter
             await ShowLessonStartAsync(notification, cancellationToken).ConfigureAwait(false);
     }
     Task ShowEndWarningAsync(NotificationEvent notification, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default);
-    Task ShowEndWarningsAsync(IReadOnlyList<NotificationEvent> notifications, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default)
-        => ShowEndWarningAsync(notifications[0], followingPeriod, warningMinutes, cancellationToken);
+    async Task ShowEndWarningsAsync(IReadOnlyList<NotificationEvent> notifications, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default)
+    {
+        foreach (NotificationEvent notification in notifications)
+            await ShowEndWarningAsync(notification, followingPeriod, warningMinutes, cancellationToken).ConfigureAwait(false);
+    }
     Task ShowAnnouncementAsync(Announcement announcement, CancellationToken cancellationToken = default);
     Task ShowTestAsync(CancellationToken cancellationToken = default);
 }
