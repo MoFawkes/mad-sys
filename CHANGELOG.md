@@ -17,6 +17,7 @@ teacher-feedback fixes onto one shared version number.
 - Aligned all seven mobile routes to the approved visual references and role-correct navigation hierarchy.
 - Added mobile join-code display and sharing, revoked-device recovery, and deep-link prefill.
 - Replaced the Expo template artwork with desktop quill-and-inkwell launcher, adaptive, splash, and favicon assets.
+- Added a schema-free timetable interruption reflow tool: insert a named non-lesson break after any row or shift a selected row and everything later by positive or negative minutes, with seam closing, duplicate-name disambiguation, and midnight guards.
 
 ### Changed
 

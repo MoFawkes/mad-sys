@@ -17,7 +17,7 @@ the acceptance script.
 | Source | `main` includes PR #15 acceptance fixes; v0.14.0 remains untagged pending final acceptance |
 | Production backend | Migration `20260807120000` applied; audience-aware schema and RPCs verified |
 | Latest release | v0.13.3 — role-choice audience chooser and display-scaling fixes |
-| Next release | v0.14.0 unified desktop teacher-feedback and Expo mobile acceptance |
+| Next release | v0.14.0 unified desktop teacher-feedback, interruption reflow, and Expo mobile acceptance |
 | Candidate CI | All four required checks passed for acceptance-fix PR #15 |
 | Release workflow | v0.13.3 is tag-published; do not tag v0.14.0 until rebuilt-binary acceptance clears |
 
@@ -56,6 +56,7 @@ mobile device acceptance to receive fixes they asked for.
 - Production reconciliation on 2026-08-01 found all seven migration versions and the complete student-device schema already applied. The hosted signup gate was verified against production intent: public email signup returned 403 **Public signup is disabled**, while an anonymous identity enrolled successfully and could select its own `student_devices` row under RLS.
 - The Pixel 9 Pro timing and endurance suite (`MOB-T01`–`MOB-T05`) passed by owner confirmation on 2026-08-12, clearing the physical-device drift, overnight-offline, three-day-background, and reboot-rescheduling gate. All emulator alarm rows (`MOB-A01`–`MOB-A05`) pass, alongside `MOB-F01`–`MOB-F09`, `MOB-F11`, `MOB-F12`, and `MOB-F15`–`MOB-F19`. `MOB-F07` now passes: ending the student session reduced pending lesson alarms from 60 to 0. `MOB-F10` still lacks direct cache-wipe evidence; join-code rotation and destructive device revocation remain open. Anonymous identities created during emulator acceptance have been deleted.
 - The v0.14.0 candidate carries desktop Back/Esc/title-bar navigation, merged multi-class agendas, shared-timetable deduplication, combined notifications, and mobile stale-alarm reconciliation. The Admin clash warning was withdrawn because legitimate staggered timetables overlap permanently; revisit it with the Part 4 generator model. Remaining release gates include desktop combined-notification and inactive-account checks, `MOB-F10`, `MOB-F13`, `MOB-F14`, and the multi-day Pixel `MOB-T06` class-switch endurance row.
+- Scope added on 2026-08-18: v0.14.0 also carries a schema-free desktop interruption reflow tool so term can start without hand-adjusting every later lesson when Maghrib moves. It inserts named non-lesson rows or shifts a selected row and all later rows, closes seams, rejects midnight crossings atomically, and continues saving ordinary periods through the existing whole-list RPC. The full block/anchor generator remains v0.15.0 work.
 - Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, and the desktop untagged-period notification semantic difference.
 
 ## v0.9.3 scope

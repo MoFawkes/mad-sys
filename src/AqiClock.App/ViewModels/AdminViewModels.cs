@@ -243,6 +243,10 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
     [ObservableProperty] private bool _hasConflict;
     [ObservableProperty] private string? _validationMessage;
     [ObservableProperty] private string? _warningMessage;
+    [ObservableProperty] private PeriodEditorItem? _selectedPeriod;
+    [ObservableProperty] private string _breakName = "Break";
+    [ObservableProperty] private int _breakMinutes = 20;
+    [ObservableProperty] private int _shiftMinutes;
     public ObservableCollection<Timetable> Items { get; } = [];
     public ObservableCollection<PeriodEditorItem> Periods { get; } = [];
 
@@ -280,6 +284,100 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
     [RelayCommand] private void RemovePeriod(PeriodEditorItem item) { Periods.Remove(item); IsDirty = true; }
     [RelayCommand] private void MoveUp(PeriodEditorItem item) { int index = Periods.IndexOf(item); if (index > 0) { Periods.Move(index, index - 1); IsDirty = true; } }
     [RelayCommand] private void MoveDown(PeriodEditorItem item) { int index = Periods.IndexOf(item); if (index >= 0 && index < Periods.Count - 1) { Periods.Move(index, index + 1); IsDirty = true; } }
+    [RelayCommand]
+    private void InsertBreak(PeriodEditorItem after)
+    {
+        ValidationMessage = null;
+        int afterIndex = Periods.IndexOf(after);
+        if (afterIndex < 0) { ValidationMessage = "Select the period after which to insert the break."; return; }
+        if (BreakMinutes <= 0) { ValidationMessage = "Break length must be greater than zero minutes."; return; }
+        if (string.IsNullOrWhiteSpace(BreakName)) { ValidationMessage = "Break name is required."; return; }
+        if (!TryDelta(BreakMinutes, out TimeSpan delta)) return;
+
+        int shiftIndex = afterIndex + 1;
+        if (!TryPlanShift(shiftIndex, delta, validateSeam: false, out var shifted)) return;
+        TimeSpan start = after.End;
+        TimeSpan end = shifted.Length == 0 ? start + delta : shifted[0].Start;
+        if (!IsMinuteWithinDay(start) || !IsMinuteWithinDay(end) || end <= start)
+        {
+            ValidationMessage = "That break would cross midnight or leave an invalid period boundary.";
+            return;
+        }
+
+        var inserted = new PeriodEditorItem
+        {
+            Id = Guid.NewGuid(),
+            Name = UniquePeriodName(BreakName.Trim()),
+            Start = start,
+            End = end,
+            IsLesson = false,
+        };
+        _loading = true;
+        try
+        {
+            Periods.Insert(shiftIndex, inserted);
+            ApplyShift(shifted);
+            SelectedPeriod = inserted;
+        }
+        finally { _loading = false; }
+        IsDirty = true;
+    }
+
+    [RelayCommand]
+    private void ShiftLater(PeriodEditorItem? from)
+    {
+        ValidationMessage = null;
+        int index = from is null ? -1 : Periods.IndexOf(from);
+        if (index < 0) { ValidationMessage = "Select the period from which to shift later rows."; return; }
+        if (ShiftMinutes == 0) { ValidationMessage = "Shift must be a non-zero number of minutes."; return; }
+        if (!TryDelta(ShiftMinutes, out TimeSpan delta) || !TryPlanShift(index, delta, validateSeam: true, out var shifted)) return;
+
+        _loading = true;
+        try
+        {
+            ApplyShift(shifted);
+            if (index > 0) Periods[index - 1].End = shifted[0].Start;
+        }
+        finally { _loading = false; }
+        IsDirty = true;
+    }
+
+    private bool TryDelta(int minutes, out TimeSpan delta)
+    {
+        try { delta = TimeSpan.FromMinutes(minutes); return true; }
+        catch (OverflowException) { delta = default; ValidationMessage = "The requested number of minutes is too large."; return false; }
+    }
+
+    private bool TryPlanShift(int index, TimeSpan delta, bool validateSeam, out (PeriodEditorItem Item, TimeSpan Start, TimeSpan End)[] shifted)
+    {
+        shifted = Periods.Skip(index).Select(item => (item, item.Start + delta, item.End + delta)).ToArray();
+        if (shifted.Any(item => !IsMinuteWithinDay(item.Item2) || !IsMinuteWithinDay(item.Item3)))
+        {
+            ValidationMessage = "That shift would move a period outside 00:00–23:59.";
+            return false;
+        }
+        if (validateSeam && index > 0 && shifted.Length > 0 && shifted[0].Item2 <= Periods[index - 1].Start)
+        {
+            ValidationMessage = "That shift would leave the preceding period with an invalid end time.";
+            return false;
+        }
+        return true;
+    }
+
+    private static bool IsMinuteWithinDay(TimeSpan value) => value >= TimeSpan.Zero && value <= new TimeSpan(23, 59, 0);
+    private static void ApplyShift(IEnumerable<(PeriodEditorItem Item, TimeSpan Start, TimeSpan End)> shifted)
+    {
+        foreach (var item in shifted) { item.Item.Start = item.Start; item.Item.End = item.End; }
+    }
+    private string UniquePeriodName(string requested)
+    {
+        if (!Periods.Any(item => string.Equals(item.Name.Trim(), requested, StringComparison.OrdinalIgnoreCase))) return requested;
+        for (int suffix = 2; ; suffix++)
+        {
+            string candidate = $"{requested} ({suffix})";
+            if (!Periods.Any(item => string.Equals(item.Name.Trim(), candidate, StringComparison.OrdinalIgnoreCase))) return candidate;
+        }
+    }
     [RelayCommand] private void MarkDirty() => IsDirty = true;
     [RelayCommand] private void Cancel() { if (Selected is not null) Select(Selected); }
     [RelayCommand]
