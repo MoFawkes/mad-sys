@@ -396,8 +396,8 @@ still require device verification.
 - [x] **MOB-F08 — Student fresh install:** sign in anonymously, enter the join code, select at least one class plus AM only, and confirm the choices survive an app restart.
 - [x] **MOB-F09 — Student audience:** confirm other-class periods/notifications are absent, untagged breaks/assemblies remain visible, a PM announcement is hidden, and a teachers announcement is absent from the API response.
 - [ ] **MOB-F10 — Student settings:** confirm there is no role switch or teacher-only surface, **Change my classes** reopens the picker, and **End student session** clears selection/session/cache.
-- [ ] **MOB-F11 — Join-code QR:** open desktop **Student devices**, confirm the grouped code and QR render, scan with the emulator virtual scene or enter it manually (record which), and confirm `/student-setup` opens prefilled without auto-submitting.
-- [ ] **MOB-F12 — Join-code normalisation:** enter the same code manually with spaces and confirm enrolment succeeds. Verify lowercase and dash-separated input also work.
+- [x] **MOB-F11 — Join-code QR:** open desktop **Student devices**, confirm the grouped code and QR render, scan with the emulator virtual scene or enter it manually (record which), and confirm `/student-setup` opens prefilled without auto-submitting.
+- [x] **MOB-F12 — Join-code normalisation:** enter the same code manually with spaces and confirm enrolment succeeds. Verify lowercase and dash-separated input also work.
 - [ ] **MOB-F13 — Join-code rotation:** rotate the code on desktop; the old code cannot enrol a new phone, the new code can, and an already-enrolled phone continues syncing.
 - [ ] **MOB-F14 — Device revocation:** remove all student devices on desktop; the phone routes to setup with **This device is no longer enrolled. Ask for a new join code.**
 - [x] **MOB-F15 — Non-admin refusal:** sign in as a non-admin teacher; the desktop tab and mobile section are absent, and a direct admin RPC call is refused.
@@ -419,16 +419,31 @@ still require device verification.
 
 **v0.14.0 rebuilt-APK result (2026-08-18): PARTIAL PASS.** EAS preview build
 `f9f0a6a3-fc7c-4d2c-aa4d-341d50170216` passed `MOB-F07`, `MOB-F18`,
-`MOB-F19`, and the mobile-only `MOB-A05`. Evening Session 1 + 2 produced one
+`MOB-F19`, and the mobile-only `MOB-A05`. The second emulator session also
+passed `MOB-F11` and `MOB-F12`. Evening Session 1 + 2 produced one
 ordered, class-labelled agenda; routing both to Part-Time 1 produced its six
-rows once each without labels. Ending the student session reduced pending
-lesson alarms from 60 to 0, clearing the failure recorded on 2026-08-12. Two
+rows once each without labels. A single-class Morning Year 1-5 device showed
+nine unlabelled periods, completing the single-class half of `MOB-F18`.
+Ending the student session reduced pending lesson alarms from 60 to 0, clearing
+the failure recorded on 2026-08-12. Two
 20:48 periods produced one exact alarm and one notification whose Android text
 was `ZZ Combined B\nZZ Combined A`; A's five-minute end warning was correctly
-suppressed and B's fired separately at 20:49. `MOB-F10` remains unchecked:
-Settings exposed only the student controls and version 0.14.0, but the SQLite
-cache wipe was not inspected. The positive overlapping-timetable warning was
-observed, but `MOB-F20` was removed because real staggered class timetables make
+suppressed and B's fired separately at 20:49. For `MOB-F11`, the desktop
+grouped code and QR rendered correctly; the deep link
+`aqiclock-mobile://student-setup?code=…` was fired directly through ADB—not
+scanned with a camera—and opened `/student-setup` with the code prefilled but
+not submitted. The camera path remains unexercised. For `MOB-F12`,
+`U8BU-C6QP YU8N-6HH5` enrolled successfully. The UI auto-uppercases input, so
+lowercase cannot be submitted there; the server handles spaces, dashes, and
+case through one `upper(regexp_replace(...))` normalization path.
+`MOB-F10` remains unchecked: teardown reopened the picker unticked, **Change
+my classes** reopened it with the selection preserved, and only student
+controls were present. The SQLite wipe could not be inspected on the
+non-debuggable release APK and non-rooted emulator because both `run-as` and
+`du` were refused. Closing the row requires a debuggable build or an explicit
+waiver based on `wipeCache()` and its automated coverage. The positive
+overlapping-timetable warning was observed, but `MOB-F20` was removed because
+real staggered class timetables make
 that warning permanently noisy; the feature is deferred to the generator work.
 
 **Pixel 9 Pro result (2026-08-12): PASS.** The owner confirmed all five
