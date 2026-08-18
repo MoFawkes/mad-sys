@@ -52,6 +52,18 @@ public sealed class Phase5ViewModelTests
     }
 
     [Fact]
+    public void ReturningToRoleChoiceShowsDestinationBeforeClosingSignIn()
+    {
+        var calls = new List<string>();
+
+        WindowLifecycle.TransitionKeepingApplicationAlive(
+            () => calls.Add("show role choice"),
+            () => calls.Add("close sign in"));
+
+        Assert.Equal(["show role choice", "close sign in"], calls);
+    }
+
+    [Fact]
     public void SecondLaunchTargetsTheVisibleSignedOutSurface()
     {
         Assert.Equal(ActivationTarget.SignIn, WindowLifecycle.TargetForActivation(SessionState.SignedOut, false));
