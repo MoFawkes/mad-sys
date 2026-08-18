@@ -356,6 +356,12 @@ rehearsal runs automatically in CI.
 - [ ] Edit a period on desktop machine A and confirm it reaches machine B through Realtime without restarting either app.
 - [ ] Enter a wrong password and confirm the message is **Incorrect email or password**. Revoke a stored refresh token and confirm restart returns to the sign-in window rather than leaving a silent dead session.
 
+## v0.14.0 desktop teacher-feedback checks
+
+- [ ] From role choice, open teacher sign-in and use **Back**; confirm role choice returns and the app does not exit. Repeat with Esc.
+- [ ] From the student class picker, use **Back** and confirm role choice returns. Repeat after the device is already enrolled as a student device.
+- [ ] Sign in with a confirmed inactive Windows account and confirm the message is **Your account is inactive; contact an administrator.** rather than a connectivity error.
+
 ## v0.14.0 mobile acceptance checks
 
 **Preview APK evidence (2026-08-01):** EAS build
@@ -388,15 +394,20 @@ still require device verification.
 - [x] **MOB-F15 — Non-admin refusal:** sign in as a non-admin teacher; the desktop tab and mobile section are absent, and a direct admin RPC call is refused.
 - [x] **MOB-F16 — App identity:** inspect launcher circle/squircle masks and navy splash at device size for clipping or aliasing.
 - [x] **MOB-F17 — Settings:** verify all three notification toggles persist, end-warning clamps at 0 and 15, About reports v0.14.0, and the tab label is **Announcements** with no tab-screen back arrows.
+- [ ] **MOB-F18 — Merged multi-class agenda:** enrol a device in two classes whose weekday routes to different timetables; confirm both classes' periods appear in one ordered list with class labels. Confirm a single-class device shows no labels.
+- [ ] **MOB-F19 — Shared timetable:** enrol a device in two classes routed to the same timetable; confirm every period appears once, no class label is shown, and lesson notifications remain scheduled.
+- [ ] **MOB-F20 — Admin clash warning:** assign two classes different overlapping timetables and confirm Admin shows a non-blocking clash warning. Route both classes to the same timetable and confirm no warning appears.
 - [x] **MOB-A01 — Exact alarms (emulator):** confirm `SCHEDULE_EXACT_ALARM` is allowed and `dumpsys alarm` shows exact alarms for `com.mofawkes.aqiclock`.
 - [x] **MOB-A02 — Forced Doze (emulator):** force idle, observe an exact lesson notification, then leave forced idle.
 - [x] **MOB-A03 — Rescheduling (emulator):** move a period on desktop, foreground the phone, and confirm old pending notifications are cancelled and replacements use the new time.
 - [x] **MOB-A04 — Permission denied (emulator):** deny notification permission and confirm clock, sync, and announcements continue working.
+- [ ] **MOB-A05 — Combined notifications:** create two periods starting in the same minute and confirm desktop and mobile each produce one notification listing both periods.
 - [x] **MOB-T01 — Start drift (Pixel 9 Pro):** unplug the phone, leave battery optimisation at **Optimised**, background the app with a lesson start at least 10 minutes ahead, and record scheduled time, delivered time, and drift from Notification history.
 - [x] **MOB-T02 — End-warning drift (Pixel 9 Pro):** repeat for a 2-minute end warning and record scheduled time, delivered time, and drift.
 - [x] **MOB-T03 — Overnight offline (Pixel 9 Pro):** leave the phone offline overnight and confirm the next day's previously scheduled notifications arrive; record delivery timestamps from Notification history.
 - [x] **MOB-T04 — Three-day background (Pixel 9 Pro):** background/close the app for three days without opening it and confirm the background task keeps extending the pending notification window.
 - [x] **MOB-T05 — Reboot reschedule (Pixel 9 Pro):** reboot and confirm `RECEIVE_BOOT_COMPLETED` restores pending notifications.
+- [ ] **MOB-T06 — Class-switch endurance (Pixel 9 Pro):** enrol as class A and let notifications schedule, switch to class B, then verify over several days under forced Doze that no class A notification arrives.
 
 **Pixel 9 Pro result (2026-08-12): PASS.** The owner confirmed all five
 `MOB-T01`–`MOB-T05` checks passed on physical hardware, including start and

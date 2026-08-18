@@ -2,15 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased - 2026-08-18 teacher feedback fixes
+## 0.14.0 - Unreleased
+
+This release brings the held Expo mobile companion and the latest desktop
+teacher-feedback fixes onto one shared version number.
+
+### Added
+
+- Added an Expo SDK 54 mobile companion for teachers and students with offline SQLite snapshots, live clock/today views, targeted announcements, local read state, and role-aware settings.
+- Added OS-scheduled lesson-start and end-warning reconciliation with a 60-request cap, best-effort background extension, permissions/channel handling, and announcement deduplication.
+- Added exact-alarm permissions so lesson notifications are not batched by Doze.
+- Added EAS development, preview, and production build profiles without store submission.
+- Added the stable Android package id and client-safe hosted Supabase configuration required for installable preview APKs.
+- Aligned all seven mobile routes to the approved visual references and role-correct navigation hierarchy.
+- Added mobile join-code display and sharing, revoked-device recovery, and deep-link prefill.
+- Replaced the Expo template artwork with desktop quill-and-inkwell launcher, adaptive, splash, and favicon assets.
 
 ### Changed
 
+- Ported the schedule engine to pure TypeScript with desktop-compatible event keys, wall-clock arithmetic, weekday conversion, and case-for-case tests.
 - Multi-class student devices now resolve every matching weekday timetable into one ordered agenda, show class labels, and surface cross-class overlaps as non-blocking Admin warnings.
 - Lesson events firing at the same instant are combined into one desktop or mobile notification while retaining per-event desktop deduplication records.
 
 ### Fixed
 
+- Treated untagged periods as school-wide on mobile so breaks and assemblies remain visible.
+- Baseline existing announcements only after the first complete announcements snapshot, preventing fresh-install notification bursts.
+- Surface inactive teacher accounts explicitly instead of showing an unexplained empty timetable.
+- Stopped student sessions reporting inactive-account state when their profile snapshot is correctly empty under RLS.
 - Added visible, keyboard-accessible Back actions to teacher sign-in and the desktop student class picker.
 - Reconciled mobile notifications from the audience-filtered snapshot in the institute timezone, cancelled old lesson alarms when student selection is revoked, serialized reconciliation, and refresh notification text when period names change.
 
@@ -53,34 +72,6 @@ Ships the teacher-feedback work alongside institute time zones; 0.13.1 was never
 - Added secured save/delete RPCs, cache schema v3, deterministic audience resolution, and the null-track-means-closed rule.
 - Prompt users to restart when a downloaded desktop update is ready, and relaunch automatically after Velopack applies it.
 - v0.11.3 is the migration prerequisite and preserves default-row saves through the two-argument compatibility RPC. Remaining rollout gate: apply the migration, upgrade every client to cache schema v3, and only then create the first class-specific row; older caches cannot store two rows for one weekday.
-
-## 0.14.0 - Unreleased (Expo mobile companion)
-
-Renumbered from the held 0.12.0 scope because the mobile companion now follows
-the desktop v0.13.0 release. Held for emulator and physical-device Android
-acceptance; see `docs/MANUAL-TESTS.md`.
-
-### Added
-
-- Added an Expo SDK 54 mobile companion for teachers and students with offline SQLite snapshots, live clock/today views, targeted announcements, local read state, and role-aware settings.
-- Added OS-scheduled lesson-start and end-warning reconciliation with a 60-request cap, best-effort background extension, permissions/channel handling, and announcement deduplication.
-- Added exact-alarm permissions so lesson notifications are not batched by Doze. `expo-notifications` no longer declares them on the app's behalf, so the first preview APK shipped without them.
-- Added EAS development, preview, and production build profiles without store submission.
-- Added the stable Android package id and client-safe hosted Supabase configuration required for installable preview APKs.
-- Aligned all seven mobile routes to the approved visual references, including the integrated NOW card, stateful Today rows, announcement card anatomy, separated class/Naseehah picker sections, and role-correct Settings hierarchy.
-- Added mobile join-code display and sharing, revoked-device recovery, and deep-link prefill.
-- Replaced the Expo template artwork with desktop quill-and-inkwell launcher, adaptive, splash, and favicon assets.
-
-### Changed
-
-- Ported the schedule engine to pure TypeScript with desktop-compatible event keys, wall-clock arithmetic, weekday conversion, and case-for-case tests.
-
-### Fixed
-
-- Treated untagged periods as school-wide on mobile so breaks and assemblies remain visible.
-- Baseline existing announcements only after the first complete announcements snapshot, preventing fresh-install notification bursts.
-- Surface inactive teacher accounts explicitly instead of showing an unexplained empty timetable.
-- Stopped student sessions reporting "Your account is inactive". Students synced the `profiles` table, whose empty RLS snapshot was read as a deactivated account, flipping the session into teacher mode and disabling class filtering.
 
 ## 0.11.3 - 2026-08-08
 

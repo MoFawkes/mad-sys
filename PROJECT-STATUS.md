@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-08-08
+Last updated: 2026-08-18
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -12,14 +12,14 @@ the acceptance script.
 
 | Area | State |
 |---|---|
-| Staff pilot | v0.13.0 is published; allow every desktop to reach cache schema v3 before enabling class-specific week-schedule rows |
-| Public release channel | v0.13.0 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main` at `c99bada`; v0.13.0 tagged at that merge commit |
+| Staff pilot | v0.13.3 is published; v0.14.0 acceptance combines the desktop teacher-feedback fixes and mobile companion |
+| Public release channel | v0.13.3 is live on `MoFawkes/aqi-clock-releases` |
+| Source | `main` at `2f22c22` (v0.13.3); candidate branch `timetable-editor-hour-minute` at `2f39e1f` pending PR |
 | Production backend | Migration `20260807120000` applied; audience-aware schema and RPCs verified |
-| Latest release | v0.13.0 — audience-aware week schedules, cache schema v3, and update restart prompting |
-| Next release | v0.14.0 Expo mobile acceptance |
-| Candidate CI | Merged-main run `31263296370` green at `c99bada` |
-| Release workflow | v0.13.0 tag-bound run `31263452228` green; public assets and stable feed verified |
+| Latest release | v0.13.3 — role-choice audience chooser and display-scaling fixes |
+| Next release | v0.14.0 unified desktop teacher-feedback and Expo mobile acceptance |
+| Candidate CI | Local gates green at `2f39e1f`; PR CI pending |
+| Release workflow | v0.13.3 is tag-published; do not tag v0.14.0 until rebuilt-binary acceptance clears |
 
 ## Release split — decided 2026-08-02
 
@@ -29,6 +29,10 @@ Release train update, 2026-08-08: v0.11.3 supplies the compatibility RPC,
 v0.13.0 introduces audience-aware week schedules and cache schema v3, and the
 held Expo companion is renumbered to v0.14.0 so it follows those prerequisites.
 
+Release train update, 2026-08-18: the desktop teacher-feedback fixes and held
+mobile companion now ship together as v0.14.0. Desktop MinVer and the existing
+mobile package/app metadata therefore converge on the same version number.
+
 The desktop work was previously recorded as unable to ship alone because enrolment needs
 `enroll_student_device` and the student RLS migrations. That dependency is **already
 satisfied**: production carries all seven migration versions (audited 2026-08-01) and `main`
@@ -37,11 +41,11 @@ publishes only the Windows Velopack artifact, and the mobile APK is distributed 
 it stays invisible to users until one is shared. Teachers therefore do not need to wait for
 mobile device acceptance to receive fixes they asked for.
 
-## v0.14.0 mobile state
+## v0.14.0 unified desktop and mobile state
 
 - Phases 0–10 are implemented: the original mobile scope, visual alignment, isolated/admin-distributed join codes with desktop QR and mobile sharing, revoked-device recovery, and desktop-brand icon parity.
 - The additive student-device migration and signup hook are covered by the release-gating Supabase matrix; the existing staff/admin matrix remains in scope.
-- Mobile automated gates are Jest, TypeScript, and ESLint in their own CI job. On 2026-08-12, all 101 Jest tests, TypeScript, ESLint, Expo dependency validation, and the Android Hermes export passed at version 0.14.0. Existing .NET and Supabase required checks remain unfiltered.
+- Mobile automated gates are Jest, TypeScript, and ESLint in their own CI job. On 2026-08-18, all 105 Jest tests, TypeScript, and ESLint passed at version 0.14.0; the full .NET run passed 218 tests with one interactive test skipped. Existing Supabase required checks remain unfiltered.
 - Distribution is an internal Android APK from the EAS `preview` profile; iOS and store submission are out of scope.
 - The 2026-08-01 desktop follow-up is merged on `main`: staff sessions tolerate boot-time network races and refresh proactively; desktop students use anonymous enrolment with persisted choices and student-scoped sync; Admin/Settings sizing and editor interruptions are corrected. It ships as v0.11.0 on its own — see the release-split section above.
 - EAS preview build `f2b8871d-919f-41df-96e6-104b621cbee4` from `357e48f` shipped with `POST_NOTIFICATIONS` and `RECEIVE_BOOT_COMPLETED` but **neither exact-alarm permission**: `expo-notifications` 0.32.17 no longer declares `SCHEDULE_EXACT_ALARM` for its consumers, so Android 12+ fell back to inexact alarms, which Doze batches to roughly nine-minute granularity.
@@ -49,6 +53,7 @@ mobile device acceptance to receive fixes they asked for.
 - The 2026-08-02 emulator notes referred only to mutable source line numbers, which now land in the APK-evidence prose rather than checklist rows. That evidence is untraceable, credits no current acceptance row, and must not be relied on. Re-run the emulator checklist using the stable `MOB-F*` and `MOB-A*` identifiers in `docs/MANUAL-TESTS.md`; Pixel-only timing and endurance rows use `MOB-T*`.
 - Production reconciliation on 2026-08-01 found all seven migration versions and the complete student-device schema already applied. The hosted signup gate was verified against production intent: public email signup returned 403 **Public signup is disabled**, while an anonymous identity enrolled successfully and could select its own `student_devices` row under RLS.
 - The Pixel 9 Pro timing and endurance suite (`MOB-T01`–`MOB-T05`) passed by owner confirmation on 2026-08-12, clearing the physical-device drift, overnight-offline, three-day-background, and reboot-rescheduling gate. All emulator alarm rows (`MOB-A01`–`MOB-A04`) pass, alongside `MOB-F01`–`MOB-F06`, `MOB-F08`, `MOB-F09`, `MOB-F15`–`MOB-F17`. Source fixes now use atomic Expo notification cancellation on sign-out and map Windows inactive-profile sync failures to the correct account message. `MOB-F07` and the Windows fix still require rebuilt-binary re-tests before release. Remaining mobile acceptance also includes destructive join-code/device/session scenarios.
+- The v0.14.0 candidate also carries desktop Back/Esc navigation, merged multi-class agendas, shared-timetable deduplication, clash warnings, combined notifications, and mobile stale-alarm reconciliation. Rebuilt-binary acceptance is tracked by `MOB-F18`–`MOB-F20`, `MOB-A05`, and the multi-day Pixel `MOB-T06` class-switch endurance row.
 - Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, and the desktop untagged-period notification semantic difference.
 
 ## v0.9.3 scope
