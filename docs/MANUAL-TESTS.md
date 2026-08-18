@@ -358,18 +358,18 @@ rehearsal runs automatically in CI.
 
 ## v0.14.0 desktop teacher-feedback checks
 
-- [x] From role choice, open teacher sign-in and use **Back**; confirm role choice returns and the app does not exit. Repeat with Esc.
+- [x] From role choice, open teacher sign-in and use **Back**; confirm role choice returns and the app does not exit. Repeat with Esc and the title-bar X.
 - [x] From the student class picker, use **Back** and confirm role choice returns. Repeat after the device is already enrolled as a student device.
 - [ ] Sign in with a confirmed inactive Windows account and confirm the message is **Your account is inactive; contact an administrator.** rather than a connectivity error.
 - [ ] Create two lesson periods starting in the same minute and confirm desktop produces one notification listing both periods.
 
-**Desktop teacher-feedback result (2026-08-18): PARTIAL PASS.** The rebuilt
-`0.13.4-dev.2+5a237c6` binary returned from teacher sign-in through both **Back**
-and Esc without exiting, and picker Back returned correctly. Closing teacher
-sign-in with the title-bar X still exited because WPF reached zero windows
-before the `Closed` handler could reopen role choice. That X path remains a
-release blocker pending rebuild and re-test. The inactive-account and combined
-desktop-notification rows also remain open.
+**Desktop teacher-feedback result (2026-08-18): PASS.** The isolated-profile
+scripted pass against `0.13.4-dev.5+62d1434` confirmed **Back**, Esc, and the
+title-bar X each returned from teacher sign-in to role choice with the process
+still alive. Picker Back also returned to role choice. The installed app was
+stopped for the single-instance mutex and restored afterward; the isolated
+profile made no production writes. The inactive-account and combined
+desktop-notification rows remain separate open gates.
 
 ## v0.14.0 mobile acceptance checks
 
