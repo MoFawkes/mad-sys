@@ -75,7 +75,7 @@ Rules:
 - Admins edit timetables, periods, the week schedule, and date overrides in-app.
 - Editing requires an active connection (writes go straight to Supabase; no offline edit queue — see DECISIONS.md ADR-007).
 - Validation on save: end > start; warn (not block) on overlapping periods within a timetable; block duplicate period names within a timetable.
-- The timetable editor can insert a named non-lesson interruption after a row and shift a selected row plus every later row by signed minutes. Reflow closes the preceding seam, disambiguates inserted names, and rejects the whole operation if any resulting minute falls outside 00:00–23:59.
+- The timetable editor can insert a named non-lesson interruption after a row and shift a selected row plus every later row by signed minutes. Reflow closes the preceding seam, disambiguates inserted names, and rejects the whole operation if any resulting minute falls outside 00:00–23:59. The entered break length is the amount by which later rows move; if the source timetable already has a gap after the chosen row, the inserted break absorbs that gap and its displayed duration is correspondingly longer.
 - Edits propagate to all clients via Supabase Realtime within seconds; each client recomputes its display and reschedules notifications immediately.
 
 ### 3.7 Staff read-only mode
