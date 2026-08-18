@@ -129,6 +129,14 @@ Admin and Settings leave their XAML `CenterOwner` startup location untouched unt
 
 ## Open items awaiting owner input (not architectural blockers)
 See SPECIFICATION.md §5 (B-1 … B-8): timezone, school week, default warning minutes, account model, audit retention, Supabase tier, update hosting, branding.
+
+## ADR-026: Merge every selected class timetable
+**Accepted** 2026-08-18.
+When a device selects more than one class, weekday resolution returns every matching class-specific assignment and merges their valid periods by start time and sort order. The default assignment is used only when no selected class has a matching row. Each merged period retains its source class for conditional clock labels, and Admin warns without blocking when class timetables overlap. Notifications that share a trigger instant and kind are presented as one composite notification while their underlying event identities remain stable. Rejected: silently choosing the lowest class identifier and emitting stacked notifications.
+
+## ADR-027: Generated timetables retain expanded periods as the wire format
+**Accepted** 2026-08-18; implementation deferred to the generator release.
+Generated timetables are authored as blocks plus named interruptions, then deterministically expanded into ordinary period rows. The generator is the only editing source for generated timetables; expanded rows are read-only previews and remain compatible with existing clients. Period identifiers derive from block and slot identity, names are disambiguated within a timetable, and legacy timetables remain manually editable until explicitly converted. Rejected: prayer-specific runtime logic and independently editable generated rows.
 ## Audience week-schedule follow-ups
 
 - Teacher preview of a non-default track needs a separate persisted `PreviewClassIds` concept and UI; it must not reuse student audience selection because that changes announcement visibility.

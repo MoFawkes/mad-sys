@@ -50,6 +50,47 @@ public sealed class ResolveDayTests
     }
 
     [Fact]
+    public void AllSelectedClassTimetablesAreMerged()
+    {
+        Guid firstClass = Guid.Parse("7fffffff-0000-0000-0000-000000000001");
+        Guid secondClass = Guid.Parse("80000000-0000-0000-0000-000000000002");
+        Timetable first = Tt("First", P("First lesson", "09:00", "10:00"));
+        Timetable second = Tt("Second", P("Second lesson", "09:30", "10:30"));
+        var week = new WeekSchedule([
+            new(Guid.NewGuid(), DayOfWeek.Monday, secondClass, second.Id),
+            new(Guid.NewGuid(), DayOfWeek.Monday, firstClass, first.Id),
+        ]);
+        var snapshot = new ScheduleSnapshot([first, second], week, [], new HashSet<Guid> { secondClass, firstClass });
+
+        EffectiveDay day = ScheduleEngine.ResolveDay(snapshot, Monday);
+
+        Assert.Equal([first.Id, second.Id], day.Timetables.Select(item => item.Id));
+        Assert.Equal(["First lesson", "Second lesson"], day.Periods.Select(item => item.Name));
+        Assert.Equal([firstClass, secondClass], day.ScheduledPeriods.Select(item => item.ClassId));
+    }
+
+    [Fact]
+    public void SelectedClassesSharingATimetableEmitItOnceWithoutAClassLabel()
+    {
+        Guid firstClass = Guid.NewGuid();
+        Guid secondClass = Guid.NewGuid();
+        Timetable normal = NormalDay();
+        var week = new WeekSchedule([
+            new(Guid.NewGuid(), DayOfWeek.Monday, firstClass, normal.Id),
+            new(Guid.NewGuid(), DayOfWeek.Monday, secondClass, normal.Id),
+        ]);
+        var snapshot = new ScheduleSnapshot([normal], week, [], new HashSet<Guid> { firstClass, secondClass });
+
+        EffectiveDay day = ScheduleEngine.ResolveDay(snapshot, Monday);
+        IReadOnlyList<NotificationEvent> events = ScheduleEngine.GetNotificationEvents(snapshot, Monday, TimeSpan.FromMinutes(5));
+
+        Assert.Single(day.Timetables);
+        Assert.Equal(normal.Periods.Count, day.Periods.Count);
+        Assert.All(day.ScheduledPeriods, item => Assert.Null(item.ClassId));
+        Assert.Equal(events.Count, events.Select(item => item.Key).Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
     public void UnassignedWeekdayIsNoSchool()
     {
         ScheduleSnapshot snapshot = WeekOf(NormalDay());

@@ -27,5 +27,9 @@ public sealed record EffectiveDay(
     EffectiveDaySource Source,
     IReadOnlyList<Period> Periods)
 {
+    // Compatibility defaults keep hand-constructed single-timetable days concise.
+    // ScheduleEngine.ResolveDay always replaces both properties with the fully resolved sources.
+    public IReadOnlyList<Timetable> Timetables { get; init; } = Timetable is null ? [] : [Timetable];
+    public IReadOnlyList<ScheduledPeriod> ScheduledPeriods { get; init; } = Periods.Select(period => new ScheduledPeriod(period, null)).ToArray();
     public bool IsSchoolDay => Periods.Count > 0;
 }

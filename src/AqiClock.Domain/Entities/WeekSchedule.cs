@@ -22,12 +22,20 @@ public sealed class WeekSchedule
 
     public WeekScheduleEntry? ResolveFor(DayOfWeek weekday, IReadOnlySet<Guid> audienceClassIds)
     {
+        IReadOnlyList<WeekScheduleEntry> entries = ResolveAllFor(weekday, audienceClassIds);
+        return entries.Count == 0 ? null : entries[0];
+    }
+
+    public IReadOnlyList<WeekScheduleEntry> ResolveAllFor(DayOfWeek weekday, IReadOnlySet<Guid> audienceClassIds)
+    {
         ArgumentNullException.ThrowIfNull(audienceClassIds);
-        WeekScheduleEntry? match = _entries
+        WeekScheduleEntry[] matches = _entries
             .Where(entry => entry.Weekday == weekday && entry.AudienceClassId is { } classId && audienceClassIds.Contains(classId))
             .OrderBy(entry => entry.AudienceClassId!.Value.ToString("D"), StringComparer.Ordinal)
-            .FirstOrDefault();
-        return match ?? _entries.FirstOrDefault(entry => entry.Weekday == weekday && entry.AudienceClassId is null);
+            .ToArray();
+        if (matches.Length > 0) return matches;
+        WeekScheduleEntry? fallback = _entries.FirstOrDefault(entry => entry.Weekday == weekday && entry.AudienceClassId is null);
+        return fallback is null ? [] : [fallback];
     }
 
     public Guid? TimetableIdFor(DayOfWeek weekday) => ResolveFor(weekday, new HashSet<Guid>())?.TimetableId;

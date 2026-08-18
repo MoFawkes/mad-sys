@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased - 2026-08-18 teacher feedback fixes
+
+### Changed
+
+- Multi-class student devices now resolve every matching weekday timetable into one ordered agenda, show class labels, and surface cross-class overlaps as non-blocking Admin warnings.
+- Lesson events firing at the same instant are combined into one desktop or mobile notification while retaining per-event desktop deduplication records.
+
+### Fixed
+
+- Added visible, keyboard-accessible Back actions to teacher sign-in and the desktop student class picker.
+- Reconciled mobile notifications from the audience-filtered snapshot in the institute timezone, cancelled old lesson alarms when student selection is revoked, serialized reconciliation, and refresh notification text when period names change.
+
 ## 0.13.3 - 2026-08-11 (role choice)
 
 ### Changed

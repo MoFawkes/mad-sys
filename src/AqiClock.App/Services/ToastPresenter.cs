@@ -21,23 +21,31 @@ public sealed class ToastPresenter : INotificationPresenter, IDisposable
     }
 
     public Task ShowLessonStartAsync(NotificationEvent notification, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        new ToastContentBuilder()
-            .AddArgument("action", "open")
-            .AddText(notification.Occurrence.Period.Name)
-            .AddText(string.Create(CultureInfo.CurrentCulture, $"Started now · ends {notification.Occurrence.Period.EndTime:HH:mm}{InstituteSuffix()}"))
-            .Show();
-        return Task.CompletedTask;
-    }
+        => ShowLessonStartsAsync([notification], cancellationToken);
 
-    public Task ShowEndWarningAsync(NotificationEvent notification, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default)
+    public Task ShowLessonStartsAsync(IReadOnlyList<NotificationEvent> notifications, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ToastContentBuilder toast = new ToastContentBuilder()
             .AddArgument("action", "open")
-            .AddText(string.Create(CultureInfo.CurrentCulture, $"Lesson ends in {warningMinutes} minutes"))
-            .AddText(string.Create(CultureInfo.CurrentCulture, $"{notification.Occurrence.Period.Name} ends at {notification.Occurrence.Period.EndTime:HH:mm}{InstituteSuffix()}"));
+            .AddText(notifications.Count == 1 ? "Lesson starting" : "Lessons starting");
+        foreach (NotificationEvent notification in notifications)
+            toast.AddText(string.Create(CultureInfo.CurrentCulture, $"{notification.Occurrence.Period.Name} · ends {notification.Occurrence.Period.EndTime:HH:mm}{InstituteSuffix()}"));
+        toast.Show();
+        return Task.CompletedTask;
+    }
+
+    public Task ShowEndWarningAsync(NotificationEvent notification, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default)
+        => ShowEndWarningsAsync([notification], followingPeriod, warningMinutes, cancellationToken);
+
+    public Task ShowEndWarningsAsync(IReadOnlyList<NotificationEvent> notifications, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ToastContentBuilder toast = new ToastContentBuilder()
+            .AddArgument("action", "open")
+            .AddText(string.Create(CultureInfo.CurrentCulture, $"{(notifications.Count == 1 ? "Lesson ends" : "Lessons end")} in {warningMinutes} minutes"));
+        foreach (NotificationEvent notification in notifications)
+            toast.AddText(string.Create(CultureInfo.CurrentCulture, $"{notification.Occurrence.Period.Name} · {notification.Occurrence.Period.EndTime:HH:mm}{InstituteSuffix()}"));
         if (followingPeriod is not null)
             toast.AddText($"Next: {followingPeriod.Period.Name}");
         toast.Show();

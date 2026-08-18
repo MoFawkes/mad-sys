@@ -41,15 +41,15 @@ mobile device acceptance to receive fixes they asked for.
 
 - Phases 0–10 are implemented: the original mobile scope, visual alignment, isolated/admin-distributed join codes with desktop QR and mobile sharing, revoked-device recovery, and desktop-brand icon parity.
 - The additive student-device migration and signup hook are covered by the release-gating Supabase matrix; the existing staff/admin matrix remains in scope.
-- Mobile automated gates are Jest, TypeScript, and ESLint in their own CI job. Existing .NET and Supabase required checks remain unfiltered.
+- Mobile automated gates are Jest, TypeScript, and ESLint in their own CI job. On 2026-08-12, all 101 Jest tests, TypeScript, ESLint, Expo dependency validation, and the Android Hermes export passed at version 0.14.0. Existing .NET and Supabase required checks remain unfiltered.
 - Distribution is an internal Android APK from the EAS `preview` profile; iOS and store submission are out of scope.
 - The 2026-08-01 desktop follow-up is merged on `main`: staff sessions tolerate boot-time network races and refresh proactively; desktop students use anonymous enrolment with persisted choices and student-scoped sync; Admin/Settings sizing and editor interruptions are corrected. It ships as v0.11.0 on its own — see the release-split section above.
 - EAS preview build `f2b8871d-919f-41df-96e6-104b621cbee4` from `357e48f` shipped with `POST_NOTIFICATIONS` and `RECEIVE_BOOT_COMPLETED` but **neither exact-alarm permission**: `expo-notifications` 0.32.17 no longer declares `SCHEDULE_EXACT_ALARM` for its consumers, so Android 12+ fell back to inexact alarms, which Doze batches to roughly nine-minute granularity.
-- Superseded by build `47b10fa9-a2db-4958-8291-eb3779583c7c` from `3f20549`, which declares both `USE_EXACT_ALARM` and `SCHEDULE_EXACT_ALARM` (verified in its merged manifest) and carries the student-session fix. SHA-256 `9B9C80DB17D546BDB4AA6912F9C0DF9AF3E7FF26F1083817ABEE3A3DB64BFDF8`. Drift itself is still unmeasured and needs physical hardware.
+- Superseded by build `47b10fa9-a2db-4958-8291-eb3779583c7c` from `3f20549`, which declares both `USE_EXACT_ALARM` and `SCHEDULE_EXACT_ALARM` (verified in its merged manifest) and carries the student-session fix. SHA-256 `9B9C80DB17D546BDB4AA6912F9C0DF9AF3E7FF26F1083817ABEE3A3DB64BFDF8`. The subsequent Pixel 9 Pro timing and endurance suite passed by owner confirmation on 2026-08-12.
 - The 2026-08-02 emulator notes referred only to mutable source line numbers, which now land in the APK-evidence prose rather than checklist rows. That evidence is untraceable, credits no current acceptance row, and must not be relied on. Re-run the emulator checklist using the stable `MOB-F*` and `MOB-A*` identifiers in `docs/MANUAL-TESTS.md`; Pixel-only timing and endurance rows use `MOB-T*`.
 - Production reconciliation on 2026-08-01 found all seven migration versions and the complete student-device schema already applied. The hosted signup gate was verified against production intent: public email signup returned 403 **Public signup is disabled**, while an anonymous identity enrolled successfully and could select its own `student_devices` row under RLS.
-- Release remains blocked on the physical Android checklist and measured Android 13+ notification drift. The overnight offline and notification passes plus the three-day background pass impose a roughly four-day wall-clock acceptance floor from the start of device testing. See `docs/MANUAL-TESTS.md`.
-- Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, Android drift, and the desktop untagged-period notification semantic difference.
+- The Pixel 9 Pro timing and endurance suite (`MOB-T01`–`MOB-T05`) passed by owner confirmation on 2026-08-12, clearing the physical-device drift, overnight-offline, three-day-background, and reboot-rescheduling gate. All emulator alarm rows (`MOB-A01`–`MOB-A04`) pass, alongside `MOB-F01`–`MOB-F06`, `MOB-F08`, `MOB-F09`, `MOB-F15`–`MOB-F17`. Source fixes now use atomic Expo notification cancellation on sign-out and map Windows inactive-profile sync failures to the correct account message. `MOB-F07` and the Windows fix still require rebuilt-binary re-tests before release. Remaining mobile acceptance also includes destructive join-code/device/session scenarios.
+- Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, and the desktop untagged-period notification semantic difference.
 
 ## v0.9.3 scope
 
@@ -250,6 +250,84 @@ In progress / next:
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
 
 ## Activity log
+
+- 2026-08-12 — Owner confirmed all Pixel 9 Pro acceptance checks passed:
+  start and end-warning drift, overnight-offline delivery, three-day background
+  extension, and reboot rescheduling (`MOB-T01`–`MOB-T05`). The physical timing
+  and endurance gate is complete; functional/emulator mobile acceptance remains.
+- 2026-08-12 — Mobile release metadata was aligned to 0.14.0. All 101 Jest
+  tests, TypeScript, ESLint, Expo dependency validation, and the Android Hermes
+  export passed. Android API 36 emulator preflight verified the installed
+  version, declared/granted exact-alarm capability, reboot receiver, denied-
+  notification launch, role chooser, and join-code entry surface. Signed-in
+  and enrolled test state is still required for the full functional/Doze pass.
+- 2026-08-12 — Owner enrolled the emulator as a student. Engineering passed
+  class-picker validation, AM-only student setup persistence, exact-alarm
+  scheduling, and denied-notification operation (`MOB-F04`, `MOB-F08`,
+  `MOB-A01`, `MOB-A04`). Manual sync and student navigation remained healthy;
+  Settings reported 0.14.0. Teacher/admin and forced-Doze/rescheduling rows stay
+  open.
+- 2026-08-12 — Owner signed the emulator in as an admin. Engineering passed
+  the complete Settings row (`MOB-F17`): all three toggles persisted through a
+  force-stop, warning time clamped at 0 and 15, About showed 0.14.0, and tab
+  naming/navigation were correct. Original enabled/5-minute preferences were
+  restored and no join code, device, account, or session was disrupted.
+- 2026-08-12 — Engineering temporarily moved production Wednesday Lesson 8
+  from 13:00–13:30 to 21:38–21:45, verified exact replacement alarms, and
+  observed the 21:38 start and 21:40 end-warning under forced deep Doze. The
+  timetable was restored to 13:00–13:30 and its next-day exact alarm was
+  re-verified, completing `MOB-A02` and `MOB-A03`. The owner confirmed the
+  paired Pixel also received both temporary notifications.
+- 2026-08-12 — Engineering temporarily placed Wednesday Lesson 8 in an active
+  21:40–21:50 window and verified the complete NOW composition, dimmed past
+  rows, and active Today-row marker, passing `MOB-F02`. The period was restored
+  and production re-query confirmed its original 13:00–13:30 values.
+- 2026-08-12 — Engineering inspected the AQI Clock launcher icon and cold-
+  launch splash at Android device size. The cream/navy quill-and-inkwell mark
+  was centered, crisp, and unclipped in both masks, passing `MOB-F16`.
+- 2026-08-12 — Engineering compared all seven native route hierarchies with
+  `mobile/design/` using the first-run/student evidence and fresh admin tab-root
+  captures. Setup had no tabs, tab roots had no hamburger/back control,
+  Settings retained tabs, and Lesson 8 scrolled fully clear of the fixed status
+  strip. No clipping or hierarchy defect was found, completing `MOB-F01`.
+- 2026-08-12 — The dedicated active non-admin test teacher signed into mobile.
+  Mobile and the owner-observed Windows client both showed no current lesson
+  and Lesson 1 at 09:10 next at the same wall-clock time, matching production.
+  Pull-to-refresh and Settings → Sync now completed and advanced the mobile
+  timestamp, passing `MOB-F05`.
+- 2026-08-12 — Engineering temporarily deactivated the dedicated test teacher.
+  Mobile sync showed the explicit inactive-account state instead of an empty
+  timetable, passing `MOB-F06`; the account was restored active and verified.
+  The owner-provided Windows screenshot exposed a separate defect: desktop
+  returns an inactive teacher to sign-in with a generic initial timetable
+  download/network failure instead of explaining that the account is inactive.
+- 2026-08-12 — The owner confirmed the Windows staff client exposed no admin
+  tab, while mobile Teacher Settings omitted Student Devices. Engineering made
+  a harmless admin-only RPC call under the staff identity against a nonexistent
+  row; PostgreSQL rejected it with `42501` before mutation, passing `MOB-F15`.
+- 2026-08-12 — Teacher sign-out returned mobile to role choice, but Android
+  still retained the full exact lesson start/end-warning alarm set after the
+  app settled. `MOB-F07` fails and remains open; release is blocked until the
+  notification cleanup is fixed and re-tested. The dedicated test account
+  itself remains active, and only its emulator session was signed out.
+- 2026-08-12 — Engineering fixed both discovered blockers in source. Mobile
+  sign-out now atomically cancels every scheduled AQI Clock notification;
+  Windows initial-sync failure now maps a confirmed inactive profile to the
+  inactive-account message. Mobile Jest passes 102/102, TypeScript and ESLint
+  pass, and the complete .NET run passes 215 tests with 51 environment/
+  interactive skips. Rebuilt APK and Windows binary acceptance remain required.
+- 2026-08-12 — Engineering created five temporary audience-labelled
+  announcements. Large-text emulator inspection passed the complete
+  announcement presentation row (`MOB-F03`). A temporary anonymous Data API
+  session verified that teachers content was excluded by RLS, and the owner
+  confirmed the enrolled AM-only Pixel displayed only the everyone and AM
+  controls. All temporary announcements and the anonymous test identity/device
+  were deleted, and the font scale was restored. Engineering then targeted a
+  temporary Wednesday control timetable to Morning Year 1–5. The owner saw it
+  replace the Pixel schedule; after its targeting row was removed and the Pixel
+  synced, normal lessons and the untagged break returned, and the cancelled
+  22:08 control notification did not arrive. All temporary schedule rows were
+  deleted and verified absent, completing `MOB-F09`.
 
 - 2026-07-18 — Owner authorised publishing v0.9.3 with the Fluent UX changes
   made on 2026-07-17/18.

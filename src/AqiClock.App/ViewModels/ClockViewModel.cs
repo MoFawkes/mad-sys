@@ -11,9 +11,10 @@ using CommunityToolkit.Mvvm.Messaging;
 
 namespace AqiClock.App.ViewModels;
 
-public sealed record PeriodDisplay(string Name, string Time, bool IsCurrent, bool IsPast)
+public sealed record PeriodDisplay(string Name, string Time, bool IsCurrent, bool IsPast, string? ClassName = null)
 {
     public bool IsUpcoming => !IsCurrent && !IsPast;
+    public bool HasClassName => !string.IsNullOrWhiteSpace(ClassName);
 }
 
 public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, IRecipient<TimeJumped>, IRecipient<DataChanged>, IRecipient<AudienceChanged>
@@ -23,6 +24,8 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
     private readonly IDateOverrideRepository _overrides;
     private readonly IDeviceAudienceContext _audience;
     private readonly IClock _clock;
+    private readonly IClassRepository? _classes;
+    private IReadOnlyDictionary<Guid, string> _classNames = new Dictionary<Guid, string>();
     private ScheduleSnapshot _snapshot = ScheduleSnapshot.Empty;
 
     [ObservableProperty] private string _timeText = "--:--:--";
@@ -40,9 +43,9 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
 
     public ObservableCollection<PeriodDisplay> TodayPeriods { get; } = [];
 
-    public ClockViewModel(ITimetableRepository timetables, IWeekScheduleRepository weekSchedule, IDateOverrideRepository overrides, IDeviceAudienceContext audience, IMessenger messenger, IClock? clock = null)
+    public ClockViewModel(ITimetableRepository timetables, IWeekScheduleRepository weekSchedule, IDateOverrideRepository overrides, IDeviceAudienceContext audience, IMessenger messenger, IClock? clock = null, IClassRepository? classes = null)
     {
-        _timetables = timetables; _weekSchedule = weekSchedule; _overrides = overrides; _audience = audience; _clock = clock ?? DeviceClock.Instance;
+        _timetables = timetables; _weekSchedule = weekSchedule; _overrides = overrides; _audience = audience; _clock = clock ?? DeviceClock.Instance; _classes = classes;
         messenger.Register<ClockTick>(this); messenger.Register<TimeJumped>(this); messenger.Register<DataChanged>(this); messenger.Register<AudienceChanged>(this);
     }
 
@@ -55,6 +58,8 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
         WeekSchedule schedule = await _weekSchedule.GetAsync(cancellationToken);
         IReadOnlyList<DateOverride> overrides = await _overrides.GetAllAsync(cancellationToken);
         _snapshot = new ScheduleSnapshot(timetables, schedule, overrides, _audience.Current.SelectedClassIds);
+        if (_classes is not null)
+            _classNames = (await _classes.GetAllAsync(cancellationToken)).ToDictionary(item => item.Id, item => item.Name);
     }
 
     public void Receive(ClockTick message) => Recompute(message.Now);
@@ -90,8 +95,13 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
             : "No upcoming lessons";
         TodayPeriods.Clear();
         TimeOnly time = TimeOnly.FromDateTime(now);
-        foreach (Period period in status.Day.Periods)
-            TodayPeriods.Add(new PeriodDisplay(period.Name, $"{period.StartTime:HH:mm}–{period.EndTime:HH:mm}", status.Current?.Period.Id == period.Id, period.EndTime <= time));
+        bool showClasses = _audience.Current.SelectedClassIds.Count > 1;
+        foreach (ScheduledPeriod scheduled in status.Day.ScheduledPeriods)
+        {
+            Period period = scheduled.Period;
+            string? className = showClasses && scheduled.ClassId is { } classId ? _classNames.GetValueOrDefault(classId) : null;
+            TodayPeriods.Add(new PeriodDisplay(period.Name, $"{period.StartTime:HH:mm}–{period.EndTime:HH:mm}", status.Current?.Period.Id == period.Id, period.EndTime <= time, className));
+        }
         HasPeriods = TodayPeriods.Count > 0;
     }
 

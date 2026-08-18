@@ -148,6 +148,7 @@
               <Grid DataContext="{Binding Classes}" Margin="10">
                 <DockPanel><ui:Button DockPanel.Dock="Top" Content="Add class" Command="{Binding AddCommand}" HorizontalAlignment="Left"/>
                   <TextBlock DockPanel.Dock="Top" Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}"/>
+                  <TextBlock DockPanel.Dock="Top" Text="{Binding ClashWarning}" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" Margin="0,4,0,8"/>
                   <DataGrid ItemsSource="{Binding Items}" AutoGenerateColumns="False" CanUserAddRows="False"><DataGrid.Columns>
                     <DataGridTextColumn Header="Name" Width="*" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/><DataGridTextColumn Header="Order" Width="90" Binding="{Binding SortOrder, UpdateSourceTrigger=PropertyChanged}"/>
                     <DataGridTemplateColumn Header="Actions" Width="Auto" MinWidth="140"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal"><ui:Button Content="Save" Command="{Binding DataContext.SaveCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/><ui:Button Content="Delete" Appearance="Danger" Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Margin="4,0,0,0"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>

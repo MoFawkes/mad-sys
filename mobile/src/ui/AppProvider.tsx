@@ -16,6 +16,7 @@ import { AppState } from 'react-native';
 
 import {
   getCachedProfile,
+  getOrganization,
   getStudentPreferences,
   loadScheduleSnapshot,
   saveStudentPreferences,
@@ -35,6 +36,7 @@ import {
   ScheduleSnapshot,
 } from '@/src/domain';
 import {
+  cancelAllScheduledAqiClockNotifications,
   cancelScheduledLessonNotifications,
   getNotificationSettings,
   initializeNotificationsAsync,
@@ -264,10 +266,13 @@ export function AppProvider({ children }: PropsWithChildren) {
   );
 
   useEffect(() => {
-    if (
-      session.status !== 'signedIn' ||
-      (session.mode === 'student' && !session.selectionComplete)
-    ) {
+    if (session.status !== 'signedIn') {
+      return;
+    }
+    if (session.mode === 'student' && !session.selectionComplete) {
+      void cancelScheduledLessonNotifications().catch(() => {
+        // Selection revocation must disarm the previous class plan.
+      });
       return;
     }
     if (session.mode === 'teacher' && session.roleVerified && !session.isActive) {
@@ -284,17 +289,20 @@ export function AppProvider({ children }: PropsWithChildren) {
       notificationPermissionGranted.current = granted;
       await registerNotificationBackgroundTaskAsync();
       if (granted) {
+        const organization = await getOrganization();
         await reconcileScheduledNotifications(
-          snapshot,
+          visibleSnapshot,
           audience,
           await getNotificationSettings(),
+          new Date(),
+          organization?.timeZone,
         );
       }
       await processAnnouncementNotifications(audience);
     })().catch(() => {
       // Notification denial or platform scheduling failure must never break the clock.
     });
-  }, [audience, dataRevision, session, snapshot]);
+  }, [audience, dataRevision, session, visibleSnapshot]);
 
   const value = useMemo<AppContextValue>(
     () => {
@@ -345,7 +353,7 @@ export function AppProvider({ children }: PropsWithChildren) {
             await getSupabaseClient().auth.signOut();
           } finally {
             await syncService.stop();
-            await cancelScheduledLessonNotifications().catch(() => {
+            await cancelAllScheduledAqiClockNotifications().catch(() => {
               // Notification cleanup must not prevent cache/session cleanup.
             });
             await wipeCache();

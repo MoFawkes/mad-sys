@@ -25,6 +25,9 @@ public partial class SignInViewModel(
     partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(HasErrorMessage));
     partial void OnProgressMessageChanged(string? value) => OnPropertyChanged(nameof(HasProgressMessage));
 
+    [RelayCommand]
+    private void Back() => windows.ReturnToRoleChoice();
+
     private bool CanSignIn() => !IsBusy && IsValidEmail(Email) && !string.IsNullOrWhiteSpace(Password);
 
     [RelayCommand(CanExecute = nameof(CanSignIn))]
@@ -66,7 +69,13 @@ public partial class SignInViewModel(
         try { await sync.StartAsync(cancellationToken); return true; }
 #pragma warning disable CA1031 // Initial sync is a UI boundary; the authenticated session remains available for retry.
         catch (Exception exception) when (exception is not OperationCanceledException)
-        { LogInitialSyncFailed(logger, exception); ErrorMessage = "Signed in, but the initial timetable download failed. Check your connection and try again."; return false; }
+        {
+            LogInitialSyncFailed(logger, exception);
+            ErrorMessage = session.Current.RoleConfirmed && !session.Current.IsActive
+                ? "Your account is inactive; contact an administrator."
+                : "Signed in, but the initial timetable download failed. Check your connection and try again.";
+            return false;
+        }
 #pragma warning restore CA1031
     }
 

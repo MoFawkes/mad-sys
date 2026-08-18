@@ -219,6 +219,18 @@ public sealed class Phase5ViewModelTests
     }
 
     [Fact]
+    public async Task InactiveAccountSyncFailureIsNotReportedAsConnectivity()
+    {
+        var inactive = new SessionState(Guid.NewGuid(), "teacher@example.test", UserRole.Teacher, false, false, RoleConfirmed: true);
+        var vm = CreateSignInViewModel(new SessionStub(current: inactive), new SyncStub(new InvalidOperationException("profile inactive")));
+        vm.Email = "teacher@example.test"; vm.Password = "correct-password";
+
+        await vm.SignInCommand.ExecuteAsync(null);
+
+        Assert.Equal("Your account is inactive; contact an administrator.", vm.ErrorMessage);
+    }
+
+    [Fact]
     public void DurationFormattingHandlesMinutesAndHours()
     {
         Assert.Equal("04:09", ClockViewModel.FormatDuration(new TimeSpan(0, 4, 9)));
@@ -482,7 +494,7 @@ public sealed class Phase5ViewModelTests
     }
     private static SignInViewModel CreateSignInViewModel(ISessionService session, ISyncService sync) => new(session, sync, new GatewayStub(), new WindowStub(), NullLogger<SignInViewModel>.Instance);
     private sealed class SyncStub(Exception? startFailure = null) : ISyncService { public ConnectivityState State { get; private set; } = ConnectivityState.Offline; public DateTimeOffset? LastSyncedAt => null; public Task StartAsync(CancellationToken cancellationToken = default) => startFailure is null ? Task.CompletedTask : Task.FromException(startFailure); public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.CompletedTask; public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
-    private sealed class SessionStub(Exception? signInFailure = null) : ISessionService { public SessionState Current => SessionState.SignedOut; public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => signInFailure is null ? Task.CompletedTask : Task.FromException(signInFailure); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; }
+    private sealed class SessionStub(Exception? signInFailure = null, SessionState? current = null) : ISessionService { public SessionState Current => current ?? SessionState.SignedOut; public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => signInFailure is null ? Task.CompletedTask : Task.FromException(signInFailure); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; }
     private sealed class GatewayStub : ISupabaseGateway
     {
         public Task CompletePasswordRecoveryAsync(string accessToken, string newPassword, CancellationToken cancellationToken = default) => Task.CompletedTask;
