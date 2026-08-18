@@ -14,11 +14,11 @@ the acceptance script.
 |---|---|
 | Staff pilot | v0.13.3 is published; v0.14.0 acceptance combines the desktop teacher-feedback fixes and mobile companion |
 | Public release channel | v0.13.3 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main` at `5a237c6` (v0.14.0 candidate, untagged); acceptance fixes in progress |
+| Source | `main` includes PR #15 acceptance fixes; v0.14.0 remains untagged pending final acceptance |
 | Production backend | Migration `20260807120000` applied; audience-aware schema and RPCs verified |
 | Latest release | v0.13.3 — role-choice audience chooser and display-scaling fixes |
 | Next release | v0.14.0 unified desktop teacher-feedback and Expo mobile acceptance |
-| Candidate CI | Required PR checks green through `5a237c6`; further acceptance fixes require a new PR run |
+| Candidate CI | All four required checks passed for acceptance-fix PR #15 |
 | Release workflow | v0.13.3 is tag-published; do not tag v0.14.0 until rebuilt-binary acceptance clears |
 
 ## Release split — decided 2026-08-02
@@ -51,6 +51,7 @@ mobile device acceptance to receive fixes they asked for.
 - EAS preview build `f2b8871d-919f-41df-96e6-104b621cbee4` from `357e48f` shipped with `POST_NOTIFICATIONS` and `RECEIVE_BOOT_COMPLETED` but **neither exact-alarm permission**: `expo-notifications` 0.32.17 no longer declares `SCHEDULE_EXACT_ALARM` for its consumers, so Android 12+ fell back to inexact alarms, which Doze batches to roughly nine-minute granularity.
 - Superseded by build `47b10fa9-a2db-4958-8291-eb3779583c7c` from `3f20549`, which declares both `USE_EXACT_ALARM` and `SCHEDULE_EXACT_ALARM` (verified in its merged manifest) and carries the student-session fix. SHA-256 `9B9C80DB17D546BDB4AA6912F9C0DF9AF3E7FF26F1083817ABEE3A3DB64BFDF8`. The subsequent Pixel 9 Pro timing and endurance suite passed by owner confirmation on 2026-08-12.
 - Acceptance APK `f9f0a6a3-fc7c-4d2c-aa4d-341d50170216` was built from `d3c5c34` with the EAS `preview` profile: version 0.14.0 (versionCode 1), SDK 54, fingerprint `b61d5458448229b521c390e5c3a9174512487374`, SHA-256 `075061C9FC97F5B8D54C0B858595FCF8400ACCC62EDEE8739781A3F9BBB35423`. The paired local Windows acceptance build was `0.13.4-dev.2+5a237c6`, SHA-256 `A80A8627F480305CFF7130FBA70C0CA7ED3A1E707BBA99FF123B000D2C2D4F64`.
+- The post-PR #15 Windows retest build is `0.13.4-dev.3+d86aaa3`, SHA-256 `9D4BDFB733E62B86B8B57589C7D7D5C1FB8F575F7005E4AADDBB8CA301D6E3C7`. It is untagged and exists only for the remaining desktop acceptance rows.
 - The 2026-08-02 emulator notes referred only to mutable source line numbers, which now land in the APK-evidence prose rather than checklist rows. That evidence is untraceable, credits no current acceptance row, and must not be relied on. Re-run the emulator checklist using the stable `MOB-F*` and `MOB-A*` identifiers in `docs/MANUAL-TESTS.md`; Pixel-only timing and endurance rows use `MOB-T*`.
 - Production reconciliation on 2026-08-01 found all seven migration versions and the complete student-device schema already applied. The hosted signup gate was verified against production intent: public email signup returned 403 **Public signup is disabled**, while an anonymous identity enrolled successfully and could select its own `student_devices` row under RLS.
 - The Pixel 9 Pro timing and endurance suite (`MOB-T01`–`MOB-T05`) passed by owner confirmation on 2026-08-12, clearing the physical-device drift, overnight-offline, three-day-background, and reboot-rescheduling gate. All emulator alarm rows (`MOB-A01`–`MOB-A05`) pass, alongside `MOB-F01`–`MOB-F09`, `MOB-F15`–`MOB-F19`. `MOB-F07` now passes: ending the student session reduced pending lesson alarms from 60 to 0. `MOB-F10` still lacks direct cache-wipe evidence, and the destructive join-code/device/session scenarios remain open.
