@@ -98,6 +98,16 @@
                             <Border Background="{DynamicResource WarningBackgroundBrush}" CornerRadius="8" Padding="10" Visibility="{Binding HasConflict, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="Changed remotely just now — " /><Button Content="Reload" Command="{Binding ReloadCommand}" /><Button Content="Overwrite" Command="{Binding OverwriteCommand}" /></StackPanel>
                             </Border>
+                            <WrapPanel Margin="0,8,0,6" VerticalAlignment="Center">
+                                <TextBlock Text="Break" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBox Width="130" Text="{Binding BreakName, UpdateSourceTrigger=PropertyChanged}" ToolTip="Name for the inserted non-lesson row" />
+                                <TextBox Width="58" Margin="6,0,0,0" Text="{Binding BreakMinutes, UpdateSourceTrigger=PropertyChanged}" ToolTip="Break length in minutes" />
+                                <TextBlock Text="min" VerticalAlignment="Center" Margin="4,0,12,0" />
+                                <TextBlock Text="Shift selected and later" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBox Width="58" Text="{Binding ShiftMinutes, UpdateSourceTrigger=PropertyChanged}" ToolTip="Positive or negative minutes" />
+                                <TextBlock Text="min" VerticalAlignment="Center" Margin="4,0,4,0" />
+                                <Button Content="Apply shift" Command="{Binding ShiftLaterCommand}" CommandParameter="{Binding SelectedPeriod}" />
+                            </WrapPanel>
                         </StackPanel>
                         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal">
                             <Button Content="Add period" Command="{Binding AddPeriodCommand}" />
@@ -105,13 +115,13 @@
                             <Button Content="Cancel" Command="{Binding CancelCommand}" />
                             <ui:Button Content="Delete timetable" Command="{Binding DeleteCommand}" Appearance="Danger" />
                         </StackPanel>
-                        <DataGrid ItemsSource="{Binding Periods}" AutoGenerateColumns="False" CanUserAddRows="False" BeginningEdit="OnPeriodBeginningEdit">
+                        <DataGrid ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" AutoGenerateColumns="False" CanUserAddRows="False" BeginningEdit="OnPeriodBeginningEdit">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
                                 <DataGridTextColumn Header="Start" Binding="{Binding Start, Converter={StaticResource HourMinuteConverter}, UpdateSourceTrigger=PropertyChanged}" />
                                 <DataGridTextColumn Header="End" Binding="{Binding End, Converter={StaticResource HourMinuteConverter}, UpdateSourceTrigger=PropertyChanged}" />
                                 <DataGridCheckBoxColumn Header="Lesson?" Binding="{Binding IsLesson, UpdateSourceTrigger=PropertyChanged}" />
-                                <DataGridTemplateColumn Header="Order" Width="Auto" MinWidth="92"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal"><ui:Button Content="↑" ToolTip="Move up" Appearance="Transparent" MinWidth="32" Height="32" Padding="4" Margin="2,0" Command="{Binding DataContext.MoveUpCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /><ui:Button Content="↓" ToolTip="Move down" Appearance="Transparent" MinWidth="32" Height="32" Padding="4" Margin="2,0" Command="{Binding DataContext.MoveDownCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Order" Width="Auto" MinWidth="132"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal"><ui:Button Content="↑" ToolTip="Move up" Appearance="Transparent" MinWidth="32" Height="32" Padding="4" Margin="2,0" Command="{Binding DataContext.MoveUpCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /><ui:Button Content="↓" ToolTip="Move down" Appearance="Transparent" MinWidth="32" Height="32" Padding="4" Margin="2,0" Command="{Binding DataContext.MoveDownCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /><ui:Button Content="＋" ToolTip="Insert break after" Appearance="Transparent" MinWidth="32" Height="32" Padding="4" Margin="2,0" Command="{Binding DataContext.InsertBreakCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                                 <DataGridTemplateColumn Header=" " Width="Auto" MinWidth="56"><DataGridTemplateColumn.CellTemplate><DataTemplate><ui:Button Content="✕" ToolTip="Delete period" Appearance="Danger" MinWidth="32" Height="32" Padding="4" Margin="2,0" Command="{Binding DataContext.RemovePeriodCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>

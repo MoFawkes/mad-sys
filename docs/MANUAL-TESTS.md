@@ -362,6 +362,8 @@ rehearsal runs automatically in CI.
 - [x] From the student class picker, use **Back** and confirm role choice returns. Repeat after the device is already enrolled as a student device.
 - [ ] Sign in with a confirmed inactive Windows account and confirm the message is **Your account is inactive; contact an administrator.** rather than a connectivity error.
 - [ ] Create two lesson periods starting in the same minute and confirm desktop produces one notification listing both periods.
+- [ ] Open Part-Time 1, insert a 20-minute break after Lesson 2, and confirm every later lesson moves exactly 20 minutes and both seams close. Shift the break by -5 minutes and confirm the break and every later row track it. Save, reselect/reload, sync a device, and confirm the persisted shifted times arrive.
+- [ ] Attempt a shift that would move a row before 00:00 or its end after 23:59; confirm no row changes and a validation message appears. Insert a second break with an existing name and confirm it is automatically suffixed rather than failing on Save.
 
 **Desktop teacher-feedback result (2026-08-18): PASS.** The isolated-profile
 scripted pass against `0.13.4-dev.5+62d1434` confirmed **Back**, Esc, and the

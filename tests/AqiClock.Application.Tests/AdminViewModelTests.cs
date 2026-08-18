@@ -72,6 +72,102 @@ public sealed class AdminViewModelTests
     }
 
     [Fact]
+    public async Task InsertBreakShiftsEveryLaterRowAndClosesSeams()
+    {
+        var timetable = Day(
+            ("Lesson 1", new(9, 0), new(10, 0)),
+            ("Lesson 2", new(10, 0), new(11, 0)),
+            ("Lesson 3", new(11, 0), new(12, 0)));
+        var vm = Editor(new WeakReferenceMessenger(), timetable);
+        await vm.LoadAsync();
+        vm.BreakName = "Naseehah"; vm.BreakMinutes = 20;
+
+        vm.InsertBreakCommand.Execute(vm.Periods[0]);
+
+        Assert.Equal(["Lesson 1", "Naseehah", "Lesson 2", "Lesson 3"], vm.Periods.Select(item => item.Name));
+        Assert.False(vm.Periods[1].IsLesson);
+        Assert.Equal(new TimeSpan(10, 0, 0), vm.Periods[1].Start);
+        Assert.Equal(new TimeSpan(10, 20, 0), vm.Periods[1].End);
+        Assert.Equal(new TimeSpan(10, 20, 0), vm.Periods[2].Start);
+        Assert.Equal(new TimeSpan(12, 20, 0), vm.Periods[3].End);
+        Assert.True(vm.IsDirty);
+    }
+
+    [Fact]
+    public async Task ShiftLaterAcceptsNegativeMinutesAndClosesPrecedingSeam()
+    {
+        var timetable = Day(
+            ("Lesson 1", new(9, 0), new(10, 0)),
+            ("Salah", new(10, 0), new(10, 20)),
+            ("Lesson 2", new(10, 20), new(11, 20)));
+        var vm = Editor(new WeakReferenceMessenger(), timetable);
+        await vm.LoadAsync(); vm.ShiftMinutes = -5;
+
+        vm.ShiftLaterCommand.Execute(vm.Periods[1]);
+
+        Assert.Equal(new TimeSpan(9, 55, 0), vm.Periods[0].End);
+        Assert.Equal(new TimeSpan(9, 55, 0), vm.Periods[1].Start);
+        Assert.Equal(new TimeSpan(10, 15, 0), vm.Periods[1].End);
+        Assert.Equal(new TimeSpan(10, 15, 0), vm.Periods[2].Start);
+    }
+
+    [Fact]
+    public async Task ShiftAcrossMidnightIsRejectedWithoutMutation()
+    {
+        var timetable = Day(("Late lesson", new(23, 0), new(23, 50)));
+        var vm = Editor(new WeakReferenceMessenger(), timetable);
+        await vm.LoadAsync(); vm.ShiftMinutes = 10;
+        TimeSpan originalStart = vm.Periods[0].Start; TimeSpan originalEnd = vm.Periods[0].End;
+
+        vm.ShiftLaterCommand.Execute(vm.Periods[0]);
+
+        Assert.Equal(originalStart, vm.Periods[0].Start);
+        Assert.Equal(originalEnd, vm.Periods[0].End);
+        Assert.False(vm.IsDirty);
+        Assert.Contains("00:00–23:59", vm.ValidationMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InsertBreakDisambiguatesDuplicateName()
+    {
+        var timetable = Day(
+            ("Salah", new(9, 0), new(9, 20)),
+            ("Lesson 1", new(9, 20), new(10, 0)));
+        var vm = Editor(new WeakReferenceMessenger(), timetable);
+        await vm.LoadAsync(); vm.BreakName = "salah"; vm.BreakMinutes = 10;
+
+        vm.InsertBreakCommand.Execute(vm.Periods[0]);
+
+        Assert.Equal("salah (2)", vm.Periods[1].Name);
+        Assert.True(vm.Validate());
+    }
+
+    [Fact]
+    public async Task InsertSaveAndReloadPreservesReflowedTimes()
+    {
+        var repository = new Timetables(Day(
+            ("Lesson 1", new(9, 0), new(10, 0)),
+            ("Lesson 2", new(10, 0), new(11, 0))));
+        var gateway = new Gateway();
+        gateway.OnTimetableSaved = (row, periods) => repository.Rows =
+        [
+            new Timetable(row.Id, row.Name, row.IsArchived, periods.Select(period =>
+                new Period(period.Id, period.Name, period.StartTime, period.EndTime, period.SortOrder, period.IsLesson)).ToArray()),
+        ];
+        var vm = new TimetableEditorViewModel(gateway, new Sync(), repository, new Week(), new Overrides(), new Windows(), new WeakReferenceMessenger());
+        await vm.LoadAsync(); vm.BreakName = "Salah"; vm.BreakMinutes = 15;
+
+        vm.InsertBreakCommand.Execute(vm.Periods[0]);
+        Guid insertedId = vm.Periods[1].Id;
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal([new TimeSpan(9, 0, 0), new TimeSpan(10, 0, 0), new TimeSpan(10, 15, 0)], vm.Periods.Select(item => item.Start));
+        Assert.Equal(insertedId, vm.Periods[1].Id);
+        Assert.Equal(new TimeSpan(11, 15, 0), vm.Periods[2].End);
+        Assert.False(vm.IsDirty);
+    }
+
+    [Fact]
     public async Task TeacherSessionDoesNotCountAsEnrolledStudentDevice()
     {
         var cache = new Cache();
@@ -602,8 +698,10 @@ public sealed class AdminViewModelTests
     public void PeriodTimesRejectEntriesThatAreNotAWallClockMinute(string entry) =>
         Assert.Equal(DependencyProperty.UnsetValue, new HourMinuteConverter().ConvertBack(entry, typeof(TimeSpan), null!, CultureInfo.InvariantCulture));
 
+    private static Timetable Day(params (string Name, TimeOnly Start, TimeOnly End)[] periods) =>
+        new(Guid.NewGuid(), "Day", false, periods.Select((period, index) => new Period(Guid.NewGuid(), period.Name, period.Start, period.End, index)).ToArray());
     private static TimetableEditorViewModel Editor(IMessenger messenger, params Timetable[] rows) => new(new Gateway(), new Sync(), new Timetables(rows), new Week(), new Overrides(), new Windows(), messenger);
-    private sealed class Timetables(params Timetable[] rows) : ITimetableRepository { public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Timetable>>(rows); }
+    private sealed class Timetables(params Timetable[] rows) : ITimetableRepository { public IReadOnlyList<Timetable> Rows { get; set; } = rows; public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Rows); }
     private sealed class Week(params WeekScheduleEntry[] entries) : IWeekScheduleRepository { public Task<WeekSchedule> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(entries.Length == 0 ? WeekSchedule.Empty : new WeekSchedule(entries)); }
     private sealed class Overrides(params DateOverride[] rows) : IDateOverrideRepository { public Task<IReadOnlyList<DateOverride>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<DateOverride>>(rows); }
     private sealed class Announcements(params Announcement[] rows) : IAnnouncementRepository { public Task<IReadOnlyList<Announcement>> GetCurrentAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Announcement>>(rows); }
@@ -636,12 +734,13 @@ public sealed class AdminViewModelTests
         public int ProfileUpdateCalls { get; private set; }
         public TimetableRow? SavedTimetable { get; private set; }
         public IReadOnlyList<PeriodRow>? SavedPeriods { get; private set; }
+        public Action<TimetableRow, IReadOnlyList<PeriodRow>>? OnTimetableSaved { get; set; }
         public int? SavedWeekday { get; private set; }
         public Guid? SavedAudienceClassId { get; private set; }
         public Guid? SavedWeekTimetableId { get; private set; }
         public int? DeletedWeekday { get; private set; }
         public Guid? DeletedAudienceClassId { get; private set; }
-        public Task SaveTimetableAsync(TimetableRow timetable, IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default) { SavedTimetable = timetable; SavedPeriods = periods; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); }
+        public Task SaveTimetableAsync(TimetableRow timetable, IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default) { SavedTimetable = timetable; SavedPeriods = periods; if (WriteFailure is null) OnTimetableSaved?.Invoke(timetable, periods); return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); }
         public Task SaveWeekScheduleRowAsync(int weekday, Guid? audienceClassId, Guid? timetableId, CancellationToken cancellationToken = default) { SavedWeekday = weekday; SavedAudienceClassId = audienceClassId; SavedWeekTimetableId = timetableId; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); }
         public Task DeleteWeekScheduleRowAsync(int weekday, Guid audienceClassId, CancellationToken cancellationToken = default) { DeletedWeekday = weekday; DeletedAudienceClassId = audienceClassId; return DeleteFailure is null ? Task.CompletedTask : Task.FromException(DeleteFailure); }
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(Guid.NewGuid()); public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) { LastInsertedRow = row; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); } public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) { UpdateCalls++; LastUpdatedRow = row; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); } public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) { DeleteCalls++; return DeleteFailure is null ? Task.CompletedTask : Task.FromException(DeleteFailure); } public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default) { ProfileUpdateCalls++; return ProfileFailure is null ? Task.CompletedTask : Task.FromException(ProfileFailure); } public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AuditEntry>>([]); public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();

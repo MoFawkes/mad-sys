@@ -139,6 +139,7 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [ ] Discuss automatic Naseehah and Salah timing: edit anchors once and reflow lesson rows around them.
 - [ ] Discuss faster timetable creation from start time, lesson count, lesson length, and the Naseehah/Salah anchors.
 - [ ] Confirm whether non-lesson rows remain fixed anchors while lesson rows flow; the existing whole-list save supports this without a schema change.
+- [x] Ship the interim schema-free interruption reflow tool for v0.14.0; keep the full block/anchor generator discussion for v0.15.0.
 
 - [ ] Align Settings/Admin fine detail to the approved concept (for example,
   Settings sidebar navigation); main-window concept alignment ships separately

@@ -31,6 +31,12 @@ There can never be two overrides for the same date (unique constraint), so no ti
 - Both periods still appear in today's list; admins see a small warning marker on overlapping rows, staff see no warning.
 - Both periods still get their own start and end-warning notifications.
 
+An admin may insert a named non-lesson interruption or move an existing row and
+everything after it by signed minutes. The lesson immediately before the moved
+range ends when the moved range begins. If any resulting boundary would fall
+before 00:00, after 23:59, or make that preceding lesson invalid, nothing is
+changed and the editor explains why.
+
 ## 4. What if today has an override?
 
 - The override's timetable completely **replaces** the weekday's normal timetable for that date — the two are never merged.
