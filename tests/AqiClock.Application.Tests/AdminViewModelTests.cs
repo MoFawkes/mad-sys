@@ -445,23 +445,6 @@ public sealed class AdminViewModelTests
     }
 
     [Fact]
-    public async Task ClassesSharingATimetableDoNotProduceAClashWarning()
-    {
-        var first = new AqiClock.Domain.Entities.Class(Guid.NewGuid(), "First", 0);
-        var second = new AqiClock.Domain.Entities.Class(Guid.NewGuid(), "Second", 1);
-        var timetable = new Timetable(Guid.NewGuid(), "Normal Day", false,
-            [new Period(Guid.NewGuid(), "Lesson 1", new(9, 0), new(10, 0), 0)]);
-        var week = new Week(
-            new(Guid.NewGuid(), DayOfWeek.Monday, first.Id, timetable.Id),
-            new(Guid.NewGuid(), DayOfWeek.Monday, second.Id, timetable.Id));
-        var vm = new ClassesViewModel(new Classes(first, second), new Gateway(), new Sync(), new Timetables(timetable), week);
-
-        await vm.LoadAsync();
-
-        Assert.Null(vm.ClashWarning);
-    }
-
-    [Fact]
     public void InProgressCellEditSurvivesRemoteChangeInsteadOfBeingDiscarded()
     {
         Exception? failure = null;

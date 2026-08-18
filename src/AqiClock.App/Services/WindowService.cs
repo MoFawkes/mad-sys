@@ -44,7 +44,14 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
     public void ReturnToRoleChoice()
     {
         _returnToRoleChoiceOnSignInClose = true;
-        WindowLifecycle.TransitionKeepingApplicationAlive(ShowRoleChoiceWindow, CloseSignInWindow);
+        CloseSignInWindow();
+    }
+    public void SignInWindowClosing()
+    {
+        if (_returnToRoleChoiceOnSignInClose && _session.Current.UserId is null
+            && _roleChoice?.IsVisible != true
+            && !System.Windows.Application.Current.Dispatcher.HasShutdownStarted)
+            ShowRoleChoiceWindow();
     }
     private void ShowSignInWindowCore()
     {
@@ -152,7 +159,6 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
         bool returnToRoleChoice = _returnToRoleChoiceOnSignInClose;
         _returnToRoleChoiceOnSignInClose = false;
         if (WindowLifecycle.ShouldExitAfterSignInClose(_session.Current, returnToRoleChoice)) System.Windows.Application.Current.Shutdown();
-        else if (returnToRoleChoice && _session.Current.UserId is null) ShowRoleChoiceWindow();
     }
 
     private void OnRoleChoiceClosed(object? sender, EventArgs e)

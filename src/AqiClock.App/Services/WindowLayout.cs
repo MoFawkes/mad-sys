@@ -159,18 +159,6 @@ internal static class MonitorWorkAreas
 
 public static class WindowLifecycle
 {
-    /// <summary>
-    /// Shows the destination before closing the source so WPF's default
-    /// OnLastWindowClose mode cannot shut down between navigation surfaces.
-    /// </summary>
-    public static void TransitionKeepingApplicationAlive(Action showDestination, Action closeSource)
-    {
-        ArgumentNullException.ThrowIfNull(showDestination);
-        ArgumentNullException.ThrowIfNull(closeSource);
-        showDestination();
-        closeSource();
-    }
-
     public static bool ShouldExitAfterSignInClose(SessionState session, bool returnToRoleChoice = false) =>
         session.UserId is null && !returnToRoleChoice;
     public static ActivationTarget TargetForActivation(SessionState session, bool recoveryVisible, bool studentSessionActive = false) =>

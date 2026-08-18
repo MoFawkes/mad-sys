@@ -39,6 +39,23 @@ public sealed class NotificationSchedulerTests
     }
 
     [Fact]
+    public async Task SimultaneousLessonStartsArePresentedOnceAndLoggedIndividually()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.SetPeriods(
+            new Period(Guid.NewGuid(), "Combined A", TimeOnly.FromDateTime(Monday), TimeOnly.FromDateTime(Monday.AddMinutes(30)), 0),
+            new Period(Guid.NewGuid(), "Combined B", TimeOnly.FromDateTime(Monday), TimeOnly.FromDateTime(Monday.AddMinutes(45)), 1));
+        using NotificationScheduler scheduler = fixture.Create();
+
+        await scheduler.StartAsync();
+        await scheduler.ProcessAsync(Monday);
+
+        IReadOnlyList<NotificationEvent> group = Assert.Single(fixture.Presenter.StartGroups);
+        Assert.Equal(["Combined A", "Combined B"], group.Select(item => item.Occurrence.Period.Name).Order());
+        Assert.Equal(2, fixture.Log.Entries.Keys.Count(key => key.StartsWith("start:", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public async Task MovedFutureLessonCanFireAgainWithSameStableKey()
     {
         SchedulerFixture fixture = CreateFixture(Monday);
@@ -244,8 +261,10 @@ public sealed class NotificationSchedulerTests
         public void SetPeriod(TimeSpan starts, TimeSpan duration)
         {
             var start = TimeOnly.FromTimeSpan(starts);
-            Timetables.Items = [new Timetable(_timetableId, "Normal", false, [new Period(_periodId, "Mathematics", start, start.Add(duration), 1)])];
+            SetPeriods(new Period(_periodId, "Mathematics", start, start.Add(duration), 1));
         }
+
+        public void SetPeriods(params Period[] periods) => Timetables.Items = [new Timetable(_timetableId, "Normal", false, periods)];
 
         public NotificationScheduler Create() => new(Timetables, Week, new FakeOverrides(), Announcements, Classes, Audience, Log, Presenter, Settings, Clock, Messenger, NullLogger<NotificationScheduler>.Instance);
     }
@@ -271,8 +290,10 @@ public sealed class NotificationSchedulerTests
     private sealed class FakePresenter : INotificationPresenter
     {
         public int Starts { get; private set; } public int EndWarnings { get; private set; } public int Announcements { get; private set; }
+        public List<IReadOnlyList<NotificationEvent>> StartGroups { get; } = [];
         public List<AudienceType> AnnouncementAudiences { get; } = [];
         public Task ShowLessonStartAsync(NotificationEvent notification, CancellationToken cancellationToken = default) { Starts++; return Task.CompletedTask; }
+        public Task ShowLessonStartsAsync(IReadOnlyList<NotificationEvent> notifications, CancellationToken cancellationToken = default) { StartGroups.Add(notifications.ToArray()); Starts += notifications.Count; return Task.CompletedTask; }
         public Task ShowEndWarningAsync(NotificationEvent notification, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default) { EndWarnings++; return Task.CompletedTask; }
         public Task ShowAnnouncementAsync(Announcement announcement, CancellationToken cancellationToken = default) { Announcements++; AnnouncementAudiences.Add(announcement.AudienceType); return Task.CompletedTask; }
         public Task ShowTestAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

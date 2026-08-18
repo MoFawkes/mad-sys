@@ -435,41 +435,15 @@ public partial class ClassEditorItem : ObservableObject
     [ObservableProperty] private int _sortOrder;
 }
 
-public partial class ClassesViewModel(IClassRepository repository, ISupabaseGateway gateway, ISyncService sync, ITimetableRepository? timetables = null, IWeekScheduleRepository? weekSchedule = null) : ObservableObject
+public partial class ClassesViewModel(IClassRepository repository, ISupabaseGateway gateway, ISyncService sync) : ObservableObject
 {
     public ObservableCollection<ClassEditorItem> Items { get; } = [];
     [ObservableProperty] private string? _error;
-    [ObservableProperty] private string? _clashWarning;
 
     public async Task LoadAsync(CancellationToken token = default)
     {
         IReadOnlyList<AqiClock.Domain.Entities.Class> classes = await repository.GetAllAsync(token);
         Items.Clear(); foreach (var item in classes) Items.Add(new() { Id = item.Id, Name = item.Name, SortOrder = item.SortOrder });
-        ClashWarning = await FindClashWarningAsync(classes, token);
-    }
-
-    private async Task<string?> FindClashWarningAsync(IReadOnlyList<AqiClock.Domain.Entities.Class> classes, CancellationToken token)
-    {
-        if (timetables is null || weekSchedule is null) return null;
-        Dictionary<Guid, Timetable> timetableById = (await timetables.GetAllAsync(token)).ToDictionary(item => item.Id);
-        WeekSchedule schedule = await weekSchedule.GetAsync(token);
-        IReadOnlyDictionary<Guid, string> classNames = classes.ToDictionary(item => item.Id, item => item.Name);
-        foreach (DayOfWeek day in Enum.GetValues<DayOfWeek>())
-        {
-            var assignments = schedule.EntriesFor(day)
-                .Where(entry => entry.AudienceClassId is not null && entry.TimetableId is not null && timetableById.ContainsKey(entry.TimetableId.Value))
-                .ToArray();
-            foreach (var pair in assignments.SelectMany((left, index) => assignments.Skip(index + 1).Select(right => (left, right))))
-            {
-                if (pair.left.TimetableId == pair.right.TimetableId) continue;
-                Timetable left = timetableById[pair.left.TimetableId!.Value];
-                Timetable right = timetableById[pair.right.TimetableId!.Value];
-                bool overlaps = left.Periods.Any(a => a.IsValid && right.Periods.Any(b => b.IsValid && a.StartTime < b.EndTime && b.StartTime < a.EndTime));
-                if (overlaps)
-                    return $"Schedule clash on {day}: {classNames.GetValueOrDefault(pair.left.AudienceClassId!.Value, "one class")} and {classNames.GetValueOrDefault(pair.right.AudienceClassId!.Value, "another class")} have overlapping periods. Saving is allowed.";
-            }
-        }
-        return null;
     }
 
     [RelayCommand] private void Add() => Items.Add(new() { Id = Guid.NewGuid(), Name = "New class", SortOrder = Items.Count == 0 ? 0 : Items.Max(x => x.SortOrder) + 1 });

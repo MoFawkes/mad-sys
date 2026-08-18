@@ -21,7 +21,7 @@ teacher-feedback fixes onto one shared version number.
 ### Changed
 
 - Ported the schedule engine to pure TypeScript with desktop-compatible event keys, wall-clock arithmetic, weekday conversion, and case-for-case tests.
-- Multi-class student devices now resolve every matching weekday timetable into one ordered agenda, show class labels, and surface cross-class overlaps as non-blocking Admin warnings.
+- Multi-class student devices now resolve every matching weekday timetable into one ordered agenda and show class labels without duplicating shared timetables.
 - Lesson events firing at the same instant are combined into one desktop or mobile notification while retaining per-event desktop deduplication records.
 
 ### Fixed

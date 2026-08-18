@@ -358,9 +358,18 @@ rehearsal runs automatically in CI.
 
 ## v0.14.0 desktop teacher-feedback checks
 
-- [ ] From role choice, open teacher sign-in and use **Back**; confirm role choice returns and the app does not exit. Repeat with Esc.
-- [ ] From the student class picker, use **Back** and confirm role choice returns. Repeat after the device is already enrolled as a student device.
+- [x] From role choice, open teacher sign-in and use **Back**; confirm role choice returns and the app does not exit. Repeat with Esc.
+- [x] From the student class picker, use **Back** and confirm role choice returns. Repeat after the device is already enrolled as a student device.
 - [ ] Sign in with a confirmed inactive Windows account and confirm the message is **Your account is inactive; contact an administrator.** rather than a connectivity error.
+- [ ] Create two lesson periods starting in the same minute and confirm desktop produces one notification listing both periods.
+
+**Desktop teacher-feedback result (2026-08-18): PARTIAL PASS.** The rebuilt
+`0.13.4-dev.2+5a237c6` binary returned from teacher sign-in through both **Back**
+and Esc without exiting, and picker Back returned correctly. Closing teacher
+sign-in with the title-bar X still exited because WPF reached zero windows
+before the `Closed` handler could reopen role choice. That X path remains a
+release blocker pending rebuild and re-test. The inactive-account and combined
+desktop-notification rows also remain open.
 
 ## v0.14.0 mobile acceptance checks
 
@@ -383,7 +392,7 @@ still require device verification.
 - [x] **MOB-F04 — Class picker:** confirm classes and independent optional AM/PM choices remain visually separate and the validation state still says **Select at least one class.**
 - [x] **MOB-F05 — Teacher:** sign in with an invited active account, compare the mobile and desktop current/next lesson against the same wall clock, and verify pull-to-refresh plus Settings → Sync now.
 - [x] **MOB-F06 — Inactive teacher:** deactivate the account, sync, and confirm the clock shows **Your account is inactive; contact an administrator** rather than an empty timetable.
-- [ ] **MOB-F07 — Teacher sign-out:** confirm the session, SQLite cache, announcement/read state, and pending lesson notifications are removed.
+- [x] **MOB-F07 — Teacher sign-out:** confirm the session, SQLite cache, announcement/read state, and pending lesson notifications are removed.
 - [x] **MOB-F08 — Student fresh install:** sign in anonymously, enter the join code, select at least one class plus AM only, and confirm the choices survive an app restart.
 - [x] **MOB-F09 — Student audience:** confirm other-class periods/notifications are absent, untagged breaks/assemblies remain visible, a PM announcement is hidden, and a teachers announcement is absent from the API response.
 - [ ] **MOB-F10 — Student settings:** confirm there is no role switch or teacher-only surface, **Change my classes** reopens the picker, and **End student session** clears selection/session/cache.
@@ -394,20 +403,33 @@ still require device verification.
 - [x] **MOB-F15 — Non-admin refusal:** sign in as a non-admin teacher; the desktop tab and mobile section are absent, and a direct admin RPC call is refused.
 - [x] **MOB-F16 — App identity:** inspect launcher circle/squircle masks and navy splash at device size for clipping or aliasing.
 - [x] **MOB-F17 — Settings:** verify all three notification toggles persist, end-warning clamps at 0 and 15, About reports v0.14.0, and the tab label is **Announcements** with no tab-screen back arrows.
-- [ ] **MOB-F18 — Merged multi-class agenda:** enrol a device in two classes whose weekday routes to different timetables; confirm both classes' periods appear in one ordered list with class labels. Confirm a single-class device shows no labels.
-- [ ] **MOB-F19 — Shared timetable:** enrol a device in two classes routed to the same timetable; confirm every period appears once, no class label is shown, and lesson notifications remain scheduled.
-- [ ] **MOB-F20 — Admin clash warning:** assign two classes different overlapping timetables and confirm Admin shows a non-blocking clash warning. Route both classes to the same timetable and confirm no warning appears.
+- [x] **MOB-F18 — Merged multi-class agenda:** enrol a device in two classes whose weekday routes to different timetables; confirm both classes' periods appear in one ordered list with class labels. Confirm a single-class device shows no labels.
+- [x] **MOB-F19 — Shared timetable:** enrol a device in two classes routed to the same timetable; confirm every period appears once, no class label is shown, and lesson notifications remain scheduled.
 - [x] **MOB-A01 — Exact alarms (emulator):** confirm `SCHEDULE_EXACT_ALARM` is allowed and `dumpsys alarm` shows exact alarms for `com.mofawkes.aqiclock`.
 - [x] **MOB-A02 — Forced Doze (emulator):** force idle, observe an exact lesson notification, then leave forced idle.
 - [x] **MOB-A03 — Rescheduling (emulator):** move a period on desktop, foreground the phone, and confirm old pending notifications are cancelled and replacements use the new time.
 - [x] **MOB-A04 — Permission denied (emulator):** deny notification permission and confirm clock, sync, and announcements continue working.
-- [ ] **MOB-A05 — Combined notifications:** create two periods starting in the same minute and confirm desktop and mobile each produce one notification listing both periods.
+- [x] **MOB-A05 — Combined mobile notifications:** create two periods starting in the same minute and confirm mobile produces one notification listing both periods.
 - [x] **MOB-T01 — Start drift (Pixel 9 Pro):** unplug the phone, leave battery optimisation at **Optimised**, background the app with a lesson start at least 10 minutes ahead, and record scheduled time, delivered time, and drift from Notification history.
 - [x] **MOB-T02 — End-warning drift (Pixel 9 Pro):** repeat for a 2-minute end warning and record scheduled time, delivered time, and drift.
 - [x] **MOB-T03 — Overnight offline (Pixel 9 Pro):** leave the phone offline overnight and confirm the next day's previously scheduled notifications arrive; record delivery timestamps from Notification history.
 - [x] **MOB-T04 — Three-day background (Pixel 9 Pro):** background/close the app for three days without opening it and confirm the background task keeps extending the pending notification window.
 - [x] **MOB-T05 — Reboot reschedule (Pixel 9 Pro):** reboot and confirm `RECEIVE_BOOT_COMPLETED` restores pending notifications.
 - [ ] **MOB-T06 — Class-switch endurance (Pixel 9 Pro):** enrol as class A and let notifications schedule, switch to class B, then verify over several days under forced Doze that no class A notification arrives.
+
+**v0.14.0 rebuilt-APK result (2026-08-18): PARTIAL PASS.** EAS preview build
+`f9f0a6a3-fc7c-4d2c-aa4d-341d50170216` passed `MOB-F07`, `MOB-F18`,
+`MOB-F19`, and the mobile-only `MOB-A05`. Evening Session 1 + 2 produced one
+ordered, class-labelled agenda; routing both to Part-Time 1 produced its six
+rows once each without labels. Ending the student session reduced pending
+lesson alarms from 60 to 0, clearing the failure recorded on 2026-08-12. Two
+20:48 periods produced one exact alarm and one notification whose Android text
+was `ZZ Combined B\nZZ Combined A`; A's five-minute end warning was correctly
+suppressed and B's fired separately at 20:49. `MOB-F10` remains unchecked:
+Settings exposed only the student controls and version 0.14.0, but the SQLite
+cache wipe was not inspected. The positive overlapping-timetable warning was
+observed, but `MOB-F20` was removed because real staggered class timetables make
+that warning permanently noisy; the feature is deferred to the generator work.
 
 **Pixel 9 Pro result (2026-08-12): PASS.** The owner confirmed all five
 `MOB-T01`–`MOB-T05` checks passed on physical hardware, including start and
