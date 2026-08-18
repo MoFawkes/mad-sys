@@ -18,7 +18,7 @@ public static class ScheduleEngine
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
-        IReadOnlyList<(Timetable Timetable, Guid? ClassId)> sources;
+        (Timetable Timetable, Guid? ClassId)[] sources;
         EffectiveDaySource source;
 
         if (snapshot.FindOverride(date) is { } dateOverride)
@@ -47,7 +47,7 @@ public static class ScheduleEngine
         }
 
         ScheduledPeriod[] scheduled = SortedValidPeriods(sources);
-        return new EffectiveDay(date, sources.Count == 0 ? null : sources[0].Timetable, source, scheduled.Select(item => item.Period).ToArray())
+        return new EffectiveDay(date, sources.Length == 0 ? null : sources[0].Timetable, source, scheduled.Select(item => item.Period).ToArray())
         {
             Timetables = sources.Select(item => item.Timetable).ToArray(),
             ScheduledPeriods = scheduled,
