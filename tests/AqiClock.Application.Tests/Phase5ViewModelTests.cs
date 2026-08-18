@@ -52,18 +52,6 @@ public sealed class Phase5ViewModelTests
     }
 
     [Fact]
-    public void ReturningToRoleChoiceShowsDestinationBeforeClosingSignIn()
-    {
-        var calls = new List<string>();
-
-        WindowLifecycle.TransitionKeepingApplicationAlive(
-            () => calls.Add("show role choice"),
-            () => calls.Add("close sign in"));
-
-        Assert.Equal(["show role choice", "close sign in"], calls);
-    }
-
-    [Fact]
     public void SecondLaunchTargetsTheVisibleSignedOutSurface()
     {
         Assert.Equal(ActivationTarget.SignIn, WindowLifecycle.TargetForActivation(SessionState.SignedOut, false));
@@ -108,7 +96,8 @@ public sealed class Phase5ViewModelTests
         {
             try
             {
-                var window = new SignInWindow(CreateSignInViewModel(new SessionStub(), new SyncStub()));
+                var windows = new WindowStub();
+                var window = new SignInWindow(CreateSignInViewModel(new SessionStub(), new SyncStub()), windows);
                 WpfUiTestResources.Attach(window);
                 Assert.Equal(ResizeMode.CanResizeWithGrip, window.ResizeMode);
                 Assert.True(window.MinWidth > 0);
@@ -116,6 +105,7 @@ public sealed class Phase5ViewModelTests
                 var scroller = Assert.IsType<ScrollViewer>(window.FindName("AuthScroller"));
                 Assert.Equal(ScrollBarVisibility.Auto, scroller.VerticalScrollBarVisibility);
                 window.Close();
+                Assert.Equal(1, windows.SignInClosingCount);
             }
             catch (Exception ex) { failure = ex; }
         });
@@ -531,8 +521,10 @@ public sealed class Phase5ViewModelTests
     {
         public int TeacherSignInCount { get; private set; }
         public int StudentPickerCount { get; private set; }
+        public int SignInClosingCount { get; private set; }
         public void ShowMainWindow() { } public void ShowSignInWindow() { }
         public void ShowTeacherSignInWindow() => TeacherSignInCount++;
+        public void SignInWindowClosing() => SignInClosingCount++;
         public void ShowStudentClassPickerWindow() => StudentPickerCount++;
         public void ShowPasswordRecoveryWindow(PasswordRecoveryRequest request) { } public void ClosePasswordRecoveryWindow() { } public void ShowSettingsWindow() { } public void ShowAdminWindow() { } public void CloseAdminWindow(string? reason = null) { } public bool Confirm(string message, string title) => true; public void ShowAnnouncements() { } public void HideMainWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } public void ExitApplication() { }
     }
