@@ -44,7 +44,7 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
     public void ReturnToRoleChoice()
     {
         _returnToRoleChoiceOnSignInClose = true;
-        CloseSignInWindow();
+        WindowLifecycle.TransitionKeepingApplicationAlive(ShowRoleChoiceWindow, CloseSignInWindow);
     }
     private void ShowSignInWindowCore()
     {
