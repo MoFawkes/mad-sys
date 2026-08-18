@@ -1,5 +1,6 @@
 import {
   buildDesiredNotifications,
+  cancelAllScheduledAqiClockNotifications,
   diffScheduledNotifications,
   NOTIFICATION_LIMIT,
 } from '@/src/notifications/planner';
@@ -12,6 +13,7 @@ import { DeviceAudience, ScheduleSnapshot } from '@/src/domain';
 jest.mock('expo-notifications', () => ({
   getAllScheduledNotificationsAsync: jest.fn(),
   cancelScheduledNotificationAsync: jest.fn(),
+  cancelAllScheduledNotificationsAsync: jest.fn(),
   scheduleNotificationAsync: jest.fn(),
   SchedulableTriggerInputTypes: { DATE: 'date' },
 }));
@@ -98,6 +100,22 @@ describe('notification desired set', () => {
     expect(desired.every((item) => item.kind === 'end-warning')).toBe(true);
   });
 
+  it('merges simultaneous events under the lowest period identifier', () => {
+    const data = snapshot(2);
+    const periods = data.timetables[0].periods.map((item) => ({
+      ...item, startTime: '08:00:00', endTime: '08:30:00', classIds: [],
+    }));
+    const desired = buildDesiredNotifications(
+      { ...data, timetables: [{ ...data.timetables[0], periods }] }, student,
+      DEFAULT_NOTIFICATION_SETTINGS, new Date(2026, 6, 27, 7, 0),
+    );
+
+    const starts = desired.filter((item) => item.kind === 'start');
+    expect(starts).toHaveLength(7);
+    expect(starts[0].identifier).toContain('00000000000000000000000000000001');
+    expect(starts[0].body).toBe('Period 1\nPeriod 2');
+  });
+
   it('anchors lesson triggers to the institute timezone', () => {
     const desired = buildDesiredNotifications(
       snapshot(1), student, DEFAULT_NOTIFICATION_SETTINGS,
@@ -116,11 +134,25 @@ describe('notification set diff', () => {
     kind: 'start' as const,
   };
 
+  it('reschedules unchanged times when notification text changes', () => {
+    expect(diffScheduledNotifications([wanted], [{
+      identifier: wanted.identifier,
+      triggerTimeMs: wanted.triggerTime.getTime(),
+      title: wanted.title,
+      body: 'Old lesson name',
+    }])).toEqual({ cancel: [wanted.identifier], schedule: [wanted] });
+  });
+
   it('does nothing when identifier and trigger match', () => {
     expect(
       diffScheduledNotifications(
         [wanted],
-        [{ identifier: wanted.identifier, triggerTimeMs: wanted.triggerTime.getTime() }],
+        [{
+          identifier: wanted.identifier,
+          triggerTimeMs: wanted.triggerTime.getTime(),
+          title: wanted.title,
+          body: wanted.body,
+        }],
       ),
     ).toEqual({ cancel: [], schedule: [] });
   });
@@ -129,7 +161,7 @@ describe('notification set diff', () => {
     expect(
       diffScheduledNotifications(
         [wanted],
-        [{ identifier: wanted.identifier, triggerTimeMs: wanted.triggerTime.getTime() - 60_000 }],
+        [{ identifier: wanted.identifier, triggerTimeMs: wanted.triggerTime.getTime() - 60_000, title: wanted.title, body: wanted.body }],
       ),
     ).toEqual({ cancel: [wanted.identifier], schedule: [wanted] });
   });
@@ -138,12 +170,24 @@ describe('notification set diff', () => {
     expect(
       diffScheduledNotifications(
         [wanted],
-        [{ identifier: 'start:old:2026-07-27', triggerTimeMs: 1 }],
+        [{ identifier: 'start:old:2026-07-27', triggerTimeMs: 1, title: 'Start', body: 'Old' }],
       ),
     ).toEqual({
       cancel: ['start:old:2026-07-27'],
       schedule: [wanted],
     });
+  });
+});
+
+describe('notification cleanup', () => {
+  it('cancels every app-owned scheduled notification on sign-out', async () => {
+    const Notifications = jest.requireMock('expo-notifications') as {
+      cancelAllScheduledNotificationsAsync: jest.Mock;
+    };
+
+    await cancelAllScheduledAqiClockNotifications();
+
+    expect(Notifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
   });
 });
 

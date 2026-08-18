@@ -1,4 +1,4 @@
-import { resolveDay } from '@/src/domain/scheduleEngine';
+import { getNotificationEvents, resolveDay } from '@/src/domain/scheduleEngine';
 import { EMPTY_SNAPSHOT, ScheduleSnapshot } from '@/src/domain/scheduleTypes';
 
 import { id, localDate, monday, normalDay, override, period, timetable, week, weekOf } from '../test/testData';
@@ -52,7 +52,7 @@ describe('resolveDay', () => {
     expect(day).toMatchObject({ source: 'week-schedule', timetable: null, isSchoolDay: false });
   });
 
-  it('uses canonical UUID ordering when multiple selected tracks match', () => {
+  it('merges every matching selected class timetable in canonical class order', () => {
     const lower = timetable('Lower', period('Lower lesson', '09:00', '10:00'));
     const higher = timetable('Higher', period('Higher lesson', '09:00', '10:00'));
     const lowClass = '7fffffff-0000-0000-0000-000000000001';
@@ -68,6 +68,32 @@ describe('resolveDay', () => {
     }, monday);
 
     expect(day.timetable?.id).toBe(lower.id);
+    expect(day.timetables.map((item) => item.id)).toEqual([lower.id, higher.id]);
+    expect(day.periods.map((item) => item.name)).toEqual(['Lower lesson', 'Higher lesson']);
+    expect(day.scheduledPeriods.map((item) => item.classId)).toEqual([lowClass, highClass]);
+  });
+
+  it('emits a timetable shared by selected classes once without a class label', () => {
+    const normal = normalDay();
+    const firstClass = '7fffffff-0000-0000-0000-000000000001';
+    const secondClass = '80000000-0000-0000-0000-000000000002';
+    const snapshot: ScheduleSnapshot = {
+      timetables: [normal],
+      weekSchedule: [
+        { id: id(), weekday: 0, audienceClassId: firstClass, timetableId: normal.id },
+        { id: id(), weekday: 0, audienceClassId: secondClass, timetableId: normal.id },
+      ],
+      dateOverrides: [],
+      viewerClassIds: new Set([firstClass, secondClass]),
+    };
+    const day = resolveDay(snapshot, monday);
+    const events = getNotificationEvents(snapshot, monday, 5);
+
+    expect(day.timetables).toEqual([normal]);
+    expect(day.periods).toHaveLength(normal.periods.length);
+    expect(day.scheduledPeriods).toHaveLength(normal.periods.length);
+    expect(day.scheduledPeriods.every((item) => item.classId === null)).toBe(true);
+    expect(new Set(events.map((item) => item.key)).size).toBe(events.length);
   });
 
   it('excludes invalid periods', () => {

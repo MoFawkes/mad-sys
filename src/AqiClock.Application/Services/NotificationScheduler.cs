@@ -134,41 +134,45 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
                 _pendingDate = today;
             }
 
-            foreach (NotificationEvent item in _pending.Where(item => item.TriggerTime <= now).ToArray())
+            foreach (IGrouping<(DateTime TriggerTime, NotificationEventKind Kind), NotificationEvent> group in
+                _pending.Where(item => item.TriggerTime <= now).GroupBy(item => (item.TriggerTime, item.Kind)))
             {
-                if (await _log.ContainsAsync(item.Key, cancellationToken).ConfigureAwait(false)) continue;
-                if (now - item.TriggerTime > Grace || !IsEnabled(item.Kind))
+                List<NotificationEvent> due = [];
+                foreach (NotificationEvent item in group)
                 {
-                    LogSuppressed(_logger, item.Key, now - item.TriggerTime > Grace ? "past grace" : "kind disabled");
-                    await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
-                    continue;
+                    if (await _log.ContainsAsync(item.Key, cancellationToken).ConfigureAwait(false)) continue;
+                    if (now - item.TriggerTime > Grace || !IsEnabled(item.Kind))
+                    {
+                        LogSuppressed(_logger, item.Key, now - item.TriggerTime > Grace ? "past grace" : "kind disabled");
+                        await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
+                    if (!await AppliesToDeviceAsync(item.Occurrence.Period, cancellationToken).ConfigureAwait(false))
+                    {
+                        LogSuppressed(_logger, item.Key, "audience mismatch");
+                        await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
+                    if (item.Kind == NotificationEventKind.EndWarning && await SuppressEndWarningAsync(item, now, cancellationToken).ConfigureAwait(false))
+                    {
+                        LogSuppressed(_logger, item.Key, "end warning suppressed");
+                        await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
+                    due.Add(item);
                 }
 
-                if (!await AppliesToDeviceAsync(item.Occurrence.Period, cancellationToken).ConfigureAwait(false))
-                {
-                    LogSuppressed(_logger, item.Key, "audience mismatch");
-                    await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                if (item.Kind == NotificationEventKind.EndWarning && await SuppressEndWarningAsync(item, now, cancellationToken).ConfigureAwait(false))
-                {
-                    LogSuppressed(_logger, item.Key, "end warning suppressed");
-                    await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                if (item.Kind == NotificationEventKind.LessonStart)
-                {
-                    await _presenter.ShowLessonStartAsync(item, cancellationToken).ConfigureAwait(false);
-                }
+                if (due.Count == 0) continue;
+                if (group.Key.Kind == NotificationEventKind.LessonStart)
+                    await _presenter.ShowLessonStartsAsync(due, cancellationToken).ConfigureAwait(false);
                 else
                 {
-                    LessonStatus status = ScheduleEngine.GetStatus(_snapshot, item.TriggerTime);
-                    await _presenter.ShowEndWarningAsync(item, status.Next, _settings.Current.EndWarningMinutes, cancellationToken).ConfigureAwait(false);
+                    LessonStatus status = ScheduleEngine.GetStatus(_snapshot, group.Key.TriggerTime);
+                    await _presenter.ShowEndWarningsAsync(due, status.Next, _settings.Current.EndWarningMinutes, cancellationToken).ConfigureAwait(false);
                 }
 
-                await _log.RecordAsync(item.Key, new DateTimeOffset(now), false, cancellationToken).ConfigureAwait(false);
+                foreach (NotificationEvent item in due)
+                    await _log.RecordAsync(item.Key, new DateTimeOffset(now), false, cancellationToken).ConfigureAwait(false);
             }
         }
         finally { _gate.Release(); }

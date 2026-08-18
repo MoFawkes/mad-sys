@@ -46,7 +46,10 @@
     </Border>
     <StackPanel Grid.Row="5" Margin="0,12,0,0">
       <TextBlock Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-      <ui:Button Content="Start student session" Appearance="Primary" HorizontalAlignment="Right" Click="OnStart" IsEnabled="{Binding IsEnrolled}"/>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <ui:Button Content="Back" Appearance="Transparent" Click="OnBack" IsCancel="True" TabIndex="5" Margin="0,0,8,0"/>
+        <ui:Button Content="Start student session" Appearance="Primary" Click="OnStart" IsEnabled="{Binding IsEnrolled}" TabIndex="4"/>
+      </StackPanel>
     </StackPanel>
     </Grid>
   </Grid>

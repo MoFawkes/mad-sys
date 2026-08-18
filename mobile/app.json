@@ -2,7 +2,7 @@
   "expo": {
     "name": "AQI Clock",
     "slug": "aqi-clock",
-    "version": "0.11.0",
+    "version": "0.14.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "aqiclock-mobile",

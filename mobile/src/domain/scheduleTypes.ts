@@ -37,10 +37,14 @@ export type EffectiveDaySource = 'none' | 'week-schedule' | 'override';
 export type EffectiveDay = {
   date: Date;
   timetable: Timetable | null;
+  timetables: readonly Timetable[];
   source: EffectiveDaySource;
   periods: readonly Period[];
+  scheduledPeriods: readonly ScheduledPeriod[];
   isSchoolDay: boolean;
 };
+
+export type ScheduledPeriod = { period: Period; classId: string | null };
 
 export type PeriodOccurrence = {
   date: Date;

@@ -18,29 +18,40 @@ public static class ScheduleEngine
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
-        Timetable? timetable;
+        (Timetable Timetable, Guid? ClassId)[] sources;
         EffectiveDaySource source;
 
         if (snapshot.FindOverride(date) is { } dateOverride)
         {
             source = EffectiveDaySource.Override;
             // A missing referenced timetable (cache inconsistency) is treated as closed.
-            timetable = dateOverride.TimetableId is { } overrideTimetableId
-                ? snapshot.FindTimetable(overrideTimetableId)
-                : null;
-        }
-        else if (snapshot.ResolveWeekEntry(date.DayOfWeek)?.TimetableId is { } weekdayTimetableId)
-        {
-            source = EffectiveDaySource.WeekSchedule;
-            timetable = snapshot.FindTimetable(weekdayTimetableId);
+            Timetable? timetable = dateOverride.TimetableId is { } overrideTimetableId ? snapshot.FindTimetable(overrideTimetableId) : null;
+            sources = timetable is null ? [] : [(timetable, null)];
         }
         else
         {
-            source = EffectiveDaySource.None;
-            timetable = null;
+            IReadOnlyList<WeekScheduleEntry> entries = snapshot.ResolveWeekEntries(date.DayOfWeek);
+            sources = entries
+                .Where(entry => entry.TimetableId is not null)
+                .Select(entry => (Timetable: snapshot.FindTimetable(entry.TimetableId!.Value), entry.AudienceClassId))
+                .Where(item => item.Timetable is not null)
+                .Select(item => (item.Timetable!, item.AudienceClassId))
+                .GroupBy(item => item.Item1.Id)
+                .Select(group =>
+                {
+                    Guid?[] classIds = group.Select(item => item.AudienceClassId).Distinct().ToArray();
+                    return (group.First().Item1, ClassId: classIds.Length == 1 ? classIds[0] : null);
+                })
+                .ToArray();
+            source = entries.Any(entry => entry.TimetableId is not null) ? EffectiveDaySource.WeekSchedule : EffectiveDaySource.None;
         }
 
-        return new EffectiveDay(date, timetable, source, SortedValidPeriods(timetable));
+        ScheduledPeriod[] scheduled = SortedValidPeriods(sources);
+        return new EffectiveDay(date, sources.Length == 0 ? null : sources[0].Timetable, source, scheduled.Select(item => item.Period).ToArray())
+        {
+            Timetables = sources.Select(item => item.Timetable).ToArray(),
+            ScheduledPeriods = scheduled,
+        };
     }
 
     /// <summary>Computes the full display state (current period, next period, day) at one instant.</summary>
@@ -156,12 +167,12 @@ public static class ScheduleEngine
     private static string EventKey(string kind, Guid periodId, DateOnly date) =>
         string.Create(CultureInfo.InvariantCulture, $"{kind}:{periodId:N}:{date:yyyy-MM-dd}");
 
-    private static Period[] SortedValidPeriods(Timetable? timetable) =>
-        timetable is null
-            ? []
-            : timetable.Periods
-                .Where(p => p.IsValid)
-                .OrderBy(p => p.StartTime)
-                .ThenBy(p => p.SortOrder)
-                .ToArray();
+    private static ScheduledPeriod[] SortedValidPeriods(IReadOnlyList<(Timetable Timetable, Guid? ClassId)> sources) =>
+        sources.SelectMany(source => source.Timetable.Periods
+                .Where(period => period.IsValid)
+                .Select(period => new ScheduledPeriod(period, source.ClassId)))
+            .OrderBy(item => item.Period.StartTime)
+            .ThenBy(item => item.Period.SortOrder)
+            .ThenBy(item => item.Period.Id)
+            .ToArray();
 }

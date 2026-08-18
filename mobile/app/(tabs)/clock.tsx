@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getStatus, Period, resolveDay } from '@/src/domain';
 import { useApp } from '@/src/ui/AppProvider';
-import { getOrganization } from '@/src/data/repositories';
+import { getClasses, getOrganization } from '@/src/data/repositories';
 import { deviceZoneDiffers, toInstituteWallClock } from '@/src/time/instituteTime';
 import { theme } from '@/src/ui/theme';
 
@@ -15,6 +15,7 @@ export default function ClockScreen() {
   const { session, snapshot, sync, syncNow } = useApp();
   const [now, setNow] = useState(() => new Date());
   const [instituteTimeZone, setInstituteTimeZone] = useState<string>();
+  const [classNames, setClassNames] = useState<ReadonlyMap<string, string>>(new Map());
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -22,6 +23,7 @@ export default function ClockScreen() {
   }, []);
 
   useEffect(() => { void getOrganization().then((organization) => setInstituteTimeZone(organization?.timeZone)); }, [sync.lastSyncedAt]);
+  useEffect(() => { void getClasses().then((items) => setClassNames(new Map(items.map((item) => [item.id, item.name])))); }, [sync.lastSyncedAt]);
   const instituteNow = useMemo(() => toInstituteWallClock(now, instituteTimeZone), [now, instituteTimeZone]);
 
   const status = useMemo(() => getStatus(snapshot, instituteNow), [instituteNow, snapshot]);
@@ -107,7 +109,7 @@ export default function ClockScreen() {
         {day.periods.length === 0 ? (
           <Text style={styles.empty}>No periods scheduled.</Text>
         ) : (
-          day.periods.map((period) => {
+          day.scheduledPeriods.map(({ period, classId }) => {
             const active = status.current?.period.id === period.id;
             const past = period.endTime.slice(0, 5) <= formatTimeKey(instituteNow) && !active;
             return (
@@ -118,7 +120,12 @@ export default function ClockScreen() {
                   active && styles.activePeriod,
                   past && styles.pastPeriod,
                 ]}>
-                <Text style={styles.periodName}>{period.name}</Text>
+                <View style={styles.periodLabel}>
+                  <Text style={styles.periodName}>{period.name}</Text>
+                  {snapshot.viewerClassIds && snapshot.viewerClassIds.size > 1 && classId && (
+                    <Text style={styles.periodClass}>{classNames.get(classId) ?? 'Selected class'}</Text>
+                  )}
+                </View>
                 <Text style={styles.periodTime}>{formatPeriodTime(period)}</Text>
               </View>
             );
@@ -240,6 +247,8 @@ const styles = StyleSheet.create({
   offlineDot: { backgroundColor: theme.colors.warning },
   pastPeriod: { opacity: 0.4 },
   periodName: { color: theme.colors.cream, flex: 1, fontSize: 17, fontWeight: '600' },
+  periodLabel: { flex: 1 },
+  periodClass: { color: theme.colors.textOnNavy, fontSize: 13, marginTop: 2 },
   periodRow: {
     alignItems: 'center',
     borderColor: 'transparent',

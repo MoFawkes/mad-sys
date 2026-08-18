@@ -32,8 +32,10 @@ describe('getStatus', () => {
     const day = {
       date: monday,
       timetable: null,
+      timetables: [],
       source: 'week-schedule' as const,
       periods: [item],
+      scheduledPeriods: [{ period: item, classId: null }],
       isSchoolDay: true,
     };
     const status = buildLessonStatus(at(monday, '10:00:30'), day, occurrence, null);

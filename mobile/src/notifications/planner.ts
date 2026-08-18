@@ -33,6 +33,8 @@ export type DesiredNotification = {
 export type ActualNotification = {
   identifier: string;
   triggerTimeMs: number | null;
+  title: string | null;
+  body: string | null;
 };
 
 export type ReconcileDiff = {
@@ -81,7 +83,23 @@ export function buildDesiredNotifications(
     }
   }
 
-  return desired
+  const grouped = new Map<string, DesiredNotification[]>();
+  for (const item of desired) {
+    const key = `${item.triggerTime.getTime()}:${item.kind}`;
+    grouped.set(key, [...(grouped.get(key) ?? []), item]);
+  }
+
+  return [...grouped.values()]
+    .map((items) => {
+      const sorted = [...items].sort((left, right) =>
+        left.identifier < right.identifier ? -1 : left.identifier > right.identifier ? 1 : 0,
+      );
+      const first = sorted[0];
+      return {
+        ...first,
+        body: sorted.map((item) => item.body).join('\n'),
+      };
+    })
     .sort(
       (left, right) =>
         left.triggerTime.getTime() - right.triggerTime.getTime() ||
@@ -101,24 +119,50 @@ export function diffScheduledNotifications(
 
   for (const item of actual) {
     const wanted = desiredById.get(item.identifier);
-    if (!wanted || item.triggerTimeMs !== wanted.triggerTime.getTime()) {
+    if (
+      !wanted ||
+      item.triggerTimeMs !== wanted.triggerTime.getTime() ||
+      item.title !== wanted.title ||
+      item.body !== wanted.body
+    ) {
       cancel.push(item.identifier);
     }
   }
   for (const item of desired) {
     const existing = actualById.get(item.identifier);
-    if (!existing || existing.triggerTimeMs !== item.triggerTime.getTime()) {
+    if (
+      !existing ||
+      existing.triggerTimeMs !== item.triggerTime.getTime() ||
+      existing.title !== item.title ||
+      existing.body !== item.body
+    ) {
       schedule.push(item);
     }
   }
   return { cancel, schedule };
 }
 
-export async function reconcileScheduledNotifications(
+let reconciliationChain: Promise<void> = Promise.resolve();
+
+export function reconcileScheduledNotifications(
   snapshot: ScheduleSnapshot,
   audience: DeviceAudience,
   settings: NotificationSettings,
   now = new Date(),
+  instituteTimeZone?: string,
+): Promise<void> {
+  const operation = reconciliationChain.then(() => reconcileScheduledNotificationsCore(
+    snapshot, audience, settings, now, instituteTimeZone,
+  ));
+  reconciliationChain = operation.catch(() => undefined);
+  return operation;
+}
+
+async function reconcileScheduledNotificationsCore(
+  snapshot: ScheduleSnapshot,
+  audience: DeviceAudience,
+  settings: NotificationSettings,
+  now: Date,
   instituteTimeZone?: string,
 ): Promise<void> {
   const desired = buildDesiredNotifications(snapshot, audience, settings, now, instituteTimeZone);
@@ -131,6 +175,8 @@ export async function reconcileScheduledNotifications(
         typeof request.content.data?.aqiTriggerTime === 'number'
           ? request.content.data.aqiTriggerTime
           : null,
+      title: request.content.title ?? null,
+      body: request.content.body ?? null,
     }));
   const diff = diffScheduledNotifications(desired, ours);
 
@@ -209,6 +255,10 @@ export async function cancelScheduledLessonNotifications(): Promise<void> {
         Notifications.cancelScheduledNotificationAsync(request.identifier),
       ),
   );
+}
+
+export async function cancelAllScheduledAqiClockNotifications(): Promise<void> {
+  await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
 function isLessonIdentifier(identifier: string): boolean {

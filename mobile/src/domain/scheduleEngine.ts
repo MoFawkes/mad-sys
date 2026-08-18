@@ -35,49 +35,75 @@ export function resolveDay(snapshot: ScheduleSnapshot, date: Date): EffectiveDay
   const override = findLast(snapshot.dateOverrides, (item) => item.date === key);
 
   let source: EffectiveDay['source'];
-  let timetable: Timetable | null;
+  let timetables: Timetable[];
+  let resolvedEntries: WeekScheduleEntry[] = [];
+  let resolvedSources: { timetable: Timetable; classId: string | null }[] = [];
   if (override) {
     source = 'override';
-    timetable = override.timetableId
-      ? (snapshot.timetables.find((item) => item.id === override.timetableId) ?? null)
-      : null;
+    const timetable = override.timetableId ? snapshot.timetables.find((item) => item.id === override.timetableId) : undefined;
+    timetables = timetable ? [timetable] : [];
+    resolvedSources = timetable ? [{ timetable, classId: null }] : [];
   } else {
-    const weekEntry = resolveWeekEntry(snapshot, jsDayToDbWeekday(dateOnly));
-    if (weekEntry?.timetableId) {
-      source = 'week-schedule';
-      timetable = snapshot.timetables.find((item) => item.id === weekEntry.timetableId) ?? null;
-    } else {
-      source = 'none';
-      timetable = null;
-    }
+    resolvedEntries = resolveWeekEntries(snapshot, jsDayToDbWeekday(dateOnly));
+    const rawSources = resolvedEntries.flatMap((entry) => {
+      const timetable = entry.timetableId ? snapshot.timetables.find((item) => item.id === entry.timetableId) : undefined;
+      return timetable ? [{ timetable, classId: entry.audienceClassId }] : [];
+    });
+    resolvedSources = dedupeTimetableSources(rawSources);
+    timetables = resolvedSources.map((item) => item.timetable);
+    source = resolvedEntries.some((entry) => entry.timetableId != null) ? 'week-schedule' : 'none';
   }
 
-  const periods = timetable
-    ? timetable.periods
-        .filter(isValidPeriod)
-        .slice()
-        .sort(
+  const scheduledPeriods = resolvedSources
+    .flatMap(({ timetable, classId }) => timetable.periods.filter(isValidPeriod).map((period) => ({
+      period,
+      classId,
+    })))
+    .sort(
           (left, right) =>
-            parseTimeToMinutes(left.startTime) - parseTimeToMinutes(right.startTime) ||
-            left.sortOrder - right.sortOrder,
-        )
-    : [];
+            parseTimeToMinutes(left.period.startTime) - parseTimeToMinutes(right.period.startTime) ||
+            left.period.sortOrder - right.period.sortOrder || ordinalCompare(left.period.id, right.period.id),
+        );
+  const periods = scheduledPeriods.map((item) => item.period);
 
   return {
     date: dateOnly,
-    timetable,
+    timetable: timetables[0] ?? null,
+    timetables,
     source,
     periods,
+    scheduledPeriods,
     isSchoolDay: periods.length > 0,
   };
 }
 
 export function resolveWeekEntry(snapshot: ScheduleSnapshot, weekday: number): WeekScheduleEntry | undefined {
+  return resolveWeekEntries(snapshot, weekday)[0];
+}
+
+function dedupeTimetableSources(
+  sources: readonly { timetable: Timetable; classId: string | null }[],
+): { timetable: Timetable; classId: string | null }[] {
+  const grouped = new Map<string, { timetable: Timetable; classIds: Set<string | null> }>();
+  for (const source of sources) {
+    const existing = grouped.get(source.timetable.id);
+    if (existing) existing.classIds.add(source.classId);
+    else grouped.set(source.timetable.id, { timetable: source.timetable, classIds: new Set([source.classId]) });
+  }
+  return [...grouped.values()].map(({ timetable, classIds }) => ({
+    timetable,
+    classId: classIds.size === 1 ? [...classIds][0] : null,
+  }));
+}
+
+export function resolveWeekEntries(snapshot: ScheduleSnapshot, weekday: number): WeekScheduleEntry[] {
   const classes = snapshot.viewerClassIds ?? new Set<string>();
-  const match = snapshot.weekSchedule
+  const matches = snapshot.weekSchedule
     .filter((entry) => entry.weekday === weekday && entry.audienceClassId != null && classes.has(entry.audienceClassId))
-    .sort((left, right) => ordinalCompare(left.audienceClassId!, right.audienceClassId!))[0];
-  return match ?? snapshot.weekSchedule.find((entry) => entry.weekday === weekday && entry.audienceClassId == null);
+    .sort((left, right) => ordinalCompare(left.audienceClassId!, right.audienceClassId!));
+  if (matches.length > 0) return matches;
+  const fallback = snapshot.weekSchedule.find((entry) => entry.weekday === weekday && entry.audienceClassId == null);
+  return fallback ? [fallback] : [];
 }
 
 export function findCurrentPeriod(day: EffectiveDay, time: string | number): PeriodOccurrence | null {

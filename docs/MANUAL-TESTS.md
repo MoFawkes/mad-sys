@@ -356,6 +356,12 @@ rehearsal runs automatically in CI.
 - [ ] Edit a period on desktop machine A and confirm it reaches machine B through Realtime without restarting either app.
 - [ ] Enter a wrong password and confirm the message is **Incorrect email or password**. Revoke a stored refresh token and confirm restart returns to the sign-in window rather than leaving a silent dead session.
 
+## v0.14.0 desktop teacher-feedback checks
+
+- [ ] From role choice, open teacher sign-in and use **Back**; confirm role choice returns and the app does not exit. Repeat with Esc.
+- [ ] From the student class picker, use **Back** and confirm role choice returns. Repeat after the device is already enrolled as a student device.
+- [ ] Sign in with a confirmed inactive Windows account and confirm the message is **Your account is inactive; contact an administrator.** rather than a connectivity error.
+
 ## v0.14.0 mobile acceptance checks
 
 **Preview APK evidence (2026-08-01):** EAS build
@@ -371,32 +377,177 @@ drift measurements below are recorded. The Lessons channel is configured as
 `HIGH` in source, but heads-up behavior and the installed channel importance
 still require device verification.
 
-- [ ] **MOB-F01 — Visual alignment:** compare all seven native routes with `mobile/design/` at the target phone size. Confirm no hamburger on tab roots, no tabs in setup, Settings retains tabs, and the clock list scrolls fully clear of its status strip.
-- [ ] **MOB-F02 — Clock composition:** confirm NOW contains the remaining-time pill, end time, progress, and next lesson; past rows dim and the active Today row has its left marker.
-- [ ] **MOB-F03 — Announcements:** confirm category, relative timestamp, unread dot, two-line body clamp, and standalone eMasjid row without clipping at large text sizes.
-- [ ] **MOB-F04 — Class picker:** confirm classes and independent optional AM/PM choices remain visually separate and the validation state still says **Select at least one class.**
-- [ ] **MOB-F05 — Teacher:** sign in with an invited active account, compare the mobile and desktop current/next lesson against the same wall clock, and verify pull-to-refresh plus Settings → Sync now.
-- [ ] **MOB-F06 — Inactive teacher:** deactivate the account, sync, and confirm the clock shows **Your account is inactive; contact an administrator** rather than an empty timetable.
+- [x] **MOB-F01 — Visual alignment:** compare all seven native routes with `mobile/design/` at the target phone size. Confirm no hamburger on tab roots, no tabs in setup, Settings retains tabs, and the clock list scrolls fully clear of its status strip.
+- [x] **MOB-F02 — Clock composition:** confirm NOW contains the remaining-time pill, end time, progress, and next lesson; past rows dim and the active Today row has its left marker.
+- [x] **MOB-F03 — Announcements:** confirm category, relative timestamp, unread dot, two-line body clamp, and standalone eMasjid row without clipping at large text sizes.
+- [x] **MOB-F04 — Class picker:** confirm classes and independent optional AM/PM choices remain visually separate and the validation state still says **Select at least one class.**
+- [x] **MOB-F05 — Teacher:** sign in with an invited active account, compare the mobile and desktop current/next lesson against the same wall clock, and verify pull-to-refresh plus Settings → Sync now.
+- [x] **MOB-F06 — Inactive teacher:** deactivate the account, sync, and confirm the clock shows **Your account is inactive; contact an administrator** rather than an empty timetable.
 - [ ] **MOB-F07 — Teacher sign-out:** confirm the session, SQLite cache, announcement/read state, and pending lesson notifications are removed.
-- [ ] **MOB-F08 — Student fresh install:** sign in anonymously, enter the join code, select at least one class plus AM only, and confirm the choices survive an app restart.
-- [ ] **MOB-F09 — Student audience:** confirm other-class periods/notifications are absent, untagged breaks/assemblies remain visible, a PM announcement is hidden, and a teachers announcement is absent from the API response.
+- [x] **MOB-F08 — Student fresh install:** sign in anonymously, enter the join code, select at least one class plus AM only, and confirm the choices survive an app restart.
+- [x] **MOB-F09 — Student audience:** confirm other-class periods/notifications are absent, untagged breaks/assemblies remain visible, a PM announcement is hidden, and a teachers announcement is absent from the API response.
 - [ ] **MOB-F10 — Student settings:** confirm there is no role switch or teacher-only surface, **Change my classes** reopens the picker, and **End student session** clears selection/session/cache.
 - [ ] **MOB-F11 — Join-code QR:** open desktop **Student devices**, confirm the grouped code and QR render, scan with the emulator virtual scene or enter it manually (record which), and confirm `/student-setup` opens prefilled without auto-submitting.
 - [ ] **MOB-F12 — Join-code normalisation:** enter the same code manually with spaces and confirm enrolment succeeds. Verify lowercase and dash-separated input also work.
 - [ ] **MOB-F13 — Join-code rotation:** rotate the code on desktop; the old code cannot enrol a new phone, the new code can, and an already-enrolled phone continues syncing.
 - [ ] **MOB-F14 — Device revocation:** remove all student devices on desktop; the phone routes to setup with **This device is no longer enrolled. Ask for a new join code.**
-- [ ] **MOB-F15 — Non-admin refusal:** sign in as a non-admin teacher; the desktop tab and mobile section are absent, and a direct admin RPC call is refused.
-- [ ] **MOB-F16 — App identity:** inspect launcher circle/squircle masks and navy splash at device size for clipping or aliasing.
-- [ ] **MOB-F17 — Settings:** verify all three notification toggles persist, end-warning clamps at 0 and 15, About reports v0.14.0, and the tab label is **Announcements** with no tab-screen back arrows.
-- [ ] **MOB-A01 — Exact alarms (emulator):** confirm `SCHEDULE_EXACT_ALARM` is allowed and `dumpsys alarm` shows exact alarms for `com.mofawkes.aqiclock`.
-- [ ] **MOB-A02 — Forced Doze (emulator):** force idle, observe an exact lesson notification, then leave forced idle.
-- [ ] **MOB-A03 — Rescheduling (emulator):** move a period on desktop, foreground the phone, and confirm old pending notifications are cancelled and replacements use the new time.
-- [ ] **MOB-A04 — Permission denied (emulator):** deny notification permission and confirm clock, sync, and announcements continue working.
-- [ ] **MOB-T01 — Start drift (Pixel 9 Pro):** unplug the phone, leave battery optimisation at **Optimised**, background the app with a lesson start at least 10 minutes ahead, and record scheduled time, delivered time, and drift from Notification history.
-- [ ] **MOB-T02 — End-warning drift (Pixel 9 Pro):** repeat for a 2-minute end warning and record scheduled time, delivered time, and drift.
-- [ ] **MOB-T03 — Overnight offline (Pixel 9 Pro):** leave the phone offline overnight and confirm the next day's previously scheduled notifications arrive; record delivery timestamps from Notification history.
-- [ ] **MOB-T04 — Three-day background (Pixel 9 Pro):** background/close the app for three days without opening it and confirm the background task keeps extending the pending notification window.
-- [ ] **MOB-T05 — Reboot reschedule (Pixel 9 Pro):** reboot and confirm `RECEIVE_BOOT_COMPLETED` restores pending notifications.
+- [x] **MOB-F15 — Non-admin refusal:** sign in as a non-admin teacher; the desktop tab and mobile section are absent, and a direct admin RPC call is refused.
+- [x] **MOB-F16 — App identity:** inspect launcher circle/squircle masks and navy splash at device size for clipping or aliasing.
+- [x] **MOB-F17 — Settings:** verify all three notification toggles persist, end-warning clamps at 0 and 15, About reports v0.14.0, and the tab label is **Announcements** with no tab-screen back arrows.
+- [ ] **MOB-F18 — Merged multi-class agenda:** enrol a device in two classes whose weekday routes to different timetables; confirm both classes' periods appear in one ordered list with class labels. Confirm a single-class device shows no labels.
+- [ ] **MOB-F19 — Shared timetable:** enrol a device in two classes routed to the same timetable; confirm every period appears once, no class label is shown, and lesson notifications remain scheduled.
+- [ ] **MOB-F20 — Admin clash warning:** assign two classes different overlapping timetables and confirm Admin shows a non-blocking clash warning. Route both classes to the same timetable and confirm no warning appears.
+- [x] **MOB-A01 — Exact alarms (emulator):** confirm `SCHEDULE_EXACT_ALARM` is allowed and `dumpsys alarm` shows exact alarms for `com.mofawkes.aqiclock`.
+- [x] **MOB-A02 — Forced Doze (emulator):** force idle, observe an exact lesson notification, then leave forced idle.
+- [x] **MOB-A03 — Rescheduling (emulator):** move a period on desktop, foreground the phone, and confirm old pending notifications are cancelled and replacements use the new time.
+- [x] **MOB-A04 — Permission denied (emulator):** deny notification permission and confirm clock, sync, and announcements continue working.
+- [ ] **MOB-A05 — Combined notifications:** create two periods starting in the same minute and confirm desktop and mobile each produce one notification listing both periods.
+- [x] **MOB-T01 — Start drift (Pixel 9 Pro):** unplug the phone, leave battery optimisation at **Optimised**, background the app with a lesson start at least 10 minutes ahead, and record scheduled time, delivered time, and drift from Notification history.
+- [x] **MOB-T02 — End-warning drift (Pixel 9 Pro):** repeat for a 2-minute end warning and record scheduled time, delivered time, and drift.
+- [x] **MOB-T03 — Overnight offline (Pixel 9 Pro):** leave the phone offline overnight and confirm the next day's previously scheduled notifications arrive; record delivery timestamps from Notification history.
+- [x] **MOB-T04 — Three-day background (Pixel 9 Pro):** background/close the app for three days without opening it and confirm the background task keeps extending the pending notification window.
+- [x] **MOB-T05 — Reboot reschedule (Pixel 9 Pro):** reboot and confirm `RECEIVE_BOOT_COMPLETED` restores pending notifications.
+- [ ] **MOB-T06 — Class-switch endurance (Pixel 9 Pro):** enrol as class A and let notifications schedule, switch to class B, then verify over several days under forced Doze that no class A notification arrives.
+
+**Pixel 9 Pro result (2026-08-12): PASS.** The owner confirmed all five
+`MOB-T01`–`MOB-T05` checks passed on physical hardware, including start and
+end-warning delivery, overnight-offline delivery, the three-day background
+horizon, and reboot rescheduling. This entry records the owner's acceptance;
+retain the device Notification history separately as the timestamp evidence
+for the two drift checks.
+
+**Emulator preflight (2026-08-12):** Android API 36 emulator
+`Medium_Phone_API_36.1` booted with AQI Clock 0.14.0 installed. Package and
+AppOps inspection confirmed `USE_EXACT_ALARM`, `SCHEDULE_EXACT_ALARM`, and
+`RECEIVE_BOOT_COMPLETED`, with exact-alarm access allowed. With notification
+permission denied, the app launched and the role-choice and join-code screens
+remained usable. No signed-in teacher or enrolled-student state was available,
+so this preflight does not by itself complete `MOB-A01`–`MOB-A04` or the
+role-specific `MOB-F*` rows.
+
+**Student emulator pass (2026-08-12):** PASS for `MOB-F04`, `MOB-F08`,
+`MOB-A01`, and `MOB-A04`. The owner supplied the enrolled anonymous-student
+session. The class picker kept classes separate from AM/PM choices and produced
+the exact required validation message. Morning Year 1–5 plus AM-only persisted
+across a force-stop/relaunch. `SCHEDULE_EXACT_ALARM` AppOps was allowed and
+`dumpsys alarm` showed AQI Clock `RTC_WAKEUP` entries with `window=0` and
+`exactAllowReason=policy_permission`. With `POST_NOTIFICATIONS` denied and
+user-fixed, the clock rendered cached schedule data, a manual sync advanced the
+last-sync time, and Announcements and Settings remained usable. Settings also
+showed the student-only account surface and **Version 0.14.0**. Rows whose full
+scenario needs teacher/admin actions, targeted announcements, an active lesson,
+forced Doze, timetable editing, or destructive session cleanup remain open.
+
+**Admin emulator pass (2026-08-12):** PASS for `MOB-F17`. The owner supplied
+an active admin session. The teacher clock rendered and pull-to-refresh advanced
+the sync state; Settings exposed the admin-only Student Devices section. All
+three notification toggles were disabled, survived a force-stop/relaunch, and
+were then restored enabled. The warning-time control stopped at 0 and 15 and
+was restored to 5 minutes. About reported **Version 0.14.0**, the tab label was
+**Announcements**, and tab roots had no back arrows. No join code was rotated,
+no device was revoked, and the admin account/session was left intact.
+
+**Forced-Doze/rescheduling pass (2026-08-12):** PASS for `MOB-A02` and
+`MOB-A03`. The default Wednesday timetable's Lesson 8 was temporarily moved
+from 13:00–13:30 to 21:38–21:45. After foreground sync, Android scheduled exact
+`RTC_WAKEUP` alarms for the 21:38 start and 21:40 five-minute warning. The
+emulator was backgrounded and forced into deep `IDLE`; the start notification
+appeared at 21:38:00 and the end-warning was present at 21:40:10. For the next
+day, the old 13:00 alarm was absent and the replacement 21:38 alarm was present.
+Deep idle was released, Lesson 8 was restored to 13:00–13:30 in production,
+the app synced again, and the next-day exact 13:00 alarm was verified restored.
+The paired Pixel also received both temporary notifications, confirmed by the
+owner on 2026-08-12.
+
+**Active-clock pass (2026-08-12):** PASS for `MOB-F02`. Production Wednesday
+Lesson 8 was temporarily moved from 13:00–13:30 to 21:40–21:50. At 21:42 the
+NOW card showed **8 min left**, **Lesson 8**, **ends 21:50**, a partially filled
+progress bar, and the next lesson. Past Today rows were dimmed and the active
+Lesson 8 row had its left marker and full outline. Lesson 8 was then restored
+to 13:00–13:30 and production was re-queried to verify the original values.
+
+**App-identity pass (2026-08-12):** PASS for `MOB-F16`. On the Android API 36
+emulator, the app drawer showed the AQI Clock cream circular icon with the navy
+quill-and-inkwell mark centered, crisp, and unclipped. A cold launch showed the
+same mark centered on the navy splash without clipping or visible aliasing.
+
+**Seven-route visual pass (2026-08-12):** PASS for `MOB-F01`. The Android API
+36 emulator routes were compared with the seven `mobile/design/` hierarchy
+references at the target phone size. Earlier first-run/student acceptance
+provided the role choice, teacher sign-in, join-code, and class-picker states;
+the current admin session provided fresh Clock, Announcements, Settings, and
+Clock-bottom captures. The setup flow had no tabs, tab roots had no hamburger
+or back affordance, Settings retained the three-tab bar, and the Clock scrolled
+through Lesson 8 with the final row fully above the fixed sync-status strip.
+Differences were limited to live data/role state and the intentionally corrected
+chrome documented in `mobile/design/README.md`; no clipping or hierarchy defect
+was found.
+
+**Active-teacher pass (2026-08-12):** PASS for `MOB-F05`. The dedicated active
+non-admin test teacher signed into the emulator. At the same London wall-clock
+time, mobile and the owner-observed Windows client both showed **No lesson
+now** and **Next: Lesson 1 at 09:10**, matching the production default Wednesday
+timetable. Pull-to-refresh completed, and Settings → **Sync now** advanced the
+mobile last-sync timestamp to 22:18. Settings identified the account as Teacher
+and did not expose the admin-only Student Devices section.
+
+**Inactive-teacher pass (2026-08-12):** PASS for mobile `MOB-F06`. The
+dedicated test teacher was temporarily deactivated in production. After mobile
+sync, the Clock replaced the timetable with **Your account is inactive** and
+**Contact an administrator to restore access to the timetable.** The account
+was immediately restored active and the production profile was re-queried to
+confirm `is_active = true`. During the same check, the Windows client returned
+the inactive teacher to sign-in with **Signed in, but the initial timetable
+download failed. Check your connection and try again.** That desktop-specific
+misclassification is a separate release defect and is not credited as a mobile
+failure.
+
+**Non-admin refusal pass (2026-08-12):** PASS for `MOB-F15`. With the dedicated
+test teacher active, mobile Settings omitted Student Devices and identified the
+account as Teacher. The owner confirmed the Windows staff client exposed only
+Compact, Pin, and Settings, with no Student Devices/admin surface. A direct
+`admin_delete_week_schedule` call executed under that staff identity targeted
+a nonexistent UUID and was rejected before mutation with PostgreSQL `42501`
+and **Administrator access is required**.
+
+**Teacher sign-out failure (2026-08-12):** FAIL for `MOB-F07`. Signing the
+dedicated teacher out returned mobile to the role-choice screen, confirming the
+visible session was removed. However, after the app settled, Android
+`dumpsys alarm` still listed the full set of exact AQI Clock lesson start and
+end-warning alarms, including Monday Lesson 1 at 09:10 and its 09:35 warning.
+The installed release APK is not debuggable, so the internal SQLite tables
+could not be independently inspected. Because pending lesson notifications
+were demonstrably retained, the checklist row remains open and release is
+blocked until the cleanup path is fixed and re-tested.
+
+**Source fix pending rebuild (2026-08-12):** mobile sign-out now calls Expo's
+atomic `cancelAllScheduledNotificationsAsync`, which matches the requirement to
+remove every AQI Clock lesson and announcement request instead of depending on
+selective identifier matching. A regression test covers the call and the full
+mobile suite passes 102/102. The checklist row remains open until a rebuilt APK
+is installed and `dumpsys alarm` confirms zero notification alarms after
+sign-out. The Windows sign-in boundary now detects a confirmed inactive profile
+when initial sync fails and reports **Your account is inactive; contact an
+administrator.** instead of a connectivity error; its regression test and the
+149-test application suite pass (one interactive test skipped).
+
+**Announcement/audience pass (2026-08-12):** PASS for `MOB-F03` and
+`MOB-F09`. Five temporary published announcements exercised
+everyone, AM, PM, teachers, and another class. The admin emulator showed the
+category, relative time, unread dot, two-line body clamp, and standalone
+eMasjid row without clipping at a 1.3 font scale. A temporary anonymous student
+Data API session received everyone, AM, PM, and class-addressed rows but did
+not receive the teachers row, confirming the RLS boundary. The app then applied
+the enrolled Morning Year 1–5 plus AM-only audience: the owner confirmed on the
+Pixel that only the everyone and AM controls appeared, while PM, teachers, and
+other-class controls were absent. The temporary anonymous identity/device and
+all five announcements were deleted, and the emulator font scale was restored
+to 1.0. A temporary Wednesday timetable targeted to Morning Year 1–5 then
+replaced the default schedule with an **Audience control — should disappear**
+period on the Pixel. Removing that targeted row and syncing restored the normal
+lessons plus the untagged **Naseehah & Break**, and the cancelled 22:08 control
+notification did not arrive. The temporary schedule, timetable, and period
+were deleted and production was re-queried with zero test rows remaining.
 
 **Android acceptance split:** emulator functional, audience, exact-alarm, rescheduling, permission-denied, and forced-Doze checks are valid evidence. Notification drift and endurance timing require the stock-Android Pixel 9 Pro; emulator timing is not accepted as evidence. The app declares both `USE_EXACT_ALARM` and `SCHEDULE_EXACT_ALARM`; with exact-alarm access granted, record numerical scheduled and delivered timestamps and treat material multi-minute Doze batching as a failure, not expected behaviour.
 
