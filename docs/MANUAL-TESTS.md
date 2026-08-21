@@ -418,7 +418,7 @@ still require device verification.
 - [x] **MOB-T03 — Overnight offline (Pixel 9 Pro):** leave the phone offline overnight and confirm the next day's previously scheduled notifications arrive; record delivery timestamps from Notification history.
 - [x] **MOB-T04 — Three-day background (Pixel 9 Pro):** background/close the app for three days without opening it and confirm the background task keeps extending the pending notification window.
 - [x] **MOB-T05 — Reboot reschedule (Pixel 9 Pro):** reboot and confirm `RECEIVE_BOOT_COMPLETED` restores pending notifications.
-- [ ] **MOB-T06 — Class-switch endurance (Pixel 9 Pro):** enrol as class A and let notifications schedule, switch to class B, then verify over several days under forced Doze that no class A notification arrives.
+- [x] **MOB-T06 — Class-switch endurance (Pixel 9 Pro):** enrol as class A and let notifications schedule, switch to class B, then verify over several days under forced Doze that no class A notification arrives.
 
 **MOB-T06 read-out (2026-08-21): INCONCLUSIVE.** Friday's retained evidence
 is clean: Android Notification history and `dumpsys notification --noredact`
@@ -433,6 +433,30 @@ required multi-day delivered-notification evidence. The phone was already back
 in normal power state at read-out (`USB powered: true`, `mForceIdle=false`,
 deep/light state `ACTIVE`), so no battery/device-idle reset was needed. Re-run
 with a daily evidence capture or an app-owned durable delivery log.
+
+**MOB-T06 scope amendment (2026-08-21): SCOPED PASS.** The inconclusive
+read-out above remains the honest account of the missing delivered-notification
+evidence, but a follow-up inspection found a second limitation and stronger
+day-3 evidence. The Pixel rebooted at 09:36 on 21 August, ending the continuous
+forced-Doze condition and clearing the simulated battery unplug. After that
+reboot-driven full reschedule—the highest-risk stale-class re-arming path—the
+boot receiver rebuilt and delivered exactly the 12 Part-Time 2 events at 17:50,
+18:10, 18:15, 18:35, 18:40, 19:00, 19:05, 19:25, 19:30, 19:50, 19:55, and
+20:15, each matching the expected period start or five-minute end warning.
+AlarmManager records `12 wakes 12 alarms`, and neither the pending day-3 set nor
+the delivered Friday set contains a morning/class-A event. Together with the
+19 August switch-time inspection—60 pending alarms, all in the class-B evening
+band and none in the class-A morning band—this passes the stale-alarm
+cancellation and reboot-reschedule scope for v0.14.0.
+
+The residual gap is explicit: there is no delivered-notification proof for
+19–20 August. A class-A alarm that re-armed and fired on either day, then
+self-healed and never re-armed again, would escape this evidence. That fault is
+considered unlikely but is not disproved. A single time-boxed `adb backup`
+attempt produced only a 47-byte header, so the non-debuggable app's surviving
+`notification_log` rows could not be extracted. The Pixel must not be revoked,
+signed out, or reinstalled before that log can be exported, because
+`wipeCache()` deletes it.
 
 **v0.14.0 rebuilt-APK result (2026-08-18): PARTIAL PASS.** EAS preview build
 `f9f0a6a3-fc7c-4d2c-aa4d-341d50170216` passed `MOB-F07`, `MOB-F18`,

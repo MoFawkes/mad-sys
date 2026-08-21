@@ -140,6 +140,9 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [ ] Discuss faster timetable creation from start time, lesson count, lesson length, and the Naseehah/Salah anchors.
 - [ ] Confirm whether non-lesson rows remain fixed anchors while lesson rows flow; the existing whole-list save supports this without a schema change.
 - [x] Ship the interim schema-free interruption reflow tool for v0.14.0; keep the full block/anchor generator discussion for v0.15.0.
+- [ ] v0.15.0: add a diagnostics export for the mobile `notification_log`, then
+  use the live-term class switch from 25 August to re-run the full delivered-
+  notification portion of `MOB-T06` without relying on Android's 24-hour UI.
 
 - [ ] Align Settings/Admin fine detail to the approved concept (for example,
   Settings sidebar navigation); main-window concept alignment ships separately
