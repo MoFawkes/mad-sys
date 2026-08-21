@@ -260,6 +260,16 @@ In progress / next:
 
 ## Activity log
 
+- 2026-08-21 — `MOB-T06` read-out is inconclusive because the evidence plan
+  exceeded Android Notification history's rolling 24-hour retention. Friday's
+  retained evidence is clean: exactly 12 Part-Time 2 deliveries from 17:50 to
+  20:15, no morning/class-A delivery, 12 AQI Clock AlarmManager wakeups, and the
+  next Part-Time 2 sets still scheduled for Monday and Tuesday. Wednesday and
+  Thursday deliveries had expired from both the Settings history and
+  `dumpsys notification --noredact`, so the required three-day delivery claim
+  cannot be made. The Pixel was already in normal power state (`USB powered`,
+  forced idle off, deep/light state active); no reset command was needed. Re-run
+  with daily captures or durable app-owned delivery evidence.
 - 2026-08-19 — Architecture built the reflow acceptance binary
   `0.13.4-dev.9+b3454c6` (Release, 0 warnings, 0 errors) and confirmed the
   previous Release output `0.13.4-dev.7+df6bd64` predates `ed50c17`, so desktop

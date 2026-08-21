@@ -420,6 +420,20 @@ still require device verification.
 - [x] **MOB-T05 — Reboot reschedule (Pixel 9 Pro):** reboot and confirm `RECEIVE_BOOT_COMPLETED` restores pending notifications.
 - [ ] **MOB-T06 — Class-switch endurance (Pixel 9 Pro):** enrol as class A and let notifications schedule, switch to class B, then verify over several days under forced Doze that no class A notification arrives.
 
+**MOB-T06 read-out (2026-08-21): INCONCLUSIVE.** Friday's retained evidence
+is clean: Android Notification history and `dumpsys notification --noredact`
+both show exactly 12 AQI Clock notifications for Part-Time 2, from Lesson 1 at
+17:50 through Lesson 5's end warning at 20:15, with no Morning Year 1-5/class-A
+notification. `dumpsys alarm` also reports 12 AQI Clock wakeups and retains the
+next Part-Time 2 set for Monday and Tuesday. However, Android Notification
+history is a rolling 24-hour view; by the Friday 22:32 read-out, Wednesday's and
+Thursday's evening records had expired from both the Settings UI and the
+system notification archive. The row therefore cannot honestly pass on the
+required multi-day delivered-notification evidence. The phone was already back
+in normal power state at read-out (`USB powered: true`, `mForceIdle=false`,
+deep/light state `ACTIVE`), so no battery/device-idle reset was needed. Re-run
+with a daily evidence capture or an app-owned durable delivery log.
+
 **v0.14.0 rebuilt-APK result (2026-08-18): PARTIAL PASS.** EAS preview build
 `f9f0a6a3-fc7c-4d2c-aa4d-341d50170216` passed `MOB-F07`, `MOB-F18`,
 `MOB-F19`, and the mobile-only `MOB-A05`. The second emulator session also
