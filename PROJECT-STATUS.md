@@ -52,6 +52,7 @@ mobile device acceptance to receive fixes they asked for.
 - Superseded by build `47b10fa9-a2db-4958-8291-eb3779583c7c` from `3f20549`, which declares both `USE_EXACT_ALARM` and `SCHEDULE_EXACT_ALARM` (verified in its merged manifest) and carries the student-session fix. SHA-256 `9B9C80DB17D546BDB4AA6912F9C0DF9AF3E7FF26F1083817ABEE3A3DB64BFDF8`. The subsequent Pixel 9 Pro timing and endurance suite passed by owner confirmation on 2026-08-12.
 - Acceptance APK `f9f0a6a3-fc7c-4d2c-aa4d-341d50170216` was built from `d3c5c34` with the EAS `preview` profile: version 0.14.0 (versionCode 1), SDK 54, fingerprint `b61d5458448229b521c390e5c3a9174512487374`, SHA-256 `075061C9FC97F5B8D54C0B858595FCF8400ACCC62EDEE8739781A3F9BBB35423`. The paired local Windows acceptance build was `0.13.4-dev.2+5a237c6`, SHA-256 `A80A8627F480305CFF7130FBA70C0CA7ED3A1E707BBA99FF123B000D2C2D4F64`.
 - The post-PR #17 Windows retest build is `0.13.4-dev.5+62d1434`, SHA-256 `BABBF0C681FAB2D56FA275FF57B166A5EA88F90798D2D8F009C95E6EA2340D95`. Its isolated-profile pass confirmed teacher sign-in Back, Esc, and title-bar X plus student-picker Back all return to role choice without exiting. It is untagged and exists only for acceptance.
+- The reflow acceptance build is `0.13.4-dev.9+b3454c6`, SHA-256 `5F1160B20274AED90C741104C4DA76DBB31EE7BCA193B4495ECE71E2FFE2447E`, built Release from `main` at `b3454c6` on 2026-08-19 with 0 warnings and 0 errors. It is the first Release binary containing the interruption reflow tool: the previous Release output was `0.13.4-dev.7+df6bd64`, one commit before `ed50c17`, so no earlier local binary could have exercised the reflow rows. Desktop rows D1-D5 in `docs/MANUAL-TESTS.md` must run against this build. It is untagged and exists only for acceptance; the published v0.14.0 artifact is rebuilt from the tag by `release.yml`.
 - The 2026-08-02 emulator notes referred only to mutable source line numbers, which now land in the APK-evidence prose rather than checklist rows. That evidence is untraceable, credits no current acceptance row, and must not be relied on. Re-run the emulator checklist using the stable `MOB-F*` and `MOB-A*` identifiers in `docs/MANUAL-TESTS.md`; Pixel-only timing and endurance rows use `MOB-T*`.
 - Production reconciliation on 2026-08-01 found all seven migration versions and the complete student-device schema already applied. The hosted signup gate was verified against production intent: public email signup returned 403 **Public signup is disabled**, while an anonymous identity enrolled successfully and could select its own `student_devices` row under RLS.
 - The Pixel 9 Pro timing and endurance suite (`MOB-T01`–`MOB-T05`) passed by owner confirmation on 2026-08-12, clearing the physical-device drift, overnight-offline, three-day-background, and reboot-rescheduling gate. All emulator alarm rows (`MOB-A01`–`MOB-A05`) pass, alongside `MOB-F01`–`MOB-F09`, `MOB-F11`, `MOB-F12`, and `MOB-F15`–`MOB-F19`. `MOB-F07` now passes: ending the student session reduced pending lesson alarms from 60 to 0. `MOB-F10` still lacks direct cache-wipe evidence; join-code rotation and destructive device revocation remain open. Anonymous identities created during emulator acceptance have been deleted.
@@ -258,6 +259,26 @@ In progress / next:
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
 
 ## Activity log
+
+- 2026-08-19 — Architecture built the reflow acceptance binary
+  `0.13.4-dev.9+b3454c6` (Release, 0 warnings, 0 errors) and confirmed the
+  previous Release output `0.13.4-dev.7+df6bd64` predates `ed50c17`, so desktop
+  rows D1-D5 had no binary to run against until now.
+- 2026-08-19 — `MOB-T06` was armed and verified directly on the Pixel 9 Pro XL
+  (`48231FDAS004SS`) rather than from a completion report, after an earlier
+  report of the run having started could not be reproduced. `dumpsys alarm`
+  showed exactly 60 pending entries for `com.mofawkes.aqiclock`, all between
+  17:50 and 20:15 London time with no morning-band alarm, confirming the class
+  switch reconciled. Installed version is 0.14.0 (versionCode 1). Deep idle was
+  re-forced to `IDLE` with light `OVERRIDE`; `dumpsys battery unplug` was used
+  and must be reset at read-out.
+- 2026-08-19 — The `MOB-T06` read-out moved from Sunday 23rd to Saturday 22nd.
+  The 60 alarms fall 12 per day on 19, 20, 21, 24, and 25 August: evening
+  sessions do not run at weekends, so Saturday and Sunday are silent by
+  timetable and carry no evidence. The observable window therefore closes after
+  Friday's 20:15 event, and the verdict needs the Wednesday-to-Friday evening
+  deliveries present as well as no morning-class notification. Sunday becomes
+  repair slack before the Monday 24th tag.
 
 - 2026-08-12 — Owner confirmed all Pixel 9 Pro acceptance checks passed:
   start and end-warning drift, overnight-offline delivery, three-day background
