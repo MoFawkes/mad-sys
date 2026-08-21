@@ -1,7 +1,7 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
+import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 import { applyCacheMigrations, CACHE_MIGRATIONS } from '@/src/data/migrations';
-import { replaceSnapshotInDatabase } from '@/src/data/sqlite';
+import { replaceSnapshotInDatabase, SYNC_TABLES, wipeCache } from '@/src/data/sqlite';
 
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
 
@@ -61,5 +61,34 @@ describe('SQLite cache safety', () => {
       ]),
     ).rejects.toThrow('Expected text database value.');
     expect(committedRows).toEqual([{ id: 'old' }]);
+  });
+
+  it('wipes every cached data, session, preference, and notification table atomically', async () => {
+    const executedSql: string[] = [];
+    const transaction = {
+      runAsync: jest.fn(async (sql: string) => {
+        executedSql.push(sql);
+      }),
+    } as unknown as SQLiteDatabase;
+    const database = {
+      execAsync: jest.fn(async () => {}),
+      getFirstAsync: jest.fn(async () => ({ user_version: CACHE_MIGRATIONS.at(-1)?.version })),
+      withExclusiveTransactionAsync: jest.fn(
+        async (task: (transaction: SQLiteDatabase) => Promise<void>) => task(transaction),
+      ),
+    } as unknown as SQLiteDatabase;
+    jest.mocked(openDatabaseAsync).mockResolvedValue(database);
+
+    await wipeCache();
+
+    expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(executedSql).toEqual([
+      ...SYNC_TABLES.map((table) => `DELETE FROM ${table}`),
+      'DELETE FROM sync_state',
+      'DELETE FROM notification_log',
+      'DELETE FROM announcement_read',
+      'DELETE FROM student_preferences',
+      'DELETE FROM meta',
+    ]);
   });
 });
