@@ -84,6 +84,21 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>, I
         finally { _refreshGate.Release(); }
     }
 
+    public async Task RefreshProfileAsync(CancellationToken cancellationToken = default)
+    {
+        if (Current.UserId is not { } userId || Current.IsAnonymous) return;
+        Profile? profile = await _profiles.GetByIdAsync(userId, cancellationToken).ConfigureAwait(false);
+        if (Current.UserId != userId) return;
+
+        _audience.SetTeacher(profile?.Role ?? UserRole.Teacher);
+        SetState(Current with
+        {
+            Role = profile?.Role ?? UserRole.Teacher,
+            IsActive = profile?.IsActive ?? false,
+            RoleConfirmed = true,
+        });
+    }
+
     public async Task SignInAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
@@ -203,12 +218,7 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>, I
 
     private async Task RefreshCachedProfileAsync(Guid userId)
     {
-        Profile? profile = await _profiles.GetByIdAsync(userId).ConfigureAwait(false);
-        if (profile is not null && Current.UserId == userId)
-        {
-            _audience.SetTeacher(profile.Role);
-            SetState(Current with { Role = profile.Role, IsActive = profile.IsActive, RoleConfirmed = true });
-        }
+        if (Current.UserId == userId) await RefreshProfileAsync().ConfigureAwait(false);
     }
 
     public void Dispose()

@@ -24,6 +24,7 @@ public interface ISessionService
     SessionState Current { get; }
     Task RestoreAsync(CancellationToken cancellationToken = default);
     Task EnsureFreshAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    Task RefreshProfileAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     Task SignInAsync(string email, string password, CancellationToken cancellationToken = default);
     Task EnrollStudentDeviceAsync(string joinCode, CancellationToken cancellationToken = default) => Task.CompletedTask;
     Task SignOutAsync(CancellationToken cancellationToken = default);

@@ -227,6 +227,8 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
     {
         CacheSnapshot snapshot = await gateway.PullAsync(table, cancellationToken).ConfigureAwait(false);
         await cache.ReplaceSnapshotAsync(snapshot, cancellationToken).ConfigureAwait(false);
+        if (table == CacheTable.Profiles && session is not null)
+            await session.RefreshProfileAsync(cancellationToken).ConfigureAwait(false);
         string fingerprint = SnapshotFingerprint(snapshot.Rows);
         bool changed = !_snapshotFingerprints.TryGetValue(table, out string? previous) || previous != fingerprint;
         _snapshotFingerprints[table] = fingerprint;
