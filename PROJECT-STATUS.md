@@ -56,7 +56,7 @@ mobile device acceptance to receive fixes they asked for.
 - The 2026-08-02 emulator notes referred only to mutable source line numbers, which now land in the APK-evidence prose rather than checklist rows. That evidence is untraceable, credits no current acceptance row, and must not be relied on. Re-run the emulator checklist using the stable `MOB-F*` and `MOB-A*` identifiers in `docs/MANUAL-TESTS.md`; Pixel-only timing and endurance rows use `MOB-T*`.
 - Production reconciliation on 2026-08-01 found all seven migration versions and the complete student-device schema already applied. The hosted signup gate was verified against production intent: public email signup returned 403 **Public signup is disabled**, while an anonymous identity enrolled successfully and could select its own `student_devices` row under RLS.
 - The Pixel 9 Pro timing and endurance suite (`MOB-T01`–`MOB-T05`) passed by owner confirmation on 2026-08-12, clearing the physical-device drift, overnight-offline, three-day-background, and reboot-rescheduling gate. All emulator alarm rows (`MOB-A01`–`MOB-A05`) pass, alongside `MOB-F01`–`MOB-F09`, `MOB-F11`, `MOB-F12`, and `MOB-F15`–`MOB-F19`. `MOB-F07` now passes: ending the student session reduced pending lesson alarms from 60 to 0. `MOB-F10` still lacks direct cache-wipe evidence; join-code rotation and destructive device revocation remain open. Anonymous identities created during emulator acceptance have been deleted.
-- The v0.14.0 candidate carries desktop Back/Esc/title-bar navigation, merged multi-class agendas, shared-timetable deduplication, combined notifications, and mobile stale-alarm reconciliation. The Admin clash warning was withdrawn because legitimate staggered timetables overlap permanently; revisit it with the Part 4 generator model. Remaining release gates include desktop combined-notification and inactive-account checks, `MOB-F10`, `MOB-F13`, `MOB-F14`, and the multi-day Pixel `MOB-T06` class-switch endurance row.
+- The v0.14.0 candidate carries desktop Back/Esc/title-bar navigation, merged multi-class agendas, shared-timetable deduplication, combined notifications, and mobile stale-alarm reconciliation. The Admin clash warning was withdrawn because legitimate staggered timetables overlap permanently; revisit it with the Part 4 generator model. `MOB-T06` has a scoped pass for stale-class cancellation and reboot-driven rescheduling, with no delivered-notification proof retained for 19–20 August. Remaining release gates include desktop D1–D5, `MOB-F10`, `MOB-F13`, and `MOB-F14`.
 - Scope added on 2026-08-18: v0.14.0 also carries a schema-free desktop interruption reflow tool so term can start without hand-adjusting every later lesson when Maghrib moves. It inserts named non-lesson rows or shifts a selected row and all later rows, closes seams, rejects midnight crossings atomically, and continues saving ordinary periods through the existing whole-list RPC. The full block/anchor generator remains v0.15.0 work.
 - Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, and the desktop untagged-period notification semantic difference.
 
@@ -270,6 +270,18 @@ In progress / next:
   cannot be made. The Pixel was already in normal power state (`USB powered`,
   forced idle off, deep/light state active); no reset command was needed. Re-run
   with daily captures or durable app-owned delivery evidence.
+- 2026-08-21 — Follow-up inspection amends, rather than replaces, that verdict
+  to a scoped pass. `/proc/uptime` places an unplanned Pixel reboot at 09:36,
+  which ended continuous forced Doze but also exercised the boot receiver's
+  full reschedule path. The rebuilt Friday set delivered all 12 expected
+  Part-Time 2 events from 17:50 through 20:15 (`12 wakes 12 alarms`) with no
+  morning/class-A event; the 19 August switch-time set likewise contained 60
+  class-B-band alarms and no morning alarm. The explicit residual gap is that
+  19–20 August deliveries are no longer provable: a stale class-A alarm that
+  fired and then self-healed would not be caught. One time-boxed `adb backup`
+  attempt yielded only a 47-byte header. The Pixel's durable
+  `notification_log` must remain intact—no revocation, sign-out, or reinstall—
+  until a diagnostics export can read it.
 - 2026-08-19 — Architecture built the reflow acceptance binary
   `0.13.4-dev.9+b3454c6` (Release, 0 warnings, 0 errors) and confirmed the
   previous Release output `0.13.4-dev.7+df6bd64` predates `ed50c17`, so desktop
