@@ -407,6 +407,33 @@ public sealed class InfrastructureOrchestrationTests
     }
 
     [Fact]
+    public async Task MissingOrganizationConfirmsInactiveProfileBeforeInitialSyncFailureReturns()
+    {
+        Guid userId = Guid.NewGuid();
+        var messenger = new WeakReferenceMessenger();
+        var gateway = new FakeGateway
+        {
+            RefreshedSession = new AuthenticatedSession(userId, "inactive@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1)),
+            OrganizationFailure = new InvalidOperationException("The signed-in profile or student-device enrolment is unavailable."),
+        };
+        using var session = new SessionService(new FakeSessionStore(), gateway, new FakeProfiles(), new FakeCache(), messenger);
+        await session.SignInAsync("inactive@example.test", "password");
+        await using var sync = new SyncService(
+            gateway,
+            new FakeCache(),
+            messenger,
+            new DebouncePolicy(TimeSpan.Zero),
+            TimeProvider.System,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance,
+            session: session);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => sync.StartAsync());
+
+        Assert.True(session.Current.RoleConfirmed);
+        Assert.False(session.Current.IsActive);
+    }
+
+    [Fact]
     public async Task SecondIdenticalProfilesPullDoesNotPublishAnotherSessionChanged()
     {
         Guid userId = Guid.NewGuid();
@@ -805,6 +832,7 @@ public sealed class InfrastructureOrchestrationTests
     {
         public Task CompletePasswordRecoveryAsync(string accessToken, string newPassword, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Guid OrganizationId { get; init; } = Guid.NewGuid();
+        public Exception? OrganizationFailure { get; init; }
         public Exception? RefreshException { get; init; }
         public AuthenticatedSession RefreshedSession { get; init; } = new(Guid.NewGuid(), "teacher@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1));
         public Dictionary<CacheTable, int> PullCounts { get; } = [];
@@ -823,7 +851,9 @@ public sealed class InfrastructureOrchestrationTests
         public Task RestoreAccessTokenAsync(StoredSession session, CancellationToken cancellationToken = default) { RestoreCalled = true; return Task.CompletedTask; }
         public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) =>
-            IsSignedOut
+            OrganizationFailure is not null
+                ? Task.FromException<Guid>(OrganizationFailure)
+                : IsSignedOut
                 ? Task.FromException<Guid>(new InvalidOperationException("A session is required."))
                 : Task.FromResult(OrganizationId);
         public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default)

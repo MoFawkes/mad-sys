@@ -108,7 +108,16 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
         try
         {
             SetState(ConnectivityState.Syncing);
-            Guid organizationId = await gateway.GetCurrentOrganizationIdAsync(cancellationToken).ConfigureAwait(false);
+            Guid organizationId;
+            try
+            {
+                organizationId = await gateway.GetCurrentOrganizationIdAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (InvalidOperationException) when (session?.Current is { UserId: not null, IsAnonymous: false })
+            {
+                await session.RefreshProfileAsync(cancellationToken).ConfigureAwait(false);
+                throw;
+            }
             string? cachedOrganization = await cache.GetMetaAsync("org_id", cancellationToken).ConfigureAwait(false);
             if (cachedOrganization is not null && !string.Equals(cachedOrganization, organizationId.ToString(), StringComparison.OrdinalIgnoreCase))
             {
