@@ -193,6 +193,13 @@ Three categories: **lesson start**, **end warning** (N min before end, default 5
 
 CI (GitHub Actions): build + unit tests on `windows-latest`; Supabase integration tests on `ubuntu-latest` with Supabase CLI. RLS tests are release-blocking.
 
+Review rule for orchestration fixes: testing a correct leaf operation is not
+coverage of the feature that calls it. Any path that sequences state changes or
+cleanup across multiple services must have a regression at the orchestration
+boundary. That regression must reach the state naturally (not hand-set the flag
+under test), inject a failure before and after the critical step, and assert the
+final user-visible state plus all mandatory cleanup that must still run.
+
 ---
 
 ## 10. Packaging, installation and updates

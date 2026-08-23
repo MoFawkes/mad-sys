@@ -29,7 +29,8 @@ teacher-feedback fixes onto one shared version number.
 
 - Treated untagged periods as school-wide on mobile so breaks and assemblies remain visible.
 - Baseline existing announcements only after the first complete announcements snapshot, preventing fresh-install notification bursts.
-- Surface inactive teacher accounts explicitly instead of showing an unexplained empty timetable.
+- Surface inactive teacher accounts explicitly on mobile and desktop instead of showing an unexplained empty timetable or misclassifying a later sync failure as connectivity.
+- Make mobile sign-out complete every local teardown step and enter signed-out state even when an earlier cleanup fails, while surfacing the partial-cleanup error.
 - Stopped student sessions reporting inactive-account state when their profile snapshot is correctly empty under RLS.
 - Added visible, keyboard-accessible Back actions to teacher sign-in and the desktop student class picker.
 - Reconciled mobile notifications from the audience-filtered snapshot in the institute timezone, cancelled old lesson alarms when student selection is revoked, serialized reconciliation, and refresh notification text when period names change.

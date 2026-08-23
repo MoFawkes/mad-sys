@@ -378,6 +378,72 @@ public sealed class InfrastructureOrchestrationTests
     }
 
     [Fact]
+    public async Task ProfilesAreConfirmedBeforeALaterInitialSyncFailureReturns()
+    {
+        Guid userId = Guid.NewGuid();
+        var messenger = new WeakReferenceMessenger();
+        var gateway = new FakeGateway
+        {
+            RefreshedSession = new AuthenticatedSession(userId, "inactive@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1)),
+        };
+        // Organizations and profiles succeed; the next table reproduces the
+        // post-profile initial-sync failure that exposed D1.
+        gateway.PullFailuresByTable[CacheTable.Timetables] = new InvalidOperationException("later table failed");
+        using var session = new SessionService(new FakeSessionStore(), gateway, new FakeProfiles(), new FakeCache(), messenger);
+        await session.SignInAsync("inactive@example.test", "password");
+        await using var sync = new SyncService(
+            gateway,
+            new FakeCache(),
+            messenger,
+            new DebouncePolicy(TimeSpan.Zero),
+            TimeProvider.System,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance,
+            session: session);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => sync.StartAsync());
+
+        Assert.True(session.Current.RoleConfirmed);
+        Assert.False(session.Current.IsActive);
+    }
+
+    [Fact]
+    public async Task SecondIdenticalProfilesPullDoesNotPublishAnotherSessionChanged()
+    {
+        Guid userId = Guid.NewGuid();
+        var messenger = new WeakReferenceMessenger();
+        var recipient = new object();
+        int messages = 0;
+        messenger.Register<AqiClock.Application.Messages.SessionChanged>(recipient, (_, _) => messages++);
+        var gateway = new FakeGateway
+        {
+            RefreshedSession = new AuthenticatedSession(userId, "teacher@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1)),
+        };
+        using var session = new SessionService(
+            new FakeSessionStore(),
+            gateway,
+            new FakeProfiles(new Profile(userId, "Teacher", UserRole.Teacher, true)),
+            new FakeCache(),
+            messenger);
+        await session.SignInAsync("teacher@example.test", "password");
+        await using var sync = new SyncService(
+            gateway,
+            new FakeCache(),
+            messenger,
+            new DebouncePolicy(TimeSpan.Zero),
+            TimeProvider.System,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance,
+            session: session);
+
+        await sync.SyncTableAsync(CacheTable.Profiles);
+        int messagesAfterFirstPull = messages;
+        await sync.SyncTableAsync(CacheTable.Profiles);
+
+        Assert.Equal(2, messagesAfterFirstPull);
+        Assert.Equal(messagesAfterFirstPull, messages);
+        Assert.Equal(2, gateway.PullCounts[CacheTable.Profiles]);
+    }
+
+    [Fact]
     public async Task SyncWipesCacheOnOrganizationChangeThenRepopulates()
     {
         var cache = new FakeCache();
@@ -744,6 +810,7 @@ public sealed class InfrastructureOrchestrationTests
         public Dictionary<CacheTable, int> PullCounts { get; } = [];
         public Queue<Exception> SubscriptionFailures { get; } = [];
         public Queue<Exception> PullFailures { get; } = [];
+        public Dictionary<CacheTable, Exception> PullFailuresByTable { get; } = [];
         public int SubscribeCalls { get; private set; }
         public int ActiveSubscriptions { get; private set; }
         public bool IsSignedOut { get; set; }
@@ -762,6 +829,8 @@ public sealed class InfrastructureOrchestrationTests
         public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default)
         {
             PullCounts[table] = PullCounts.GetValueOrDefault(table) + 1;
+            if (PullFailuresByTable.TryGetValue(table, out Exception? tableException))
+                return Task.FromException<CacheSnapshot>(tableException);
             if (PullFailures.TryDequeue(out Exception? exception)) return Task.FromException<CacheSnapshot>(exception);
             return Task.FromResult(new CacheSnapshot(table, [], DateTimeOffset.UtcNow));
         }

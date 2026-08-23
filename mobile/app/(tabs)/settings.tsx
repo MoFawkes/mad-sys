@@ -75,7 +75,14 @@ export default function SettingsScreen() {
           text: student ? 'End session' : 'Sign out',
           style: 'destructive',
           onPress: () => {
-            void signOut().then(() => router.replace('/role-choice'));
+            void signOut()
+              .then(() => router.replace('/role-choice'))
+              .catch((error: unknown) => {
+                Alert.alert(
+                  'Session ended with cleanup errors',
+                  error instanceof Error ? error.message : 'Some local cleanup could not be completed.',
+                );
+              });
           },
         },
       ],

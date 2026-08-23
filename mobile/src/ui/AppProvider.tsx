@@ -46,6 +46,7 @@ import {
   registerNotificationBackgroundTaskAsync,
   subscribeNotificationSettings,
 } from '@/src/notifications';
+import { runSignOutTeardown } from '@/src/ui/signOutTeardown';
 
 type Role = 'teacher' | 'admin' | 'graduate';
 type SessionState =
@@ -349,18 +350,18 @@ export function AppProvider({ children }: PropsWithChildren) {
           setDataRevision((revision) => revision + 1);
         },
         async signOut() {
-          try {
-            await getSupabaseClient().auth.signOut();
-          } finally {
-            await syncService.stop();
-            await cancelAllScheduledAqiClockNotifications().catch(() => {
-              // Notification cleanup must not prevent cache/session cleanup.
-            });
-            await wipeCache();
-            setSnapshot(EMPTY_SNAPSHOT);
-            setStudentPreferences(null);
-            setSession({ status: 'signedOut' });
-          }
+          await runSignOutTeardown([
+            async () => {
+              const result = await getSupabaseClient().auth.signOut();
+              if (result.error) throw result.error;
+            },
+            () => syncService.stop(),
+            cancelAllScheduledAqiClockNotifications,
+            wipeCache,
+            async () => setSnapshot(EMPTY_SNAPSHOT),
+            async () => setStudentPreferences(null),
+            async () => setSession({ status: 'signedOut' }),
+          ]);
         },
         async syncNow() {
           await syncService.syncAll();
