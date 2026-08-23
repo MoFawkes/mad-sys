@@ -361,10 +361,27 @@ rehearsal runs automatically in CI.
 - [x] From role choice, open teacher sign-in and use **Back**; confirm role choice returns and the app does not exit. Repeat with Esc and the title-bar X.
 - [x] From the student class picker, use **Back** and confirm role choice returns. Repeat after the device is already enrolled as a student device.
 - [ ] **D1 — Inactive account:** sign in with a confirmed inactive Windows account and confirm the message is **Your account is inactive; contact an administrator.** rather than a connectivity error.
-- [ ] **D2 — Combined notification:** create two lesson periods starting in the same minute and confirm desktop produces one notification listing both periods.
-- [ ] **D3 — Insert/shift reflow:** open Part-Time 1, insert a 20-minute break after Lesson 2, and confirm every later lesson moves exactly 20 minutes and both seams close. Shift the break by -5 minutes and confirm the break and every later row track it. Save, reselect/reload, sync a device, and confirm the persisted shifted times arrive.
-- [ ] **D4 — Gap absorption:** on a temporary timetable with an existing gap after a row, insert a break there and confirm later rows move by the entered minutes while the break absorbs the old gap, leaving no unnamed dead time.
-- [ ] **D5 — Midnight/duplicate-name validation:** attempt a shift that would move a row before 00:00 or its end after 23:59; confirm no row changes and a validation message appears. Insert a second break with an existing name and confirm it is automatically suffixed rather than failing on Save.
+- [x] **D2 — Combined notification:** create two lesson periods starting in the same minute and confirm desktop produces one notification listing both periods.
+- [x] **D3 — Insert/shift reflow:** open Part-Time 1, insert a 20-minute break after Lesson 2, and confirm every later lesson moves exactly 20 minutes and both seams close. Shift the break by -5 minutes and confirm the break and every later row track it. Save, reselect/reload, sync a device, and confirm the persisted shifted times arrive.
+- [x] **D4 — Gap absorption:** on a temporary timetable with an existing gap after a row, insert a break there and confirm later rows move by the entered minutes while the break absorbs the old gap, leaving no unnamed dead time.
+- [x] **D5 — Midnight/duplicate-name validation:** attempt a shift that would move a row before 00:00 or its end after 23:59; confirm no row changes and a validation message appears. Insert a second break with an existing name and confirm it is automatically suffixed rather than failing on Save.
+
+**Desktop D1-D5 result (2026-08-22): FAIL (D1); D2-D5 PASS.** UI-automated
+acceptance against `0.13.4-dev.9+b3454c6` (EXE SHA-256
+`5F1160B20274AED90C741104C4DA76DBB31EE7BCA193B4495ECE71E2FFE2447E`)
+confirmed D2's single Windows toast payload listed both simultaneous lessons;
+D3's inserted/shifted times persisted, reloaded, and reached the enrolled
+emulator; D4 absorbed the pre-existing gap without unnamed dead time; and D5
+rejected the midnight-crossing shift atomically and saved the duplicate break
+as `Break (2)`. D1 failed: the confirmed inactive test teacher authenticated,
+but the app displayed the generic initial-download/connectivity error instead
+of **Your account is inactive; contact an administrator.** The test account was
+reactivated afterward. All scratch records and the D2 date override were
+deleted; Part-Time 1/2/3 were re-read from the production cache and matched
+their reference times. The local Release gate then passed with a clean .NET
+build, 224 .NET tests passed (one interactive test skipped), 106 Jest tests
+passed, and TypeScript and ESLint clean; 50 Supabase integration tests skipped
+because no disposable local-stack environment was configured.
 
 **Desktop teacher-feedback result (2026-08-18): PASS.** The isolated-profile
 scripted pass against `0.13.4-dev.5+62d1434` confirmed **Back**, Esc, and the
@@ -401,8 +418,8 @@ still require device verification.
 - [ ] **MOB-F10 — Student settings:** confirm there is no role switch or teacher-only surface, **Change my classes** reopens the picker, and **End student session** clears selection/session/cache.
 - [x] **MOB-F11 — Join-code QR:** open desktop **Student devices**, confirm the grouped code and QR render, scan with the emulator virtual scene or enter it manually (record which), and confirm `/student-setup` opens prefilled without auto-submitting.
 - [x] **MOB-F12 — Join-code normalisation:** enter the same code manually with spaces and confirm enrolment succeeds. Verify lowercase and dash-separated input also work.
-- [ ] **MOB-F13 — Join-code rotation:** rotate the code on desktop; the old code cannot enrol a new phone, the new code can, and an already-enrolled phone continues syncing.
-- [ ] **MOB-F14 — Device revocation:** remove all student devices on desktop; the phone routes to setup with **This device is no longer enrolled. Ask for a new join code.**
+- [x] **MOB-F13 — Join-code rotation:** rotate the code on desktop; the old code cannot enrol a new phone, the new code can, and an already-enrolled phone continues syncing.
+- [x] **MOB-F14 — Device revocation:** remove all student devices on desktop; the phone routes to setup with **This device is no longer enrolled. Ask for a new join code.**
 - [x] **MOB-F15 — Non-admin refusal:** sign in as a non-admin teacher; the desktop tab and mobile section are absent, and a direct admin RPC call is refused.
 - [x] **MOB-F16 — App identity:** inspect launcher circle/squircle masks and navy splash at device size for clipping or aliasing.
 - [x] **MOB-F17 — Settings:** verify all three notification toggles persist, end-warning clamps at 0 and 15, About reports v0.14.0, and the tab label is **Announcements** with no tab-screen back arrows.
@@ -413,6 +430,19 @@ still require device verification.
 - [x] **MOB-A03 — Rescheduling (emulator):** move a period on desktop, foreground the phone, and confirm old pending notifications are cancelled and replacements use the new time.
 - [x] **MOB-A04 — Permission denied (emulator):** deny notification permission and confirm clock, sync, and announcements continue working.
 - [x] **MOB-A05 — Combined mobile notifications:** create two periods starting in the same minute and confirm mobile produces one notification listing both periods.
+
+**MOB-F13/F14 emulator result (2026-08-22): PASS (scoped).** Rotating the
+desktop join code left the already-enrolled emulator syncing, the old code was
+rejected for a fresh anonymous session, and the new code enrolled and synced.
+The in-app **End student session** confirmation did not clear the emulator
+session during this run, so app data was cleared to simulate the fresh phone;
+MOB-F10 remains open.
+F14 revoked only the emulator's newly created `student_devices` row in
+production (`e7adf95a-ab6e-4f30-ac45-fe6ca9de3ee7`); the Pixel and every other
+device row were left untouched. The next forced sync routed the emulator to
+setup with **This device is no longer enrolled. Ask for a new join code.** This
+was deliberately narrower than the row's all-device wording because the
+desktop `revoke_student_devices` path deletes every device in the organisation.
 - [x] **MOB-T01 — Start drift (Pixel 9 Pro):** unplug the phone, leave battery optimisation at **Optimised**, background the app with a lesson start at least 10 minutes ahead, and record scheduled time, delivered time, and drift from Notification history.
 - [x] **MOB-T02 — End-warning drift (Pixel 9 Pro):** repeat for a 2-minute end warning and record scheduled time, delivered time, and drift.
 - [x] **MOB-T03 — Overnight offline (Pixel 9 Pro):** leave the phone offline overnight and confirm the next day's previously scheduled notifications arrive; record delivery timestamps from Notification history.
@@ -487,16 +517,14 @@ overlapping-timetable warning was observed, but `MOB-F20` was removed because
 real staggered class timetables make
 that warning permanently noisy; the feature is deferred to the generator work.
 
-**MOB-F10 cache-inspection waiver basis (2026-08-21; owner approval pending):**
-the release-device UI evidence above covers every observable part of the row.
-Source review confirms `signOut()` stops sync, cancels scheduled AqiClock
-notifications, calls `wipeCache()`, clears the in-memory snapshot and student
-preferences, and returns to signed-out state. The focused SQLite test executes
-`wipeCache()` and confirms that one exclusive transaction deletes every sync
-table plus `sync_state`, `notification_log`, `announcement_read`,
-`student_preferences`, and `meta`. This substitutes source-plus-automated
-evidence only for direct inspection of the non-debuggable APK's private SQLite
-file. Keep `MOB-F10` unchecked until the owner accepts this waiver.
+**MOB-F10 waiver withdrawn (2026-08-22):** the 2026-08-21 source-plus-unit-test
+basis did not cover the observable orchestration path. The release APK's **End
+student session** action left the session active. `wipeCache()` is independently
+correct, but a rejection from an earlier teardown step—or from `wipeCache()`
+itself—can skip the remaining cleanup and signed-out transition. The row remains
+unchecked and is not waivable: close it only after a rebuilt APK ends a student
+session, returns to role choice, removes the selection and enrollment state, and
+shows no retained cached timetable or scheduled AqiClock notifications.
 
 **Pixel 9 Pro result (2026-08-12): PASS.** The owner confirmed all five
 `MOB-T01`–`MOB-T05` checks passed on physical hardware, including start and
