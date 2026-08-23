@@ -91,12 +91,13 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>, I
         if (Current.UserId != userId) return;
 
         _audience.SetTeacher(profile?.Role ?? UserRole.Teacher);
-        SetState(Current with
+        SessionState candidate = Current with
         {
             Role = profile?.Role ?? UserRole.Teacher,
             IsActive = profile?.IsActive ?? false,
             RoleConfirmed = true,
-        });
+        };
+        if (candidate != Current) SetState(candidate);
     }
 
     public async Task SignInAsync(string email, string password, CancellationToken cancellationToken = default)

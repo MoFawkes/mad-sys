@@ -407,6 +407,43 @@ public sealed class InfrastructureOrchestrationTests
     }
 
     [Fact]
+    public async Task SecondIdenticalProfilesPullDoesNotPublishAnotherSessionChanged()
+    {
+        Guid userId = Guid.NewGuid();
+        var messenger = new WeakReferenceMessenger();
+        var recipient = new object();
+        int messages = 0;
+        messenger.Register<AqiClock.Application.Messages.SessionChanged>(recipient, (_, _) => messages++);
+        var gateway = new FakeGateway
+        {
+            RefreshedSession = new AuthenticatedSession(userId, "teacher@example.test", "access", "refresh", DateTimeOffset.UtcNow.AddHours(1)),
+        };
+        using var session = new SessionService(
+            new FakeSessionStore(),
+            gateway,
+            new FakeProfiles(new Profile(userId, "Teacher", UserRole.Teacher, true)),
+            new FakeCache(),
+            messenger);
+        await session.SignInAsync("teacher@example.test", "password");
+        await using var sync = new SyncService(
+            gateway,
+            new FakeCache(),
+            messenger,
+            new DebouncePolicy(TimeSpan.Zero),
+            TimeProvider.System,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<SyncService>.Instance,
+            session: session);
+
+        await sync.SyncTableAsync(CacheTable.Profiles);
+        int messagesAfterFirstPull = messages;
+        await sync.SyncTableAsync(CacheTable.Profiles);
+
+        Assert.Equal(2, messagesAfterFirstPull);
+        Assert.Equal(messagesAfterFirstPull, messages);
+        Assert.Equal(2, gateway.PullCounts[CacheTable.Profiles]);
+    }
+
+    [Fact]
     public async Task SyncWipesCacheOnOrganizationChangeThenRepopulates()
     {
         var cache = new FakeCache();
