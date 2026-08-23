@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-08-18
+Last updated: 2026-08-23
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -12,14 +12,14 @@ the acceptance script.
 
 | Area | State |
 |---|---|
-| Staff pilot | v0.13.3 is published; v0.14.0 acceptance combines the desktop teacher-feedback fixes and mobile companion |
+| Staff pilot | v0.13.3 is published; v0.14.0 acceptance is complete and awaiting the planned 2026-08-24 tag |
 | Public release channel | v0.13.3 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main` includes PR #15 acceptance fixes; v0.14.0 remains untagged pending final acceptance |
+| Source | `main` at `011aac1` includes PR #28 and all acceptance fixes; v0.14.0 remains intentionally untagged until 2026-08-24 |
 | Production backend | Migration `20260807120000` applied; audience-aware schema and RPCs verified |
 | Latest release | v0.13.3 — role-choice audience chooser and display-scaling fixes |
 | Next release | v0.14.0 unified desktop teacher-feedback, interruption reflow, and Expo mobile acceptance |
-| Candidate CI | All four required checks passed for acceptance-fix PR #15 |
-| Release workflow | v0.13.3 is tag-published; do not tag v0.14.0 until rebuilt-binary acceptance clears |
+| Candidate CI | All four required checks passed for final acceptance-fix PR #28 |
+| Release workflow | v0.13.3 is tag-published; v0.14.0 is accepted, with tagging deferred to Monday 2026-08-24 |
 
 ## Release split — decided 2026-08-02
 
@@ -53,10 +53,11 @@ mobile device acceptance to receive fixes they asked for.
 - Acceptance APK `f9f0a6a3-fc7c-4d2c-aa4d-341d50170216` was built from `d3c5c34` with the EAS `preview` profile: version 0.14.0 (versionCode 1), SDK 54, fingerprint `b61d5458448229b521c390e5c3a9174512487374`, SHA-256 `075061C9FC97F5B8D54C0B858595FCF8400ACCC62EDEE8739781A3F9BBB35423`. The paired local Windows acceptance build was `0.13.4-dev.2+5a237c6`, SHA-256 `A80A8627F480305CFF7130FBA70C0CA7ED3A1E707BBA99FF123B000D2C2D4F64`.
 - The post-PR #17 Windows retest build is `0.13.4-dev.5+62d1434`, SHA-256 `BABBF0C681FAB2D56FA275FF57B166A5EA88F90798D2D8F009C95E6EA2340D95`. Its isolated-profile pass confirmed teacher sign-in Back, Esc, and title-bar X plus student-picker Back all return to role choice without exiting. It is untagged and exists only for acceptance.
 - The reflow acceptance build is `0.13.4-dev.9+b3454c6`, SHA-256 `5F1160B20274AED90C741104C4DA76DBB31EE7BCA193B4495ECE71E2FFE2447E`, built Release from `main` at `b3454c6` on 2026-08-19 with 0 warnings and 0 errors. It is the first Release binary containing the interruption reflow tool: the previous Release output was `0.13.4-dev.7+df6bd64`, one commit before `ed50c17`, so no earlier local binary could have exercised the reflow rows. Desktop rows D1-D5 in `docs/MANUAL-TESTS.md` must run against this build. It is untagged and exists only for acceptance; the published v0.14.0 artifact is rebuilt from the tag by `release.yml`.
+- Final desktop D1 acceptance passed on 2026-08-23 against `0.13.4-dev.16+00a2ab85e417497cffbe9cdf4f6bc734924a375f`, SHA-256 `936C8C93E0AED64C7161699460564FBD9617AEF50354A6580F21F3654EEAFD56`. The inactive staff account received the exact inactive-account message and was reactivated immediately. PR #28 merged the fix to `main` at `011aac1`; all four required checks passed.
 - The 2026-08-02 emulator notes referred only to mutable source line numbers, which now land in the APK-evidence prose rather than checklist rows. That evidence is untraceable, credits no current acceptance row, and must not be relied on. Re-run the emulator checklist using the stable `MOB-F*` and `MOB-A*` identifiers in `docs/MANUAL-TESTS.md`; Pixel-only timing and endurance rows use `MOB-T*`.
 - Production reconciliation on 2026-08-01 found all seven migration versions and the complete student-device schema already applied. The hosted signup gate was verified against production intent: public email signup returned 403 **Public signup is disabled**, while an anonymous identity enrolled successfully and could select its own `student_devices` row under RLS.
-- The Pixel 9 Pro timing and endurance suite (`MOB-T01`–`MOB-T05`) passed by owner confirmation on 2026-08-12, clearing the physical-device drift, overnight-offline, three-day-background, and reboot-rescheduling gate. All emulator alarm rows (`MOB-A01`–`MOB-A05`) pass, alongside `MOB-F01`–`MOB-F09`, `MOB-F11`, `MOB-F12`, and `MOB-F15`–`MOB-F19`. `MOB-F07` now passes: ending the student session reduced pending lesson alarms from 60 to 0. `MOB-F10` still lacks direct cache-wipe evidence; join-code rotation and destructive device revocation remain open. Anonymous identities created during emulator acceptance have been deleted.
-- The v0.14.0 candidate carries desktop Back/Esc/title-bar navigation, merged multi-class agendas, shared-timetable deduplication, combined notifications, and mobile stale-alarm reconciliation. The Admin clash warning was withdrawn because legitimate staggered timetables overlap permanently; revisit it with the Part 4 generator model. `MOB-T06` has a scoped pass for stale-class cancellation and reboot-driven rescheduling, with no delivered-notification proof retained for 19–20 August. Remaining release gates include desktop D1–D5, `MOB-F10`, `MOB-F13`, and `MOB-F14`.
+- The Pixel 9 Pro timing and endurance suite (`MOB-T01`–`MOB-T05`) passed by owner confirmation on 2026-08-12. `MOB-T06` is accepted as a scoped pass for stale-class cancellation and reboot-driven rescheduling; the explicit residual evidence gap for 19–20 August remains documented. All mobile functional and emulator alarm rows now pass. Final `MOB-F10` evidence used EAS build `e815e646-e89c-4648-9acb-d2ce230e9396` from `38468a2`, SHA-256 `FC98A2AF9AA8CF7FA9E05ADE197494BB7CF2398CA6C736468FFD95A9ED53C324`: in-app teardown returned to role choice, left no app-data files, and reduced package alarms to zero without clearing app data. The resulting anonymous identity and device row were deleted; the Pixel was untouched.
+- The v0.14.0 candidate carries desktop Back/Esc/title-bar navigation, merged multi-class agendas, shared-timetable deduplication, combined notifications, mobile stale-alarm reconciliation, and the interruption reflow tool. All release acceptance rows are closed. The Admin clash warning was withdrawn because legitimate staggered timetables overlap permanently; revisit it with the Part 4 generator model. The only remaining release action is the planned 2026-08-24 tag and tag-bound publication verification.
 - Scope added on 2026-08-18: v0.14.0 also carries a schema-free desktop interruption reflow tool so term can start without hand-adjusting every later lesson when Maghrib moves. It inserts named non-lesson rows or shifts a selected row and all later rows, closes seams, rejects midnight crossings atomically, and continues saving ordinary periods through the existing whole-list RPC. The full block/anchor generator remains v0.15.0 work.
 - Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, and the desktop untagged-period notification semantic difference.
 
@@ -259,6 +260,16 @@ In progress / next:
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
 
 ## Activity log
+
+- 2026-08-23 — Final v0.14.0 acceptance closed. D1 passed against desktop
+  `0.13.4-dev.16+00a2ab8` after PR #28 corrected inactive-user classification
+  during initial organisation resolution. `MOB-F10` passed against EAS build
+  `e815e646-e89c-4648-9acb-d2ce230e9396`: in-app teardown returned to role
+  choice, left no files under the package data directory, and left zero package
+  alarms without an app-data clear. The exact anonymous test identity and its
+  device row were deleted and verified absent. `MOB-T06` remains an explicitly
+  scoped pass. All acceptance gates are closed; no tag was created on Sunday,
+  with v0.14.0 publication still scheduled for Monday 2026-08-24.
 
 - 2026-08-21 — `MOB-T06` read-out is inconclusive because the evidence plan
   exceeded Android Notification history's rolling 24-hour retention. Friday's

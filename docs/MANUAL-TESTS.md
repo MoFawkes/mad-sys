@@ -360,7 +360,7 @@ rehearsal runs automatically in CI.
 
 - [x] From role choice, open teacher sign-in and use **Back**; confirm role choice returns and the app does not exit. Repeat with Esc and the title-bar X.
 - [x] From the student class picker, use **Back** and confirm role choice returns. Repeat after the device is already enrolled as a student device.
-- [ ] **D1 — Inactive account:** sign in with a confirmed inactive Windows account and confirm the message is **Your account is inactive; contact an administrator.** rather than a connectivity error.
+- [x] **D1 — Inactive account:** sign in with a confirmed inactive Windows account and confirm the message is **Your account is inactive; contact an administrator.** rather than a connectivity error.
 - [x] **D2 — Combined notification:** create two lesson periods starting in the same minute and confirm desktop produces one notification listing both periods.
 - [x] **D3 — Insert/shift reflow:** open Part-Time 1, insert a 20-minute break after Lesson 2, and confirm every later lesson moves exactly 20 minutes and both seams close. Shift the break by -5 minutes and confirm the break and every later row track it. Save, reselect/reload, sync a device, and confirm the persisted shifted times arrive.
 - [x] **D4 — Gap absorption:** on a temporary timetable with an existing gap after a row, insert a break there and confirm later rows move by the entered minutes while the break absorbs the old gap, leaving no unnamed dead time.
@@ -382,6 +382,17 @@ their reference times. The local Release gate then passed with a clean .NET
 build, 224 .NET tests passed (one interactive test skipped), 106 Jest tests
 passed, and TypeScript and ESLint clean; 50 Supabase integration tests skipped
 because no disposable local-stack environment was configured.
+
+**Desktop D1 retest (2026-08-23): PASS.** The production-configured Release
+binary `0.13.4-dev.16+00a2ab85e417497cffbe9cdf4f6bc734924a375f`
+(EXE SHA-256
+`936C8C93E0AED64C7161699460564FBD9617AEF50354A6580F21F3654EEAFD56`)
+rendered the exact message **Your account is inactive; contact an
+administrator.** after the staff test account was deactivated. The account was
+reactivated immediately afterward. PR #28 merged the fix to `main` at
+`011aac1`; all four required checks passed. The local Release gate passed 227
+.NET tests with one interactive test skipped, plus Jest, TypeScript, and ESLint;
+50 Supabase integration tests skipped without a disposable local stack.
 
 **Desktop teacher-feedback result (2026-08-18): PASS.** The isolated-profile
 scripted pass against `0.13.4-dev.5+62d1434` confirmed **Back**, Esc, and the
@@ -415,7 +426,7 @@ still require device verification.
 - [x] **MOB-F07 — Teacher sign-out:** confirm the session, SQLite cache, announcement/read state, and pending lesson notifications are removed.
 - [x] **MOB-F08 — Student fresh install:** sign in anonymously, enter the join code, select at least one class plus AM only, and confirm the choices survive an app restart.
 - [x] **MOB-F09 — Student audience:** confirm other-class periods/notifications are absent, untagged breaks/assemblies remain visible, a PM announcement is hidden, and a teachers announcement is absent from the API response.
-- [ ] **MOB-F10 — Student settings:** confirm there is no role switch or teacher-only surface, **Change my classes** reopens the picker, and **End student session** clears selection/session/cache.
+- [x] **MOB-F10 — Student settings:** confirm there is no role switch or teacher-only surface, **Change my classes** reopens the picker, and **End student session** clears selection/session/cache.
 - [x] **MOB-F11 — Join-code QR:** open desktop **Student devices**, confirm the grouped code and QR render, scan with the emulator virtual scene or enter it manually (record which), and confirm `/student-setup` opens prefilled without auto-submitting.
 - [x] **MOB-F12 — Join-code normalisation:** enter the same code manually with spaces and confirm enrolment succeeds. Verify lowercase and dash-separated input also work.
 - [x] **MOB-F13 — Join-code rotation:** rotate the code on desktop; the old code cannot enrol a new phone, the new code can, and an already-enrolled phone continues syncing.
@@ -525,6 +536,19 @@ itself—can skip the remaining cleanup and signed-out transition. The row remai
 unchecked and is not waivable: close it only after a rebuilt APK ends a student
 session, returns to role choice, removes the selection and enrollment state, and
 shows no retained cached timetable or scheduled AqiClock notifications.
+
+**MOB-F10 rebuilt-APK result (2026-08-23): PASS.** EAS preview build
+`e815e646-e89c-4648-9acb-d2ce230e9396` from `38468a2` (fingerprint
+`b61d5458448229b521c390e5c3a9174512487374`, APK SHA-256
+`FC98A2AF9AA8CF7FA9E05ADE197494BB7CF2398CA6C736468FFD95A9ED53C324`)
+was installed on a freshly wiped `Medium_Phone_API_36.1` emulator. The student
+flow enrolled and reached the clock; Settings exposed only student controls.
+After accepting **End student session**, the app returned to role choice with
+no saved selection or enrolment, `run-as` found no retained app-data files, and
+`dumpsys alarm` contained zero `com.mofawkes.aqiclock` entries. App data was not
+cleared after the action. The one anonymous production test identity and its
+cascading `student_devices` row were deleted afterward and both counts verified
+as zero; the physical Pixel was untouched.
 
 **Pixel 9 Pro result (2026-08-12): PASS.** The owner confirmed all five
 `MOB-T01`–`MOB-T05` checks passed on physical hardware, including start and
