@@ -104,7 +104,7 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] Native invitation/password recovery: Velopack-managed `aqiclock://reset-password` protocol, current-user single-instance forwarding, recovery-token validation, password update window, and temporary-session revocation.
 - [x] Professional Fluent UX polish: WPF-UI 4.3, navy accent, PerMonitorV2, branded authentication/settings surfaces, six-tab Admin styling, and polished normal/compact clock presentation.
 - [x] Release pipeline to the public `MoFawkes/aqi-clock-releases` repository (B-7), with cloud URL/anon variables and repository-scoped `RELEASES_TOKEN` configured.
-- [ ] Publish and visually accept the first tagged `v0.9.x` installer/update/uninstall round-trip.
+- [ ] Complete and record the real-machine v0.13.3 → v0.14.0 update round-trip (offered, downloaded, applied on restart); v0.14.0 publication itself is complete.
 - [ ] Run full manual test checklist on Win10 + Win11, incl. sleep/resume, offline day, DST-date simulation.
 - [ ] Pilot install on 3–5 staff machines; collect logs/feedback.
 - [ ] Confirm business inputs B-1 … B-8 with owner (defaults accepted; B-8 asset still outstanding).

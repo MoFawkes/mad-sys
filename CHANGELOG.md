@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.14.0 - Unreleased
+## 0.14.0 - 2026-08-24
 
 This release brings the held Expo mobile companion and the latest desktop
 teacher-feedback fixes onto one shared version number.

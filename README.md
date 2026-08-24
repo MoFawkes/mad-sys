@@ -4,7 +4,7 @@ AQI Clock is a Windows tray application with an Expo mobile companion. Teachers 
 
 The desktop presentation uses WPF-UI Fluent controls, light/dark/system themes, a navy brand accent, Mica-capable window chrome on Windows 11, and PerMonitorV2 scaling. MainWindow intentionally retains native WPF chrome switching so its accepted 320×80 frameless compact mode remains stable.
 
-**Status:** Windows v0.10.0 is live. The v0.11.0 Expo companion is implemented and awaits physical-device/manual acceptance; Android notification drift and hosted Auth configuration are release gates. See [`PROJECT-STATUS.md`](PROJECT-STATUS.md) and [`docs/MANUAL-TESTS.md`](docs/MANUAL-TESTS.md).
+**Status:** v0.14.0 is live on the public Windows channel, and the Expo companion has completed device/manual acceptance. The real-machine Windows v0.13.3 → v0.14.0 offer/apply-on-restart round-trip remains open. See [`PROJECT-STATUS.md`](PROJECT-STATUS.md) and [`docs/MANUAL-TESTS.md`](docs/MANUAL-TESTS.md).
 
 ## Key capabilities
 

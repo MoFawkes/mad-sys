@@ -12,14 +12,14 @@ the acceptance script.
 
 | Area | State |
 |---|---|
-| Staff pilot | v0.13.3 is published; v0.14.0 acceptance is complete and awaiting the planned 2026-08-24 tag |
-| Public release channel | v0.13.3 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main` at `011aac1` includes PR #28 and all acceptance fixes; v0.14.0 remains intentionally untagged until 2026-08-24 |
+| Staff pilot | v0.14.0 is published; feature/device acceptance is complete, while the real-machine v0.13.3 → v0.14.0 update/restart round-trip remains open |
+| Public release channel | v0.14.0 is Latest on `MoFawkes/aqi-clock-releases` |
+| Source | `main` at `0889e44`; annotated tag `v0.14.0` includes PR #28 and the final acceptance record |
 | Production backend | Migration `20260807120000` applied; audience-aware schema and RPCs verified |
-| Latest release | v0.13.3 — role-choice audience chooser and display-scaling fixes |
-| Next release | v0.14.0 unified desktop teacher-feedback, interruption reflow, and Expo mobile acceptance |
+| Latest release | v0.14.0 — unified desktop teacher-feedback, interruption reflow, and Expo mobile companion |
+| Next release | v0.15.0 planning; no release candidate yet |
 | Candidate CI | All four required checks passed for final acceptance-fix PR #28 |
-| Release workflow | v0.13.3 is tag-published; v0.14.0 is accepted, with tagging deferred to Monday 2026-08-24 |
+| Release workflow | Run `32755130666` is green; v0.14.0 was published at 2026-08-24 18:42:41Z with full, delta, setup, portable, and stable-manifest assets |
 
 ## Release split — decided 2026-08-02
 
@@ -57,7 +57,7 @@ mobile device acceptance to receive fixes they asked for.
 - The 2026-08-02 emulator notes referred only to mutable source line numbers, which now land in the APK-evidence prose rather than checklist rows. That evidence is untraceable, credits no current acceptance row, and must not be relied on. Re-run the emulator checklist using the stable `MOB-F*` and `MOB-A*` identifiers in `docs/MANUAL-TESTS.md`; Pixel-only timing and endurance rows use `MOB-T*`.
 - Production reconciliation on 2026-08-01 found all seven migration versions and the complete student-device schema already applied. The hosted signup gate was verified against production intent: public email signup returned 403 **Public signup is disabled**, while an anonymous identity enrolled successfully and could select its own `student_devices` row under RLS.
 - The Pixel 9 Pro timing and endurance suite (`MOB-T01`–`MOB-T05`) passed by owner confirmation on 2026-08-12. `MOB-T06` is accepted as a scoped pass for stale-class cancellation and reboot-driven rescheduling; the explicit residual evidence gap for 19–20 August remains documented. All mobile functional and emulator alarm rows now pass. Final `MOB-F10` evidence used EAS build `e815e646-e89c-4648-9acb-d2ce230e9396` from `38468a2`, SHA-256 `FC98A2AF9AA8CF7FA9E05ADE197494BB7CF2398CA6C736468FFD95A9ED53C324`: in-app teardown returned to role choice, left no app-data files, and reduced package alarms to zero without clearing app data. The resulting anonymous identity and device row were deleted; the Pixel was untouched.
-- The v0.14.0 candidate carries desktop Back/Esc/title-bar navigation, merged multi-class agendas, shared-timetable deduplication, combined notifications, mobile stale-alarm reconciliation, and the interruption reflow tool. All release acceptance rows are closed. The Admin clash warning was withdrawn because legitimate staggered timetables overlap permanently; revisit it with the Part 4 generator model. The only remaining release action is the planned 2026-08-24 tag and tag-bound publication verification.
+- The published v0.14.0 release carries desktop Back/Esc/title-bar navigation, merged multi-class agendas, shared-timetable deduplication, combined notifications, mobile stale-alarm reconciliation, and the interruption reflow tool. Feature/device acceptance rows are closed. Publication is verified separately from installed-update acceptance: a real v0.13.3 machine must still confirm that v0.14.0 is offered and applies on restart. The Admin clash warning was withdrawn because legitimate staggered timetables overlap permanently; revisit it with the Part 4 generator model.
 - Scope added on 2026-08-18: v0.14.0 also carries a schema-free desktop interruption reflow tool so term can start without hand-adjusting every later lesson when Maghrib moves. It inserts named non-lesson rows or shifts a selected row and all later rows, closes seams, rejects midnight crossings atomically, and continues saving ordinary periods through the existing whole-list RPC. The full block/anchor generator remains v0.15.0 work.
 - Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, and the desktop untagged-period notification semantic difference.
 
@@ -209,7 +209,8 @@ Completed:
 In progress / next:
 
 - Finish the hands-on System and 150% DPI portions of the UI/DPI matrix.
-- Perform the v0.9.2 → v0.9.5 auto-update check on a pilot machine.
+- Perform the v0.13.3 → v0.14.0 auto-update check on a real pilot machine:
+  confirm the update is offered, downloads, and applies on restart.
 - Complete the installer/update/uninstaller round trip and record results in
   `docs/MANUAL-TESTS.md`.
 - Track the pre-existing timetable-editor period-cell commit quirk as
@@ -256,10 +257,24 @@ In progress / next:
 | v0.10.0 merge, tag, and public assets | Engineering | Complete — `v0.10.0` at `15ecb86`; release run `30049223114` green |
 | v0.10.0 published artifact verification | Engineering | Complete — stable full/delta index, portable digest/version, cloud config, and updater target verified |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
-| v0.9.2 → v0.9.5 pilot auto-update | Owner / Engineering | Pending |
+| v0.14.0 tag and public assets | Engineering | Complete — `v0.14.0` at `0889e44`; release run `32755130666` green |
+| v0.14.0 public manifest/full/delta consistency | Engineering | Complete — hashes and byte counts verified against all uploaded assets |
+| v0.13.3 → v0.14.0 pilot auto-update | Owner | Pending — real-machine offer/download/apply-on-restart evidence required |
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
 
 ## Activity log
+
+- 2026-08-24 — Published v0.14.0 from annotated tag `v0.14.0` at `0889e44`.
+  Release run `32755130666` completed green, including all four gates and the
+  2m21s publish job. The public release became Latest at 18:42:41Z and contains
+  full (87,125,499 bytes), delta (9,382,428 bytes), setup, portable, and
+  `releases.stable.json` assets. The manifest lists matching 0.14.0 Full and
+  Delta entries with hashes and exact byte counts. Publication followed two
+  distinct credential failures: the original `RELEASES_TOKEN` had expired
+  (401), then its fine-grained replacement lacked contents-write permission
+  (403). The corrected token published successfully. This does not close the
+  real-machine v0.13.3 → v0.14.0 offer/apply-on-restart round-trip, which remains
+  owner-run and open.
 
 - 2026-08-23 — Final v0.14.0 acceptance closed. D1 passed against desktop
   `0.13.4-dev.16+00a2ab8` after PR #28 corrected inactive-user classification

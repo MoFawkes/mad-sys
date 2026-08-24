@@ -69,6 +69,7 @@ This checklist is the ADR-011 acceptance script for Windows surfaces that are no
 
 ## Velopack install, update and uninstall
 
+- [ ] **v0.14.0 pilot update acceptance:** on a real machine running the published v0.13.3 build, confirm v0.14.0 is offered, downloads, reports a pending restart, and applies on restart with About showing v0.14.0. Publication and manifest checks do not satisfy this row.
 - [ ] Install `AqiClock.App-stable-Setup.exe` as a standard user; confirm no elevation is requested.
 - [ ] Confirm the Start-menu shortcut exists, launches one instance, and carries a consistent AQI Clock toast identity.
 - [ ] Confirm Settings → About shows the release tag version and `Up to date` after a successful check.
