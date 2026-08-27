@@ -136,11 +136,11 @@ Ordered by implementation dependency: each phase builds only on the phases above
 
 ### Next teacher meeting — scheduling workflow
 
-- [ ] Discuss automatic Naseehah and Salah timing: edit anchors once and reflow lesson rows around them.
-- [ ] Discuss faster timetable creation from start time, lesson count, lesson length, and the Naseehah/Salah anchors.
-- [ ] Confirm whether non-lesson rows remain fixed anchors while lesson rows flow; the existing whole-list save supports this without a schema change.
+- [x] Implement automatic Naseehah and Salah timing through reusable organisation anchors.
+- [x] Implement generated timetable creation from blocks, start time, lesson length, and selected anchors.
+- [x] Keep anchors fixed while teaching rows split/reflow without losing teaching minutes.
 - [x] Ship the interim schema-free interruption reflow tool for v0.14.0; keep the full block/anchor generator discussion for v0.15.0.
-- [ ] v0.15.0: add a diagnostics export for the mobile `notification_log`, then
+- [x] v0.15.0: add durable delivery and schedule-snapshot diagnostics export; then
   use the live-term class switch from 25 August to re-run the full delivered-
   notification portion of `MOB-T06` without relying on Android's 24-hour UI.
 

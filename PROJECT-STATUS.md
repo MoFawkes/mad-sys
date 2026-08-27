@@ -17,7 +17,7 @@ the acceptance script.
 | Source | `main` at `0889e44`; annotated tag `v0.14.0` includes PR #28 and the final acceptance record |
 | Production backend | Migration `20260807120000` applied; audience-aware schema and RPCs verified |
 | Latest release | v0.14.0 — unified desktop teacher-feedback, interruption reflow, and Expo mobile companion |
-| Next release | v0.15.0 planning; no release candidate yet |
+| Next release | v0.15.0 implementation complete; manual/deployment gates remain |
 | Candidate CI | All four required checks passed for final acceptance-fix PR #28 |
 | Release workflow | Run `32755130666` is green; v0.14.0 was published at 2026-08-24 18:42:41Z with full, delta, setup, portable, and stable-manifest assets |
 
@@ -220,6 +220,18 @@ In progress / next:
 
 ## Release gates
 
+### v0.15.0 generator and delivery-evidence gate (2026-08-27)
+
+| Gate | Result |
+|---|---|
+| Domain | 74 passed |
+| Desktop application | 167 passed; 1 optional interactive smoke skipped |
+| Integration | 10 passed |
+| Supabase/RLS | 414 passed after clean migration replay |
+| Mobile | 114 passed; TypeScript and ESLint green |
+| Worker | 4 passed; Wrangler dry-run green |
+| Remaining | Desktop manual 1–10, mobile 11–12/B4, Worker deploy, update round-trip |
+
 | Gate | Owner | State |
 |---|---|---|
 | Fluent UX changes merged | Engineering | Complete |
@@ -306,8 +318,9 @@ In progress / next:
   19–20 August deliveries are no longer provable: a stale class-A alarm that
   fired and then self-healed would not be caught. One time-boxed `adb backup`
   attempt yielded only a 47-byte header. The Pixel's durable
-  `notification_log` must remain intact—no revocation, sign-out, or reinstall—
-  until a diagnostics export can read it.
+  The old `notification_log` preservation requirement is moot: it held
+  announcements only. v0.15.0 adds delivery and schedule-snapshot tables;
+  export them before sign-out, after which privacy teardown clears them.
 - 2026-08-19 — Architecture built the reflow acceptance binary
   `0.13.4-dev.9+b3454c6` (Release, 0 warnings, 0 errors) and confirmed the
   previous Release output `0.13.4-dev.7+df6bd64` predates `ed50c17`, so desktop
