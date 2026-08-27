@@ -20,6 +20,7 @@ import {
   saveNotificationSettings,
 } from '@/src/notifications';
 import { getSupabaseClient } from '@/src/data/sessionStore';
+import { exportNotificationDiagnostics } from '@/src/notifications/diagnostics';
 import { useApp } from '@/src/ui/AppProvider';
 import { theme } from '@/src/ui/theme';
 
@@ -31,8 +32,14 @@ export default function SettingsScreen() {
   const [syncing, setSyncing] = useState(false);
   const [studentJoinCode, setStudentJoinCode] = useState<string | null>(null);
   const [joinCodeError, setJoinCodeError] = useState<string | null>(null);
+  const [exportingDiagnostics, setExportingDiagnostics] = useState(false);
 
   const canDistributeStudentCode =
+    session.status === 'signedIn' &&
+    session.mode === 'teacher' &&
+    session.role === 'admin' &&
+    session.roleVerified;
+  const canExportDiagnostics =
     session.status === 'signedIn' &&
     session.mode === 'teacher' &&
     session.role === 'admin' &&
@@ -97,6 +104,20 @@ export default function SettingsScreen() {
       Alert.alert('Sync failed', error instanceof Error ? error.message : 'Try again.');
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const exportDiagnostics = async () => {
+    setExportingDiagnostics(true);
+    try {
+      await exportNotificationDiagnostics();
+    } catch (error) {
+      Alert.alert(
+        'Export failed',
+        error instanceof Error ? error.message : 'Could not export diagnostics.',
+      );
+    } finally {
+      setExportingDiagnostics(false);
     }
   };
 
@@ -202,6 +223,17 @@ export default function SettingsScreen() {
         />
         {sync.error && <Text style={styles.error}>{sync.error}</Text>}
       </Section>
+
+      {canExportDiagnostics && (
+        <Section title="Diagnostics">
+          <ActionRow
+            detail="Share notification deliveries and schedule snapshots as JSON"
+            disabled={exportingDiagnostics}
+            label={exportingDiagnostics ? 'Preparing export…' : 'Export notification diagnostics'}
+            onPress={() => void exportDiagnostics()}
+          />
+        </Section>
+      )}
 
       <Section title="Account">
         <View style={styles.row}>

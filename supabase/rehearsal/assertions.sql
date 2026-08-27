@@ -4,14 +4,48 @@
 -- production_state.sql.
 -- Every failure raises, which fails the psql run via ON_ERROR_STOP.
 
--- Migration history took the incremental path: all ten versions recorded.
+-- Migration history took the incremental path: all fourteen versions recorded.
 do $$
 declare versions text;
 begin
     select string_agg(version, ',' order by version) into versions
     from supabase_migrations.schema_migrations;
-    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000,20260807110000,20260807120000' then
+    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000,20260807110000,20260807120000,20260826214012,20260826225951,20260827204758,20260827223000' then
         raise exception 'Unexpected migration history: %', versions;
+    end if;
+end $$;
+
+-- ADR-029 maintenance is installed without rewriting legacy timetable rows.
+do $$
+begin
+    if to_regprocedure('public.admin_save_generated_timetable(uuid,jsonb,jsonb,uuid[],jsonb)') is null
+       or to_regprocedure('public.admin_bulk_upsert_anchor_date_overrides(uuid,jsonb)') is null
+       or to_regprocedure('public.admin_preview_generated_timetable(uuid,jsonb,jsonb,uuid[])') is null then
+        raise exception 'Generator admin write RPCs are not installed';
+    end if;
+    if (select count(*) from public.organization_anchors) <> 8 then
+        raise exception 'Generator migration did not backfill four anchors for both organizations';
+    end if;
+    if (select count(*) from public.periods where timetable_id = '00000000-0000-0000-0000-000000000100') <> 3 then
+        raise exception 'Generator migrations changed the released legacy timetable';
+    end if;
+    if to_regprocedure('public.run_generator_maintenance(uuid)') is null then
+        raise exception 'run_generator_maintenance(uuid) is missing';
+    end if;
+    if to_regprocedure('public.admin_regenerate_generated_timetables()') is null then
+        raise exception 'admin_regenerate_generated_timetables() is missing';
+    end if;
+    if to_regprocedure('private.generator_maintenance(uuid)') is null then
+        raise exception 'private.generator_maintenance(uuid) is missing';
+    end if;
+    if has_function_privilege('authenticated', 'public.run_generator_maintenance(uuid)', 'execute') then
+        raise exception 'authenticated can execute the service-only maintenance RPC';
+    end if;
+    if not has_function_privilege('service_role', 'public.run_generator_maintenance(uuid)', 'execute') then
+        raise exception 'service_role cannot execute the scheduled maintenance RPC';
+    end if;
+    if has_function_privilege('service_role', 'public.admin_regenerate_generated_timetables()', 'execute') then
+        raise exception 'service_role can execute the admin-only maintenance RPC';
     end if;
 end $$;
 

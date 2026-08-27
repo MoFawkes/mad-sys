@@ -154,6 +154,23 @@ public sealed class SupabaseFixture : IAsyncLifetime, IDisposable
         return await _http.SendAsync(request);
     }
 
+    public async Task<HttpResponseMessage> ServiceRestAsync(
+        HttpMethod method,
+        string pathAndQuery,
+        JsonObject? body = null)
+    {
+        using var request = new HttpRequestMessage(method, $"{SupabaseEnvironment.Url}/rest/v1/{pathAndQuery}");
+        request.Headers.Add("apikey", SupabaseEnvironment.ServiceRoleKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", SupabaseEnvironment.ServiceRoleKey);
+        request.Headers.Add("Prefer", "return=representation");
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
+        return await _http.SendAsync(request);
+    }
+
     /// <summary>Rows returned by a GET/PATCH/DELETE with return=representation; null when the request errored.</summary>
     public static async Task<JsonArray?> RowsAsync(HttpResponseMessage response)
     {

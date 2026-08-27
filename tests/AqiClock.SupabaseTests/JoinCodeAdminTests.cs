@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json.Nodes;
+using Npgsql;
 
 namespace AqiClock.SupabaseTests;
 
@@ -259,10 +260,17 @@ public sealed class JoinCodeAdminTests(SupabaseFixture fixture)
                 "select code from public.organization_join_codes where org_id = $1",
                 orgId);
             Assert.Matches("^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{16}$", code!);
+
+            await fixture.SqlAsync("delete from public.week_schedule where org_id = $1", orgId);
+            await fixture.SqlAsync("delete from public.audit_log where org_id = $1", orgId);
+            PostgresException restricted = await Assert.ThrowsAsync<PostgresException>(() =>
+                fixture.SqlAsync("delete from public.organizations where id = $1", orgId));
+            Assert.Equal("organization_anchors_org_id_fkey", restricted.ConstraintName);
         }
         finally
         {
             await fixture.SqlAsync("delete from public.week_schedule where org_id = $1", orgId);
+            await fixture.SqlAsync("delete from public.organization_anchors where org_id = $1", orgId);
             await fixture.SqlAsync("delete from public.audit_log where org_id = $1", orgId);
             await fixture.SqlAsync("delete from public.organizations where id = $1", orgId);
         }

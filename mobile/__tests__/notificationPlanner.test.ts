@@ -3,6 +3,7 @@ import {
   cancelAllScheduledAqiClockNotifications,
   diffScheduledNotifications,
   NOTIFICATION_LIMIT,
+  reconcileScheduledNotifications,
 } from '@/src/notifications/planner';
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
@@ -18,6 +19,9 @@ jest.mock('expo-notifications', () => ({
   SchedulableTriggerInputTypes: { DATE: 'date' },
 }));
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
+jest.mock('@/src/data/repositories', () => ({
+  recordNotificationScheduleSnapshot: jest.fn(async () => undefined),
+}));
 
 const student: DeviceAudience = {
   role: 'StudentDevice',
@@ -176,6 +180,28 @@ describe('notification set diff', () => {
       cancel: ['start:old:2026-07-27'],
       schedule: [wanted],
     });
+  });
+});
+
+describe('notification schedule evidence', () => {
+  it('captures the desired and actual sets at every reconcile', async () => {
+    const Notifications = jest.requireMock('expo-notifications') as {
+      getAllScheduledNotificationsAsync: jest.Mock;
+    };
+    const { recordNotificationScheduleSnapshot } = jest.requireMock(
+      '@/src/data/repositories',
+    ) as { recordNotificationScheduleSnapshot: jest.Mock };
+    Notifications.getAllScheduledNotificationsAsync.mockResolvedValue([]);
+
+    await reconcileScheduledNotifications(
+      snapshot(1), student, DEFAULT_NOTIFICATION_SETTINGS,
+      new Date(2026, 6, 27, 7, 0),
+    );
+
+    expect(recordNotificationScheduleSnapshot).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(recordNotificationScheduleSnapshot.mock.calls[0][0]);
+    expect(payload.desired.length).toBeGreaterThan(0);
+    expect(payload.actual).toEqual([]);
   });
 });
 

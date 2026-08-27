@@ -61,6 +61,21 @@ CREATE INDEX ix_week_schedule_weekday ON week_schedule(weekday);
 CREATE TABLE organizations (id TEXT PRIMARY KEY, name TEXT NOT NULL, timezone TEXT NOT NULL);
 `,
   },
+  {
+    version: 5,
+    sql: `
+CREATE TABLE notification_delivery (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_key TEXT, identifier TEXT, delivered_at TEXT NOT NULL,
+  observed_via TEXT NOT NULL, title TEXT, body TEXT, trigger_time TEXT
+);
+CREATE UNIQUE INDEX ux_notification_delivery_identifier_delivered_at
+  ON notification_delivery(identifier, delivered_at);
+CREATE TABLE notification_schedule_snapshot (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, captured_at TEXT NOT NULL, payload TEXT NOT NULL
+);
+`,
+  },
 ];
 
 export async function applyCacheMigrations(database: SQLiteDatabase): Promise<void> {

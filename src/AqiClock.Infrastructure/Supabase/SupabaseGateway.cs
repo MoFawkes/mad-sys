@@ -158,6 +158,20 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         throw new InvalidOperationException("The signed-in profile or student-device enrolment is unavailable.");
     }
 
+    public async Task<DateOnly> GetCurrentOrganizationDateAsync(CancellationToken cancellationToken = default)
+    {
+        Guid orgId = await GetCurrentOrganizationIdAsync(cancellationToken).ConfigureAwait(false);
+        using JsonDocument document = await GetJsonAsync(
+            $"rest/v1/organizations?select=timezone&id=eq.{orgId}", cancellationToken).ConfigureAwait(false);
+        if (document.RootElement.GetArrayLength() != 1)
+            throw new InvalidOperationException("The current organization is unavailable.");
+        string timezone = document.RootElement[0].GetProperty("timezone").GetString()
+            ?? throw new InvalidOperationException("The organization timezone is unavailable.");
+        DateTime local = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow,
+            TimeZoneInfo.FindSystemTimeZoneById(timezone)).DateTime;
+        return DateOnly.FromDateTime(local);
+    }
+
     public async Task<string> GetStudentJoinCodeAsync(CancellationToken cancellationToken = default)
     {
         using JsonDocument document = await PostRpcAsync(
@@ -180,6 +194,89 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
             "revoke_student_devices", cancellationToken).ConfigureAwait(false);
         return document.RootElement.GetInt32();
     }
+
+    public async Task<GeneratorAuthoringSnapshot> GetGeneratorAuthoringAsync(Guid timetableId, CancellationToken cancellationToken = default)
+    {
+        string filter = Uri.EscapeDataString(timetableId.ToString());
+        using JsonDocument definitionDocument = await GetJsonAsync($"rest/v1/timetable_generators?select=*&timetable_id=eq.{filter}", cancellationToken).ConfigureAwait(false);
+        using JsonDocument blocksDocument = await GetJsonAsync($"rest/v1/timetable_generator_blocks?select=*&timetable_id=eq.{filter}&order=sort_order.asc", cancellationToken).ConfigureAwait(false);
+        using JsonDocument anchorsDocument = await GetJsonAsync($"rest/v1/timetable_generator_anchors?select=*&timetable_id=eq.{filter}", cancellationToken).ConfigureAwait(false);
+        TimetableGeneratorDefinition? definition = definitionDocument.RootElement.GetArrayLength() == 0
+            ? null
+            : definitionDocument.RootElement[0].Deserialize<TimetableGeneratorDefinition>(JsonOptions);
+        return new(definition, DeserializeRows<TimetableGeneratorBlock>(blocksDocument).Cast<TimetableGeneratorBlock>().ToArray(),
+            DeserializeRows<TimetableGeneratorAnchor>(anchorsDocument).Cast<TimetableGeneratorAnchor>().ToArray());
+    }
+
+    public async Task<AnchorConfigurationSnapshot> GetAnchorConfigurationAsync(CancellationToken cancellationToken = default)
+    {
+        using JsonDocument anchorsDocument = await GetJsonAsync("rest/v1/organization_anchors?select=*&order=sort_order.asc", cancellationToken).ConfigureAwait(false);
+        using JsonDocument standingDocument = await GetJsonAsync("rest/v1/anchor_standing_times?select=*&order=effective_from.asc", cancellationToken).ConfigureAwait(false);
+        using JsonDocument overridesDocument = await GetJsonAsync("rest/v1/anchor_date_overrides?select=*&order=date.asc", cancellationToken).ConfigureAwait(false);
+        return new(DeserializeRows<OrganizationAnchor>(anchorsDocument).Cast<OrganizationAnchor>().ToArray(),
+            DeserializeRows<AnchorStandingTime>(standingDocument).Cast<AnchorStandingTime>().ToArray(),
+            DeserializeRows<AnchorDateOverride>(overridesDocument).Cast<AnchorDateOverride>().ToArray());
+    }
+
+    public async Task<GeneratorMaintenanceRun> RegenerateGeneratedTimetablesAsync(CancellationToken cancellationToken = default)
+    {
+        using JsonDocument document = await PostRpcAsync("admin_regenerate_generated_timetables", cancellationToken).ConfigureAwait(false);
+        return document.RootElement.Deserialize<GeneratorMaintenanceRun>(JsonOptions)
+            ?? throw new ServerWriteException("The server returned an empty generator maintenance run.", null);
+    }
+
+    public async Task<GeneratorMaintenanceRun?> GetLatestGeneratorMaintenanceRunAsync(CancellationToken cancellationToken = default)
+    {
+        using JsonDocument document = await GetJsonAsync("rest/v1/generator_maintenance_runs?select=*&order=started_at.desc&limit=1", cancellationToken).ConfigureAwait(false);
+        return document.RootElement.GetArrayLength() == 0
+            ? null
+            : document.RootElement[0].Deserialize<GeneratorMaintenanceRun>(JsonOptions);
+    }
+
+    public async Task SaveGeneratedTimetableAsync(Guid timetableId, GeneratorDefinitionWrite definition,
+        IReadOnlyList<GeneratorBlockWrite> blocks, IReadOnlyList<Guid> anchorIds,
+        IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default)
+    {
+        using JsonDocument _ = await PostRpcAsync("admin_save_generated_timetable", new
+        {
+            p_timetable_id = timetableId,
+            p_definition = definition,
+            p_blocks = blocks,
+            p_anchor_ids = anchorIds,
+            p_periods = periods,
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<GeneratorServerPreview> PreviewGeneratedTimetableAsync(Guid timetableId,
+        GeneratorDefinitionWrite definition, IReadOnlyList<GeneratorBlockWrite> blocks,
+        IReadOnlyList<Guid> anchorIds, CancellationToken cancellationToken = default)
+    {
+        using JsonDocument document = await PostRpcAsync("admin_preview_generated_timetable", new
+        {
+            p_timetable_id = timetableId,
+            p_definition = definition,
+            p_blocks = blocks,
+            p_anchor_ids = anchorIds,
+        }, cancellationToken).ConfigureAwait(false);
+        return document.RootElement.Deserialize<GeneratorServerPreview>(JsonOptions)
+            ?? throw new ServerWriteException("The server returned an empty generator preview.", null);
+    }
+
+    public async Task<int> BulkUpsertAnchorDateOverridesAsync(Guid anchorId,
+        IReadOnlyList<AnchorDateOverrideWrite> rows, CancellationToken cancellationToken = default)
+    {
+        using JsonDocument document = await PostRpcAsync("admin_bulk_upsert_anchor_date_overrides",
+            new { p_anchor_id = anchorId, p_rows = rows }, cancellationToken).ConfigureAwait(false);
+        return document.RootElement.GetInt32();
+    }
+
+    public Task SaveAnchorStandingTimeAsync(AnchorStandingTime row, bool isNew, CancellationToken cancellationToken = default) =>
+        SendRequestAsync(isNew ? HttpMethod.Post : HttpMethod.Patch,
+            "rest/v1/anchor_standing_times" + (isNew ? string.Empty : $"?id=eq.{row.Id}"), row, cancellationToken);
+
+    public Task SaveAnchorDateOverrideAsync(AnchorDateOverride row, bool isNew, CancellationToken cancellationToken = default) =>
+        SendRequestAsync(isNew ? HttpMethod.Post : HttpMethod.Patch,
+            "rest/v1/anchor_date_overrides" + (isNew ? string.Empty : $"?id=eq.{row.Id}"), row, cancellationToken);
 
     public async Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default)
     {

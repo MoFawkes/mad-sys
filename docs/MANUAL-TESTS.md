@@ -496,9 +496,29 @@ The residual gap is explicit: there is no delivered-notification proof for
 self-healed and never re-armed again, would escape this evidence. That fault is
 considered unlikely but is not disproved. A single time-boxed `adb backup`
 attempt produced only a 47-byte header, so the non-debuggable app's surviving
-`notification_log` rows could not be extracted. The Pixel must not be revoked,
-signed out, or reinstalled before that log can be exported, because
-`wipeCache()` deletes it.
+`notification_log` rows could not be extracted. The earlier preservation
+instruction is now withdrawn: that table contains announcement events only and
+cannot prove lesson delivery.
+
+**MOB-T06 durable-evidence re-run protocol (v0.15.0):** install the preview APK
+as an update, switch from class A to class B, and capture the admin-only
+notification diagnostics export once daily for at least three live teaching
+days. Do not dismiss AQI Clock notifications before the daily capture, and
+foreground the app before exporting so the presented-notification sweep records
+deliveries that occurred while the app was backgrounded or killed. For each day,
+retain the JSON and confirm its schedule snapshot contains the desired and
+actual class-B alarms and no stale class-A alarm. Confirm foreground deliveries
+use `foreground_listener`; background/killed tray deliveries may use
+`presented_sweep`. A notification delivered while the app is killed and then
+dismissed before the next foreground is evidenced by the schedule snapshot only,
+not as a delivery row. Export before sign-out or revocation: privacy teardown
+deliberately wipes both evidence tables.
+
+Record ADR-029's accepted residual in the read-out: mobile pre-schedules seven
+days from the latest reconciled base timetable, so a device that stops
+reconciling can drift by roughly two minutes per day. Daily reconciliation makes
+today exact; the endurance run must record the last reconcile time alongside
+any measured delivery drift.
 
 **v0.14.0 rebuilt-APK result (2026-08-18): PARTIAL PASS.** EAS preview build
 `f9f0a6a3-fc7c-4d2c-aa4d-341d50170216` passed `MOB-F07`, `MOB-F18`,
