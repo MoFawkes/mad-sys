@@ -278,6 +278,22 @@ public sealed class InfrastructureOrchestrationTests
     }
 
     [Fact]
+    public void StartupServicePlanStartsUpdaterTrayAndClockBeforeMainViewModel()
+    {
+        Assert.Equal(
+        [
+            StartupServiceStep.StartupRegistration,
+            StartupServiceStep.UpdateRestartPrompt,
+            StartupServiceStep.Updater,
+            StartupServiceStep.Tray,
+            StartupServiceStep.NotificationScheduler,
+            StartupServiceStep.Clock,
+            StartupServiceStep.MainViewModel,
+        ],
+        StartupStepRunner.ServiceOrder);
+    }
+
+    [Fact]
     public async Task RealGatewayOfflineRestoreStartsFromCachedTokenWithoutSdkRoundTrip()
     {
         Guid userId = Guid.NewGuid();
