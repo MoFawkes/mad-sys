@@ -55,7 +55,7 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>, I
             _storedSession = null;
             SetState(SessionState.ReauthenticationRequired);
         }
-        catch (Exception exception) when (exception is HttpRequestException or TimeoutException or IOException)
+        catch (Exception exception) when (IsTransientRefreshFailure(exception, cancellationToken))
         {
             await _gateway.RestoreAccessTokenAsync(stored, cancellationToken).ConfigureAwait(false);
             _storedSession = stored;
@@ -63,6 +63,10 @@ public sealed class SessionService : ISessionService, IRecipient<DataChanged>, I
                 await RequireReauthenticationAsync(cancellationToken).ConfigureAwait(false);
         }
     }
+
+    private static bool IsTransientRefreshFailure(Exception exception, CancellationToken cancellationToken) =>
+        exception is HttpRequestException or TimeoutException or IOException ||
+        exception is OperationCanceledException && !cancellationToken.IsCancellationRequested;
 
     public async Task EnsureFreshAsync(CancellationToken cancellationToken = default)
     {

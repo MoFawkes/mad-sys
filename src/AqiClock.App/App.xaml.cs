@@ -107,27 +107,43 @@ public partial class App : System.Windows.Application, IDisposable
     private void StartApplication()
     {
         IServiceProvider services = _host!.Services;
-        ISettingsService settings = services.GetRequiredService<ISettingsService>(); settings.LoadAsync().GetAwaiter().GetResult();
-        ThemeService theme = services.GetRequiredService<ThemeService>(); theme.Apply(settings.Current.Theme); settings.Changed += (_, changed) => Dispatcher.Invoke(() => theme.Apply(changed.Settings.Theme));
-        IDeviceAudienceContext audience = services.GetRequiredService<IDeviceAudienceContext>(); audience.RestoreAsync().GetAwaiter().GetResult();
-        ISessionService session = services.GetRequiredService<ISessionService>(); session.RestoreAsync().GetAwaiter().GetResult();
-        if (session.Current.UserId is not null) services.GetRequiredService<MainViewModel>().InitializeAsync().GetAwaiter().GetResult();
-        services.GetRequiredService<StartupService>().Start();
-        services.GetRequiredService<UpdateRestartPrompt>().Start();
-        services.GetRequiredService<IUpdateService>().Start();
-        services.GetRequiredService<TrayService>().Start();
-        services.GetRequiredService<INotificationScheduler>().StartAsync().GetAwaiter().GetResult();
-        services.GetRequiredService<IClockService>().Start();
+        ILogger<App> logger = services.GetRequiredService<ILogger<App>>();
+        ISettingsService settings = services.GetRequiredService<ISettingsService>();
+        StartupStepRunner.TryRun("settings restore", () => settings.LoadAsync().GetAwaiter().GetResult(), logger);
+        ThemeService theme = services.GetRequiredService<ThemeService>();
+        StartupStepRunner.TryRun("theme", () =>
+        {
+            theme.Apply(settings.Current.Theme);
+            settings.Changed += (_, changed) => Dispatcher.Invoke(() => theme.Apply(changed.Settings.Theme));
+        }, logger);
+        IDeviceAudienceContext audience = services.GetRequiredService<IDeviceAudienceContext>();
+        StartupStepRunner.TryRun("audience restore", () => audience.RestoreAsync().GetAwaiter().GetResult(), logger);
+        ISessionService session = services.GetRequiredService<ISessionService>();
+        StartupStepRunner.TryRun("session restore", () => session.RestoreAsync().GetAwaiter().GetResult(), logger);
+
+        // These services are independent: a failed sync or notification component must not
+        // prevent the clock, tray, updater, or recovery UI from starting.
+        StartupStepRunner.TryRun("startup registration", () => services.GetRequiredService<StartupService>().Start(), logger);
+        StartupStepRunner.TryRun("update restart prompt", () => services.GetRequiredService<UpdateRestartPrompt>().Start(), logger);
+        StartupStepRunner.TryRun("updater", () => services.GetRequiredService<IUpdateService>().Start(), logger);
+        StartupStepRunner.TryRun("tray", () => services.GetRequiredService<TrayService>().Start(), logger);
+        StartupStepRunner.TryRun("notification scheduler", () => services.GetRequiredService<INotificationScheduler>().StartAsync().GetAwaiter().GetResult(), logger);
+        StartupStepRunner.TryRun("clock", () => services.GetRequiredService<IClockService>().Start(), logger);
+        if (session.Current.UserId is not null)
+            StartupStepRunner.TryRun("main view model", () => services.GetRequiredService<MainViewModel>().InitializeAsync().GetAwaiter().GetResult(), logger);
+
         IWindowService windows = services.GetRequiredService<IWindowService>();
         if (session.Current.UserId is not null)
         {
             bool studentReady = audience.Current.Role == DeviceAudienceRole.StudentDevice && audience.Current.SelectedClassIds.Count > 0;
             bool studentNeedsSelection = audience.Current.Role == DeviceAudienceRole.StudentDevice && !studentReady;
-            if (studentNeedsSelection) windows.ShowStudentClassPickerWindow();
-            else if (WindowLifecycle.ShouldShowMainWindowAtStartup(studentReady, _startMinimized, settings.Current.StartMinimized)) windows.ShowMainWindow();
-            _ = ObserveStartupSyncAsync(services.GetRequiredService<ISyncService>().StartAsync(), services.GetRequiredService<ILogger<App>>());
+            if (studentNeedsSelection)
+                StartupStepRunner.TryRun("student class picker", windows.ShowStudentClassPickerWindow, logger);
+            else if (WindowLifecycle.ShouldShowMainWindowAtStartup(studentReady, _startMinimized, settings.Current.StartMinimized))
+                StartupStepRunner.TryRun("main window", windows.ShowMainWindow, logger);
+            StartupStepRunner.TryRun("background sync", () => _ = ObserveStartupSyncAsync(services.GetRequiredService<ISyncService>().StartAsync(), logger), logger);
         }
-        else windows.ShowRoleChoiceWindow();
+        else StartupStepRunner.TryRun("role choice window", windows.ShowRoleChoiceWindow, logger);
     }
 
     private static async Task ObserveStartupSyncAsync(Task syncTask, ILogger<App> logger)
