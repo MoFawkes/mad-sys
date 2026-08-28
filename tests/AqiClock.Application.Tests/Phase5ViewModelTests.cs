@@ -189,7 +189,7 @@ public sealed class Phase5ViewModelTests
     [Fact]
     public async Task UnexpectedLocalPersistenceFailureIsShownInWindow()
     {
-        var vm = CreateSignInViewModel(new SessionStub(new InvalidDataException("local data unavailable")), new SyncStub());
+        var vm = CreateSignInViewModel(new SessionStub(new IOException("disk unavailable")), new SyncStub());
         vm.Email = "teacher@example.test"; vm.Password = "not-empty";
 
         await vm.SignInCommand.ExecuteAsync(null);

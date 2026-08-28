@@ -1,4 +1,3 @@
-using System.IO;
 using System.Net.Http;
 using System.Net.Mail;
 using AqiClock.Application.Abstractions;
@@ -59,7 +58,7 @@ public partial class SignInViewModel(
         { LogAuthenticationRejected(logger, exception); ErrorMessage = "Incorrect email or password"; return false; }
         catch (HttpRequestException exception)
         { LogAuthenticationUnavailable(logger, exception); ErrorMessage = "No connection — sign-in requires internet"; return false; }
-        catch (Exception exception) when (exception is TimeoutException or IOException ||
+        catch (Exception exception) when (exception is TimeoutException ||
                                           exception is OperationCanceledException && !cancellationToken.IsCancellationRequested)
         { LogAuthenticationUnavailable(logger, exception); ErrorMessage = "The sign-in service did not respond. Please try again."; return false; }
 #pragma warning disable CA1031 // Authentication includes local persistence; failures must remain in-window and be logged.
