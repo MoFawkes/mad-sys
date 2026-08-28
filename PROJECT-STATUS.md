@@ -225,12 +225,12 @@ In progress / next:
 | Gate | Result |
 |---|---|
 | Domain | 74 passed |
-| Desktop application | 167 passed; 1 optional interactive smoke skipped |
+| Desktop application | 173 passed; 1 optional interactive smoke skipped |
 | Integration | 10 passed |
 | Supabase/RLS | 414 passed after clean migration replay |
 | Mobile | 114 passed; TypeScript and ESLint green |
 | Worker | 4 passed; Wrangler dry-run green |
-| Remaining | Desktop manual 1–10, mobile 11–12/B4, Worker deploy, update round-trip |
+| Remaining | Desktop manual 1–10, mobile 11–12; B4 preview handed off and three-day capture open; Worker deploy; update round-trip |
 
 | Gate | Owner | State |
 |---|---|---|

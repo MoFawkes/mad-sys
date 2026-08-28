@@ -520,6 +520,16 @@ reconciling can drift by roughly two minutes per day. Daily reconciliation makes
 today exact; the endurance run must record the last reconcile time alongside
 any measured delivery drift.
 
+**B4 v0.15.0 preview handoff (2026-08-28):** EAS preview build
+`247166a5-5af1-40f2-8061-e1c428d1139c` finished from commit `b86663f` as an
+internal Android APK with app version `0.15.0`. The downloaded artifact is
+`AqiClock-v0.15.0-preview.apk`, SHA-256
+`78B328C68B004E21138CA356149FA5195270DC45B772DA32F83AC6E6979ECD11`.
+Install it over the existing Pixel app so the enrolled session and prior
+schedule state remain available for the class-switch endurance setup; do not
+clear app data. The three-live-teaching-day evidence run remains open until
+the daily exports and last-reconcile/drift readings above are captured.
+
 **v0.14.0 rebuilt-APK result (2026-08-18): PARTIAL PASS.** EAS preview build
 `f9f0a6a3-fc7c-4d2c-aa4d-341d50170216` passed `MOB-F07`, `MOB-F18`,
 `MOB-F19`, and the mobile-only `MOB-A05`. The second emulator session also
