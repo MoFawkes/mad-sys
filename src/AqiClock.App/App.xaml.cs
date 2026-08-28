@@ -107,27 +107,70 @@ public partial class App : System.Windows.Application, IDisposable
     private void StartApplication()
     {
         IServiceProvider services = _host!.Services;
-        ISettingsService settings = services.GetRequiredService<ISettingsService>(); settings.LoadAsync().GetAwaiter().GetResult();
-        ThemeService theme = services.GetRequiredService<ThemeService>(); theme.Apply(settings.Current.Theme); settings.Changed += (_, changed) => Dispatcher.Invoke(() => theme.Apply(changed.Settings.Theme));
-        IDeviceAudienceContext audience = services.GetRequiredService<IDeviceAudienceContext>(); audience.RestoreAsync().GetAwaiter().GetResult();
-        ISessionService session = services.GetRequiredService<ISessionService>(); session.RestoreAsync().GetAwaiter().GetResult();
-        if (session.Current.UserId is not null) services.GetRequiredService<MainViewModel>().InitializeAsync().GetAwaiter().GetResult();
-        services.GetRequiredService<StartupService>().Start();
-        services.GetRequiredService<UpdateRestartPrompt>().Start();
-        services.GetRequiredService<IUpdateService>().Start();
-        services.GetRequiredService<TrayService>().Start();
-        services.GetRequiredService<INotificationScheduler>().StartAsync().GetAwaiter().GetResult();
-        services.GetRequiredService<IClockService>().Start();
+        ILogger<App> logger = services.GetRequiredService<ILogger<App>>();
+        ISettingsService settings = services.GetRequiredService<ISettingsService>();
+        StartupStepRunner.TryRun("settings restore", () => settings.LoadAsync().GetAwaiter().GetResult(), logger);
+        ThemeService theme = services.GetRequiredService<ThemeService>();
+        StartupStepRunner.TryRun("theme", () =>
+        {
+            theme.Apply(settings.Current.Theme);
+            settings.Changed += (_, changed) => Dispatcher.Invoke(() => theme.Apply(changed.Settings.Theme));
+        }, logger);
+        IDeviceAudienceContext audience = services.GetRequiredService<IDeviceAudienceContext>();
+        StartupStepRunner.TryRun("audience restore", () => audience.RestoreAsync().GetAwaiter().GetResult(), logger);
+        ISessionService session = services.GetRequiredService<ISessionService>();
+        StartupStepRunner.TryRun("session restore", () => session.RestoreAsync().GetAwaiter().GetResult(), logger);
+
+        // Execute the named plan in order. In particular, the clock, tray, and updater must
+        // start before view-model initialization can fail or block on remote data.
+        foreach (StartupServiceStep step in StartupStepRunner.ServiceOrder)
+        {
+            bool succeeded = StartupStepRunner.TryRun(step.ToString(), () => RunServiceStartupStep(step, services, session), logger);
+            if (!succeeded && step == StartupServiceStep.Clock) ShowCoreStartupFailure();
+        }
+
         IWindowService windows = services.GetRequiredService<IWindowService>();
         if (session.Current.UserId is not null)
         {
             bool studentReady = audience.Current.Role == DeviceAudienceRole.StudentDevice && audience.Current.SelectedClassIds.Count > 0;
             bool studentNeedsSelection = audience.Current.Role == DeviceAudienceRole.StudentDevice && !studentReady;
-            if (studentNeedsSelection) windows.ShowStudentClassPickerWindow();
-            else if (WindowLifecycle.ShouldShowMainWindowAtStartup(studentReady, _startMinimized, settings.Current.StartMinimized)) windows.ShowMainWindow();
-            _ = ObserveStartupSyncAsync(services.GetRequiredService<ISyncService>().StartAsync(), services.GetRequiredService<ILogger<App>>());
+            if (studentNeedsSelection)
+                TryShowCoreWindow("student class picker", windows.ShowStudentClassPickerWindow, logger);
+            else if (WindowLifecycle.ShouldShowMainWindowAtStartup(studentReady, _startMinimized, settings.Current.StartMinimized))
+                TryShowCoreWindow("main window", windows.ShowMainWindow, logger);
+            StartupStepRunner.TryRun("background sync", () => _ = ObserveStartupSyncAsync(services.GetRequiredService<ISyncService>().StartAsync(), logger), logger);
         }
-        else windows.ShowRoleChoiceWindow();
+        else TryShowCoreWindow("role choice window", windows.ShowRoleChoiceWindow, logger);
+    }
+
+    private static void RunServiceStartupStep(StartupServiceStep step, IServiceProvider services, ISessionService session)
+    {
+        switch (step)
+        {
+            case StartupServiceStep.StartupRegistration: services.GetRequiredService<StartupService>().Start(); break;
+            case StartupServiceStep.UpdateRestartPrompt: services.GetRequiredService<UpdateRestartPrompt>().Start(); break;
+            case StartupServiceStep.Updater: services.GetRequiredService<IUpdateService>().Start(); break;
+            case StartupServiceStep.Tray: services.GetRequiredService<TrayService>().Start(); break;
+            case StartupServiceStep.NotificationScheduler: services.GetRequiredService<INotificationScheduler>().StartAsync().GetAwaiter().GetResult(); break;
+            case StartupServiceStep.Clock: services.GetRequiredService<IClockService>().Start(); break;
+            case StartupServiceStep.MainViewModel:
+                if (session.Current.UserId is not null)
+                    services.GetRequiredService<MainViewModel>().InitializeAsync().GetAwaiter().GetResult();
+                break;
+            default: throw new ArgumentOutOfRangeException(nameof(step), step, null);
+        }
+    }
+
+    private void TryShowCoreWindow(string stepName, Action showWindow, Microsoft.Extensions.Logging.ILogger logger)
+    {
+        if (!StartupStepRunner.TryRun(stepName, showWindow, logger)) ShowCoreStartupFailure();
+    }
+
+    private void ShowCoreStartupFailure()
+    {
+        if (_dispatcherErrorShown) return;
+        _dispatcherErrorShown = true;
+        MessageBox.Show("AQI Clock encountered a problem. Details were written to the log.", "AQI Clock", MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
     private static async Task ObserveStartupSyncAsync(Task syncTask, ILogger<App> logger)
@@ -197,11 +240,7 @@ public partial class App : System.Windows.Application, IDisposable
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         Log.Error(e.Exception, "Unhandled UI exception");
-        if (!_dispatcherErrorShown)
-        {
-            _dispatcherErrorShown = true;
-            MessageBox.Show("AQI Clock encountered a problem. Details were written to the log.", "AQI Clock", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
+        ShowCoreStartupFailure();
         e.Handled = true;
     }
     private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e) { if (e.ExceptionObject is Exception exception) Log.Fatal(exception, "Unhandled application exception"); }

@@ -227,6 +227,73 @@ public sealed class InfrastructureOrchestrationTests
     }
 
     [Fact]
+    public async Task SessionRestoreTreatsHttpClientTimeoutAsOfflineAndPreservesStoredSession()
+    {
+        Guid userId = Guid.NewGuid();
+        var stored = new StoredSession(JwtFor(userId), "refresh", DateTimeOffset.UtcNow.AddMinutes(30));
+        var store = new FakeSessionStore { Session = stored };
+        var timeout = new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout elapsing.", new TimeoutException());
+        var gateway = new FakeGateway { RefreshException = timeout };
+        using var service = new SessionService(store, gateway, new FakeProfiles(new Profile(userId, "Teacher", UserRole.Teacher, true)), new FakeCache(), new WeakReferenceMessenger());
+
+        await service.RestoreAsync();
+
+        Assert.Equal(userId, service.Current.UserId);
+        Assert.False(service.Current.RequiresSignIn);
+        Assert.Equal(stored, store.Session);
+        Assert.True(gateway.RestoreCalled);
+    }
+
+    [Fact]
+    public async Task SessionRestorePropagatesCallerCancellationAndPreservesStoredSession()
+    {
+        Guid userId = Guid.NewGuid();
+        var stored = new StoredSession(JwtFor(userId), "refresh", DateTimeOffset.UtcNow.AddMinutes(30));
+        var store = new FakeSessionStore { Session = stored };
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var gateway = new FakeGateway { RefreshException = new OperationCanceledException(cancellation.Token) };
+        using var service = new SessionService(store, gateway, new FakeProfiles(), new FakeCache(), new WeakReferenceMessenger());
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.RestoreAsync(cancellation.Token));
+
+        Assert.Equal(stored, store.Session);
+        Assert.False(gateway.RestoreCalled);
+    }
+
+    [Fact]
+    public void StartupStepsContinueAfterSessionAndNotificationFailures()
+    {
+        var started = new List<string>();
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+
+        Assert.False(StartupStepRunner.TryRun("session restore", () => throw new TaskCanceledException(), logger));
+        Assert.True(StartupStepRunner.TryRun("updater", () => started.Add("updater"), logger));
+        Assert.True(StartupStepRunner.TryRun("tray", () => started.Add("tray"), logger));
+        Assert.False(StartupStepRunner.TryRun("notification scheduler", () => throw new System.IO.IOException("offline"), logger));
+        Assert.True(StartupStepRunner.TryRun("clock", () => started.Add("clock"), logger));
+        Assert.True(StartupStepRunner.TryRun("main window", () => started.Add("window"), logger));
+
+        Assert.Equal(["updater", "tray", "clock", "window"], started);
+    }
+
+    [Fact]
+    public void StartupServicePlanStartsUpdaterTrayAndClockBeforeMainViewModel()
+    {
+        Assert.Equal(
+        [
+            StartupServiceStep.StartupRegistration,
+            StartupServiceStep.UpdateRestartPrompt,
+            StartupServiceStep.Updater,
+            StartupServiceStep.Tray,
+            StartupServiceStep.NotificationScheduler,
+            StartupServiceStep.Clock,
+            StartupServiceStep.MainViewModel,
+        ],
+        StartupStepRunner.ServiceOrder);
+    }
+
+    [Fact]
     public async Task RealGatewayOfflineRestoreStartsFromCachedTokenWithoutSdkRoundTrip()
     {
         Guid userId = Guid.NewGuid();
