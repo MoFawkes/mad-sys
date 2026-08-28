@@ -7,6 +7,7 @@ using AqiClock.Application.Configuration;
 using AqiClock.Application.Messages;
 using AqiClock.Application.Sync;
 using AqiClock.Domain.Entities;
+using AqiClock.Domain.Scheduling;
 using CommunityToolkit.Mvvm.Messaging;
 using System.Diagnostics;
 using System.Windows;
@@ -17,6 +18,180 @@ namespace AqiClock.Application.Tests;
 
 public sealed class AdminViewModelTests
 {
+    [Fact]
+    public async Task GeneratedTimetableUsesPreviewAndDisablesLegacyCommands()
+    {
+        Guid timetableId = Guid.NewGuid(); Guid blockId = Guid.NewGuid(); Guid anchorId = Guid.NewGuid();
+        var timetable = new Timetable(timetableId, "Generated", false, []);
+        var gateway = new Gateway
+        {
+            GeneratorSnapshot = new(new(timetableId, Guid.NewGuid(), "pm", new(18, 15), null, "Lesson {number}"),
+                [new(blockId, timetableId, Guid.NewGuid(), 0, "lessons", null, 2, 25, null, false)],
+                [new(timetableId, anchorId, Guid.NewGuid())]),
+            AnchorSnapshot = new([new(anchorId, Guid.NewGuid(), "asr", "Asr", 0)],
+                [new(Guid.NewGuid(), Guid.NewGuid(), anchorId, null, new(18, 40), 10, new(2020, 1, 1))], [])
+        };
+        var vm = new TimetableEditorViewModel(gateway, new Sync(), new Timetables(timetable), new Week(), new Overrides(), new Windows(), new WeakReferenceMessenger());
+
+        await vm.LoadAsync();
+
+        Assert.True(vm.IsGenerated);
+        Assert.False(vm.AddPeriodCommand.CanExecute(null));
+        Assert.NotEmpty(vm.GeneratorPreview);
+        await vm.SaveGeneratorCommand.ExecuteAsync(null);
+        Assert.NotNull(gateway.SavedGenerator);
+    }
+
+    [Fact]
+    public async Task GeneratorSaveStopsWhenServerPreviewDiffersAndRequiresSecondAcceptance()
+    {
+        Guid timetableId = Guid.NewGuid(); Guid blockId = Guid.NewGuid();
+        var gateway = new Gateway
+        {
+            GeneratorSnapshot = new(new(timetableId, Guid.NewGuid(), "am", new(9, 0), null, "Lesson {number}"),
+                [new(blockId, timetableId, Guid.NewGuid(), 0, "lessons", null, 1, 30, null, false)], []),
+            PreviewNameSuffix = " (server)",
+        };
+        var vm = new TimetableEditorViewModel(gateway, new Sync(),
+            new Timetables(new Timetable(timetableId, "Generated", false, [])),
+            new Week(), new Overrides(), new Windows(), new WeakReferenceMessenger());
+        await vm.LoadAsync();
+
+        await vm.SaveGeneratorCommand.ExecuteAsync(null);
+
+        Assert.Null(gateway.SavedGenerator);
+        Assert.Contains("differs", vm.GeneratorMessage);
+        Assert.EndsWith("(server)", Assert.Single(vm.GeneratorPreview).Name);
+
+        await vm.SaveGeneratorCommand.ExecuteAsync(null);
+        Assert.NotNull(gateway.SavedGenerator);
+    }
+
+    [Fact]
+    public async Task GeneratedClassTimetablesWithDifferentClockLabelsShowClashWarning()
+    {
+        Guid orgId = Guid.NewGuid(), leftId = Guid.NewGuid(), rightId = Guid.NewGuid();
+        Guid leftClassId = Guid.NewGuid(), rightClassId = Guid.NewGuid();
+        var left = new Timetable(leftId, "Left", false,
+            [new Period(Guid.NewGuid(), "Lesson 3", new(19, 0), new(19, 30), 0)]);
+        var right = new Timetable(rightId, "Right", false,
+            [new Period(Guid.NewGuid(), "Maghrib", new(19, 29), new(19, 39), 0, false)]);
+        var gateway = new Gateway();
+        gateway.GeneratedTimetableIds.UnionWith([leftId, rightId]);
+        var vm = new TimetableEditorViewModel(gateway, new Sync(), new Timetables(left, right),
+            new Week(
+                new(Guid.NewGuid(), DayOfWeek.Monday, leftClassId, leftId),
+                new(Guid.NewGuid(), DayOfWeek.Monday, rightClassId, rightId)),
+            new Overrides(),
+            new Classes(new(leftClassId, "Class A", 0), new(rightClassId, "Class B", 1)),
+            new Windows(), new WeakReferenceMessenger());
+
+        await vm.LoadAsync();
+
+        Assert.Equal("Cross-class clock clash: Monday: Class A 'Lesson 3' and Class B 'Maghrib' disagree from 19:29 to 19:30.",
+            vm.ClashWarningMessage);
+    }
+
+    [Fact]
+    public async Task GeneratedClassTimetablesWithSameClockLabelStaySilent()
+    {
+        Guid leftId = Guid.NewGuid(), rightId = Guid.NewGuid();
+        Guid leftClassId = Guid.NewGuid(), rightClassId = Guid.NewGuid();
+        var left = new Timetable(leftId, "Left", false,
+            [new Period(Guid.NewGuid(), "Lesson 3", new(19, 0), new(19, 30), 0)]);
+        var right = new Timetable(rightId, "Right", false,
+            [new Period(Guid.NewGuid(), "Lesson 3", new(19, 0), new(19, 30), 0)]);
+        var gateway = new Gateway();
+        gateway.GeneratedTimetableIds.UnionWith([leftId, rightId]);
+        var vm = new TimetableEditorViewModel(gateway, new Sync(), new Timetables(left, right),
+            new Week(
+                new(Guid.NewGuid(), DayOfWeek.Monday, leftClassId, leftId),
+                new(Guid.NewGuid(), DayOfWeek.Monday, rightClassId, rightId)),
+            new Overrides(), new Windows(), new WeakReferenceMessenger());
+
+        await vm.LoadAsync();
+
+        Assert.Null(vm.ClashWarningMessage);
+    }
+
+    [Fact]
+    public async Task DuplicateClassScheduleRowsReportAmbiguousClashResolution()
+    {
+        Guid classId = Guid.NewGuid(), timetableId = Guid.NewGuid();
+        var timetable = new Timetable(timetableId, "Generated", false, []);
+        var gateway = new Gateway();
+        gateway.GeneratedTimetableIds.Add(timetableId);
+        var vm = new TimetableEditorViewModel(gateway, new Sync(), new Timetables(timetable),
+            new Week(
+                new(Guid.NewGuid(), DayOfWeek.Monday, classId, timetableId),
+                new(Guid.NewGuid(), DayOfWeek.Monday, classId, timetableId)),
+            new Overrides(), new Windows(), new WeakReferenceMessenger());
+
+        await vm.LoadAsync();
+
+        Assert.Equal("Cross-class clash check unavailable: the week schedule has duplicate class rows.",
+            vm.ClashWarningMessage);
+    }
+
+    [Fact]
+    public async Task MonthlyMaghribPasteRejectsWholeMonthBeforeGatewayCall()
+    {
+        Guid anchorId = Guid.NewGuid();
+        var timetable = new Timetable(Guid.NewGuid(), "Day", false, []);
+        var gateway = new Gateway { AnchorSnapshot = new([new(anchorId, Guid.NewGuid(), "maghrib", "Maghrib", 0)], [], []) };
+        var vm = new TimetableEditorViewModel(gateway, new Sync(), new Timetables(timetable), new Week(), new Overrides(), new Windows(), new WeakReferenceMessenger());
+        await vm.LoadAsync(); vm.BulkMonth = new DateTime(2030, 2, 1); vm.MaghribBulkText = "18:00\nnot-a-time";
+
+        await vm.ApplyMaghribBulkPasteCommand.ExecuteAsync(null);
+
+        Assert.Contains("exactly 28", vm.BulkMessage);
+        Assert.Equal(0, gateway.BulkCalls);
+    }
+
+    [Fact]
+    public async Task LegacyConversionUsesServerPreviewAndPostsThatExactPayload()
+    {
+        Guid timetableId = Guid.NewGuid();
+        var timetable = new Timetable(timetableId, "Legacy", false,
+        [
+            new(Guid.NewGuid(), "Class 1", new(9, 0), new(9, 30), 0, true),
+            new(Guid.NewGuid(), "Class 2", new(9, 30), new(10, 0), 1, true),
+            new(Guid.NewGuid(), "Break", new(10, 0), new(10, 10), 2, false),
+            new(Guid.NewGuid(), "Class 3", new(10, 10), new(10, 40), 3, true),
+        ]);
+        var gateway = new Gateway();
+        var vm = new TimetableEditorViewModel(gateway, new Sync(), new Timetables(timetable), new Week(), new Overrides(), new Windows(), new WeakReferenceMessenger());
+        await vm.LoadAsync();
+
+        await vm.PreviewConversionCommand.ExecuteAsync(null);
+        Assert.True(vm.HasConversionPreview);
+        Assert.NotEmpty(vm.ConversionDiff); // Stable generated ids intentionally replace legacy ids.
+        IReadOnlyList<PeriodRow> serverRows = Assert.IsType<GeneratorServerPreview>(gateway.LastPreview).Periods;
+
+        await vm.ConfirmConversionCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsGenerated);
+        Assert.Equal(serverRows, gateway.SavedGenerator?.Periods);
+    }
+
+    [Fact]
+    public async Task LegacyConversionRefusesAmbiguousNonContiguousRows()
+    {
+        Guid timetableId = Guid.NewGuid();
+        var timetable = new Timetable(timetableId, "Ambiguous", false,
+        [
+            new(Guid.NewGuid(), "Lesson 1", new(9, 0), new(9, 30), 0, true),
+            new(Guid.NewGuid(), "Lesson 2", new(9, 35), new(10, 5), 1, true),
+        ]);
+        var vm = new TimetableEditorViewModel(new Gateway(), new Sync(), new Timetables(timetable), new Week(), new Overrides(), new Windows(), new WeakReferenceMessenger());
+        await vm.LoadAsync();
+
+        await vm.PreviewConversionCommand.ExecuteAsync(null);
+
+        Assert.False(vm.HasConversionPreview);
+        Assert.Contains("not contiguous", vm.ConversionMessage);
+    }
+
     [Fact]
     public async Task MovingPeriodThenSaveSendsSingleAtomicPayloadInVisualOrder()
     {
@@ -734,6 +909,13 @@ public sealed class AdminViewModelTests
         public int ProfileUpdateCalls { get; private set; }
         public TimetableRow? SavedTimetable { get; private set; }
         public IReadOnlyList<PeriodRow>? SavedPeriods { get; private set; }
+        public GeneratorAuthoringSnapshot? GeneratorSnapshot { get; init; }
+        public HashSet<Guid> GeneratedTimetableIds { get; } = [];
+        public AnchorConfigurationSnapshot AnchorSnapshot { get; init; } = new([], [], []);
+        public (Guid TimetableId, IReadOnlyList<PeriodRow> Periods)? SavedGenerator { get; private set; }
+        public GeneratorServerPreview? LastPreview { get; private set; }
+        public string PreviewNameSuffix { get; init; } = string.Empty;
+        public int BulkCalls { get; private set; }
         public Action<TimetableRow, IReadOnlyList<PeriodRow>>? OnTimetableSaved { get; set; }
         public int? SavedWeekday { get; private set; }
         public Guid? SavedAudienceClassId { get; private set; }
@@ -741,6 +923,36 @@ public sealed class AdminViewModelTests
         public int? DeletedWeekday { get; private set; }
         public Guid? DeletedAudienceClassId { get; private set; }
         public Task SaveTimetableAsync(TimetableRow timetable, IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default) { SavedTimetable = timetable; SavedPeriods = periods; if (WriteFailure is null) OnTimetableSaved?.Invoke(timetable, periods); return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); }
+        public Task<GeneratorAuthoringSnapshot> GetGeneratorAuthoringAsync(Guid timetableId, CancellationToken cancellationToken = default)
+        {
+            if (GeneratorSnapshot?.Definition?.TimetableId == timetableId) return Task.FromResult(GeneratorSnapshot);
+            if (GeneratedTimetableIds.Contains(timetableId))
+                return Task.FromResult(new GeneratorAuthoringSnapshot(
+                    new(timetableId, Guid.NewGuid(), "pm", new(18, 15), null, "Lesson {number}"), [], []));
+            return Task.FromResult(new GeneratorAuthoringSnapshot(null, [], []));
+        }
+        public Task<AnchorConfigurationSnapshot> GetAnchorConfigurationAsync(CancellationToken cancellationToken = default) => Task.FromResult(AnchorSnapshot);
+        public Task SaveGeneratedTimetableAsync(Guid timetableId, GeneratorDefinitionWrite definition, IReadOnlyList<GeneratorBlockWrite> blocks, IReadOnlyList<Guid> anchorIds, IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default) { SavedGenerator = (timetableId, periods); return Task.CompletedTask; }
+        public Task<GeneratorServerPreview> PreviewGeneratedTimetableAsync(Guid timetableId, GeneratorDefinitionWrite definition, IReadOnlyList<GeneratorBlockWrite> blocks, IReadOnlyList<Guid> anchorIds, CancellationToken cancellationToken = default)
+        {
+            GeneratorResult result = AlQalamExpansionRules.Expand(timetableId,
+                definition.SessionKind == "am" ? GeneratorSessionKind.Am : GeneratorSessionKind.Pm,
+                definition.DayStart,
+                blocks.Select(block => new GeneratorBlock(block.Id,
+                    block.BlockKind == "break" ? GeneratorBlockKind.Break : GeneratorBlockKind.Lessons,
+                    block.Name ?? string.Empty, block.LessonCount ?? 1,
+                    block.LessonMinutes ?? block.BreakMinutes ?? 1, block.HostsNaseehah)).ToArray(),
+                AnchorSnapshot.Anchors.Where(anchor => anchorIds.Contains(anchor.Id)).Select(anchor =>
+                {
+                    AnchorStandingTime? standing = AnchorSnapshot.StandingTimes.FirstOrDefault(row => row.AnchorId == anchor.Id);
+                    return new ResolvedAnchor(anchor.Id, anchor.Key, anchor.Name,
+                        standing?.StartTime ?? new TimeOnly(23, 59), standing?.DurationMinutes);
+                }).ToArray(), definition.AdvisoryDayEnd, definition.NamingPattern);
+            LastPreview = new(new DateOnly(2035, 1, 8), result.Periods.Select((period, index) =>
+                new PeriodRow(period.Id, timetableId, period.Name + PreviewNameSuffix, period.Start, period.End, index, period.IsLesson)).ToArray());
+            return Task.FromResult(LastPreview);
+        }
+        public Task<int> BulkUpsertAnchorDateOverridesAsync(Guid anchorId, IReadOnlyList<AnchorDateOverrideWrite> rows, CancellationToken cancellationToken = default) { BulkCalls++; return Task.FromResult(rows.Count); }
         public Task SaveWeekScheduleRowAsync(int weekday, Guid? audienceClassId, Guid? timetableId, CancellationToken cancellationToken = default) { SavedWeekday = weekday; SavedAudienceClassId = audienceClassId; SavedWeekTimetableId = timetableId; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); }
         public Task DeleteWeekScheduleRowAsync(int weekday, Guid audienceClassId, CancellationToken cancellationToken = default) { DeletedWeekday = weekday; DeletedAudienceClassId = audienceClassId; return DeleteFailure is null ? Task.CompletedTask : Task.FromException(DeleteFailure); }
         public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(Guid.NewGuid()); public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) { LastInsertedRow = row; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); } public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) { UpdateCalls++; LastUpdatedRow = row; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); } public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) { DeleteCalls++; return DeleteFailure is null ? Task.CompletedTask : Task.FromException(DeleteFailure); } public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default) { ProfileUpdateCalls++; return ProfileFailure is null ? Task.CompletedTask : Task.FromException(ProfileFailure); } public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AuditEntry>>([]); public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();

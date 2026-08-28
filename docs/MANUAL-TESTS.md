@@ -69,6 +69,7 @@ This checklist is the ADR-011 acceptance script for Windows surfaces that are no
 
 ## Velopack install, update and uninstall
 
+- [ ] **v0.14.0 pilot update acceptance:** on a real machine running the published v0.13.3 build, confirm v0.14.0 is offered, downloads, reports a pending restart, and applies on restart with About showing v0.14.0. Publication and manifest checks do not satisfy this row.
 - [ ] Install `AqiClock.App-stable-Setup.exe` as a standard user; confirm no elevation is requested.
 - [ ] Confirm the Start-menu shortcut exists, launches one instance, and carries a consistent AQI Clock toast identity.
 - [ ] Confirm Settings → About shows the release tag version and `Up to date` after a successful check.
@@ -495,9 +496,39 @@ The residual gap is explicit: there is no delivered-notification proof for
 self-healed and never re-armed again, would escape this evidence. That fault is
 considered unlikely but is not disproved. A single time-boxed `adb backup`
 attempt produced only a 47-byte header, so the non-debuggable app's surviving
-`notification_log` rows could not be extracted. The Pixel must not be revoked,
-signed out, or reinstalled before that log can be exported, because
-`wipeCache()` deletes it.
+`notification_log` rows could not be extracted. The earlier preservation
+instruction is now withdrawn: that table contains announcement events only and
+cannot prove lesson delivery.
+
+**MOB-T06 durable-evidence re-run protocol (v0.15.0):** install the preview APK
+as an update, switch from class A to class B, and capture the admin-only
+notification diagnostics export once daily for at least three live teaching
+days. Do not dismiss AQI Clock notifications before the daily capture, and
+foreground the app before exporting so the presented-notification sweep records
+deliveries that occurred while the app was backgrounded or killed. For each day,
+retain the JSON and confirm its schedule snapshot contains the desired and
+actual class-B alarms and no stale class-A alarm. Confirm foreground deliveries
+use `foreground_listener`; background/killed tray deliveries may use
+`presented_sweep`. A notification delivered while the app is killed and then
+dismissed before the next foreground is evidenced by the schedule snapshot only,
+not as a delivery row. Export before sign-out or revocation: privacy teardown
+deliberately wipes both evidence tables.
+
+Record ADR-029's accepted residual in the read-out: mobile pre-schedules seven
+days from the latest reconciled base timetable, so a device that stops
+reconciling can drift by roughly two minutes per day. Daily reconciliation makes
+today exact; the endurance run must record the last reconcile time alongside
+any measured delivery drift.
+
+**B4 v0.15.0 preview handoff (2026-08-28):** EAS preview build
+`247166a5-5af1-40f2-8061-e1c428d1139c` finished from commit `b86663f` as an
+internal Android APK with app version `0.15.0`. The downloaded artifact is
+`AqiClock-v0.15.0-preview.apk`, SHA-256
+`78B328C68B004E21138CA356149FA5195270DC45B772DA32F83AC6E6979ECD11`.
+Install it over the existing Pixel app so the enrolled session and prior
+schedule state remain available for the class-switch endurance setup; do not
+clear app data. The three-live-teaching-day evidence run remains open until
+the daily exports and last-reconcile/drift readings above are captured.
 
 **v0.14.0 rebuilt-APK result (2026-08-18): PARTIAL PASS.** EAS preview build
 `f9f0a6a3-fc7c-4d2c-aa4d-341d50170216` passed `MOB-F07`, `MOB-F18`,

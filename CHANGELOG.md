@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased - 0.15.0
+
+### Added
+
+- Added normalized block/anchor timetable generation, monthly Maghrib entry, strict legacy conversion, Friday/seasonal standing rows, and cross-class clock-label warnings.
+- Added transactional daily regeneration, isolated failure records, unchanged-write suppression, stable IDs, and a logged Cloudflare Worker Cron client.
+- Added durable mobile notification-delivery and schedule-snapshot evidence with privacy-safe JSON export.
+
+### Security
+
+- Added the generator RLS matrix and database-wide anon privilege invariant. Corrected grant drift was defence-in-depth: RLS and the absence of anon policies already prevented row exposure.
+
 ## 0.14.1 - 2026-08-28
 
 ### Fixed

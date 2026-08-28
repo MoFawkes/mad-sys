@@ -1,6 +1,6 @@
 # AQI Clock — Application Architecture
 
-Status: Implemented desktop + v0.11 mobile companion · Last updated: 2026-07-28
+Status: Implemented desktop + mobile companion · Last updated: 2026-08-27
 
 ---
 
@@ -111,6 +111,10 @@ All computation uses **local wall-clock time** in the organisation's timezone; p
 
 ## 5. Data flow
 
+Generated definitions are previewed by the pure C# engine. Save and conversion fetch a server preview; any C#/SQL difference requires explicit re-review, while the save RPC independently re-expands and treats submitted rows as an assertion. Daily unattended maintenance is Cloudflare Worker Cron (02:17 UTC) → one service-role PostgREST RPC → one PostgreSQL transaction. It regenerates ordinary period rows in place for the organisation-local date, preserving shipped-client compatibility.
+
+The admin clash detector remains C#-only. It compares concurrently selectable generated timetables resolved through class-specific `week_schedule` rows and warns when overlapping `(name,start,end)` labels differ. Identical labels and shared timetables are silent.
+
 ```
 Supabase Postgres --initial/reconnect pull--> SQLite cache --repositories--> ScheduleEngine --> ViewModels
         ^                                          ^                              |
@@ -148,6 +152,8 @@ Data volume is tiny (KBs), so sync is a **full snapshot pull per table**, not de
 ---
 
 ## 7. Notification behaviour
+
+Mobile owns durable delivery evidence. A foreground listener and repeat presented-notification sweep insert idempotently into `notification_delivery`; every reconcile captures desired/actual state in `notification_schedule_snapshot`. Diagnostics exports both tables before sign-out, and privacy teardown clears them.
 
 Three categories: **lesson start**, **end warning** (N min before end, default 5), **announcement**. Each locally toggleable.
 

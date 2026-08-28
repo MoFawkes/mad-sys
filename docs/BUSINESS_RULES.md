@@ -82,6 +82,15 @@ Same rules as a restart (rule 6): the app detects the time jump within a second,
 
 ## 10. Related hard rules (for completeness)
 
+## Generated timetable rules
+
+- Admins author lesson/break blocks plus organisation prayer anchors; expanded `periods` are read-only wire-format rows.
+- Anchor resolution is date override, newest weekday standing row, then newest default standing row. Cancelled overrides remove anchors. Values are jamaat times from the institute sheet, never beginning times.
+- Friday Jumu'ah is a weekday data row. Its deliberately unset duration refuses expansion; it is never defaulted.
+- Expansion splits around anchors without losing teaching, applies late anchors against the bumped end, selects PM Naseehah from the baseline anchor set, and disambiguates duplicate names.
+- Daily maintenance uses the organisation-local date and writes nothing when unchanged. Per-timetable failures appear in the run record.
+- Cross-class warnings have no duration floor: overlapping generated periods agree only when name, start, and end all agree.
+
 | Rule | Statement |
 |---|---|
 | Wall-clock times | "08:30" always means 08:30 on the local clock, including across daylight-saving changes (ADR-006) |

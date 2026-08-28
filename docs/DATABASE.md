@@ -1,6 +1,6 @@
 # AQI Clock — Database Design
 
-Status: Implemented · Last updated: 2026-08-03
+Status: Implemented · Last updated: 2026-08-27
 
 Supabase Postgres is the source of truth. The Windows and Expo clients keep disposable SQLite read caches; neither client renders a network response directly.
 
@@ -22,6 +22,12 @@ All organisation-owned tables use UUID keys and server timestamps. Period times 
 | `announcements` | Content, expiry, audience, update type, publication time/status, optional HTTPS eMasjid link, and soft-deletion timestamp |
 | `student_devices` | Anonymous Auth user to organisation enrolment: `user_id`, `org_id`, `created_at`, `last_seen_at` |
 | `audit_log` | Trigger-written before/after history; no client write path |
+
+Generator authoring is normalized across `organization_anchors`, `anchor_standing_times`, `anchor_date_overrides`, `timetable_generators`, `timetable_generator_blocks`, and `timetable_generator_anchors`. `generator_maintenance_runs` records each org-local regeneration date, changed-timetable count, and isolated errors. Generated timetables retain ordinary `periods` as their wire format; `is_generated` makes those rows generator-owned.
+
+`private.expand_generated_timetable` is the server authority. Admin saves submit the desktop preview as a parity assertion, then re-expand after writing the definition. Daily maintenance runs under an advisory transaction lock, skips unchanged timetables, and isolates individual failures. Service-only `run_generator_maintenance(org_id)` and admin-only `admin_regenerate_generated_timetables()` share that body.
+
+New public tables have RLS and explicit anon revokes. A database-wide test proves `anon` has no public-table privileges; the drift it found was defence-in-depth because affected tables already had RLS and no anon policies, not a live exposure.
 
 Announcement audiences are `everyone`, `teachers`, `graduates`, `am`, `pm`, and `specific_class`. A specific-class row must have `audience_class_id`; other audiences must not. Update types are `general`, `class_starts`, `naseehah`, `monthly_programme`, and `yearly_programme`. Status is `draft`, `scheduled`, or `published`.
 
@@ -71,6 +77,8 @@ Local-only state includes:
 ```text
 sync_state
 notification_log
+notification_delivery       # mobile observed delivery evidence
+notification_schedule_snapshot # mobile scheduling evidence
 announcement_read
 meta
 student_preferences     # mobile only

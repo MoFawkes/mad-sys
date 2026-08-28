@@ -6,11 +6,22 @@ import { replaceSnapshotInDatabase, SYNC_TABLES, wipeCache } from '@/src/data/sq
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
 
 describe('SQLite cache safety', () => {
+  it('adds durable delivery and schedule evidence in migration 5', () => {
+    const migration = CACHE_MIGRATIONS.find((item) => item.version === 5);
+    expect(migration?.sql).toContain('CREATE TABLE notification_delivery');
+    expect(migration?.sql).toContain('CREATE TABLE notification_schedule_snapshot');
+  });
+
+  it('adds null-safe delivery deduplication in migration 6', () => {
+    const migration = CACHE_MIGRATIONS.find((item) => item.version === 6);
+    expect(migration?.sql).toContain("COALESCE(identifier, '')");
+  });
+
   it('applies ordered migrations once using user_version', async () => {
     let version = 0;
     let migrationExecutions = 0;
     const database = {
-      execAsync: async () => {},
+      execAsync: jest.fn(async () => {}),
       getFirstAsync: async () => ({ user_version: version }),
       withExclusiveTransactionAsync: async (
         task: (transaction: SQLiteDatabase) => Promise<void>,
@@ -31,6 +42,7 @@ describe('SQLite cache safety', () => {
     await applyCacheMigrations(database);
     await applyCacheMigrations(database);
 
+    expect(database.execAsync).toHaveBeenCalledWith(expect.stringContaining('PRAGMA busy_timeout=5000'));
     expect(version).toBe(CACHE_MIGRATIONS.at(-1)?.version);
     expect(migrationExecutions).toBe(CACHE_MIGRATIONS.length);
   });
@@ -86,6 +98,8 @@ describe('SQLite cache safety', () => {
       ...SYNC_TABLES.map((table) => `DELETE FROM ${table}`),
       'DELETE FROM sync_state',
       'DELETE FROM notification_log',
+      'DELETE FROM notification_delivery',
+      'DELETE FROM notification_schedule_snapshot',
       'DELETE FROM announcement_read',
       'DELETE FROM student_preferences',
       'DELETE FROM meta',

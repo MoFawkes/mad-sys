@@ -98,7 +98,7 @@
                             <Border Background="{DynamicResource WarningBackgroundBrush}" CornerRadius="8" Padding="10" Visibility="{Binding HasConflict, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="Changed remotely just now — " /><Button Content="Reload" Command="{Binding ReloadCommand}" /><Button Content="Overwrite" Command="{Binding OverwriteCommand}" /></StackPanel>
                             </Border>
-                            <WrapPanel Margin="0,8,0,6" VerticalAlignment="Center">
+                            <WrapPanel Margin="0,8,0,6" VerticalAlignment="Center" IsEnabled="{Binding CanEditLegacyPeriods}">
                                 <TextBlock Text="Break" VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <TextBox Width="130" Text="{Binding BreakName, UpdateSourceTrigger=PropertyChanged}" ToolTip="Name for the inserted non-lesson row" />
                                 <TextBox Width="58" Margin="6,0,0,0" Text="{Binding BreakMinutes, UpdateSourceTrigger=PropertyChanged}" ToolTip="Break length in minutes" />
@@ -109,13 +109,45 @@
                                 <Button Content="Apply shift" Command="{Binding ShiftLaterCommand}" CommandParameter="{Binding SelectedPeriod}" />
                             </WrapPanel>
                         </StackPanel>
+                        <Expander DockPanel.Dock="Top" Header="Generated timetable" IsExpanded="{Binding IsGenerated}" Margin="0,0,0,8">
+                            <StackPanel Margin="8">
+                                <WrapPanel>
+                                    <TextBlock Text="Session" VerticalAlignment="Center"/><ComboBox Width="70" Margin="6,0" SelectedValuePath="Content" SelectedValue="{Binding GeneratorSessionKind}"><ComboBoxItem Content="am"/><ComboBoxItem Content="pm"/></ComboBox>
+                                    <TextBlock Text="Start" VerticalAlignment="Center"/><TextBox Width="75" Margin="6,0" Text="{Binding GeneratorDayStart, Converter={StaticResource HourMinuteConverter}}"/>
+                                    <TextBlock Text="Names" VerticalAlignment="Center"/><TextBox Width="140" Margin="6,0" Text="{Binding GeneratorNamingPattern, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <ui:Button Content="Add block" Command="{Binding AddGeneratorBlockCommand}"/>
+                                    <ui:Button Content="Save generator" Appearance="Primary" Command="{Binding SaveGeneratorCommand}"/>
+                                    <ui:Button Content="Preview legacy conversion" Command="{Binding PreviewConversionCommand}"/>
+                                </WrapPanel>
+                                <ItemsControl ItemsSource="{Binding GeneratorAnchors}" Margin="0,6"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}" Margin="0,0,14,0"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                <DataGrid ItemsSource="{Binding GeneratorBlocks}" AutoGenerateColumns="False" CanUserAddRows="False" MaxHeight="150"><DataGrid.Columns>
+                                    <DataGridTextColumn Header="Kind" Binding="{Binding BlockKind, UpdateSourceTrigger=PropertyChanged}"/><DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/><DataGridTextColumn Header="Count" Binding="{Binding LessonCount, UpdateSourceTrigger=PropertyChanged}"/><DataGridTextColumn Header="Minutes" Binding="{Binding Minutes, UpdateSourceTrigger=PropertyChanged}"/><DataGridCheckBoxColumn Header="Naseehah" Binding="{Binding HostsNaseehah}"/>
+                                    <DataGridTemplateColumn Header=""><DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="Remove" Command="{Binding DataContext.RemoveGeneratorBlockCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                </DataGrid.Columns></DataGrid>
+                                <TextBlock Text="Preview" FontWeight="SemiBold" Margin="0,6,0,2"/><DataGrid ItemsSource="{Binding GeneratorPreview}" IsReadOnly="True" AutoGenerateColumns="False" MaxHeight="180"><DataGrid.Columns><DataGridTextColumn Header="Name" Binding="{Binding Name}"/><DataGridTextColumn Header="Start" Binding="{Binding Start, Converter={StaticResource HourMinuteConverter}}"/><DataGridTextColumn Header="End" Binding="{Binding End, Converter={StaticResource HourMinuteConverter}}"/></DataGrid.Columns></DataGrid>
+                                <TextBlock Text="{Binding GeneratorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource WarningBrush}"/>
+                                <TextBlock Text="{Binding ClashWarningMessage}" TextWrapping="Wrap" Foreground="{DynamicResource WarningBrush}"/>
+                                <Border BorderBrush="{DynamicResource ControlElevationBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,6,0,0" Visibility="{Binding HasConversionPreview, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <StackPanel><TextBlock Text="One-way conversion preview (server expansion)" FontWeight="SemiBold"/><TextBlock Text="{Binding ConversionMessage}" TextWrapping="Wrap"/><DataGrid ItemsSource="{Binding ConversionDiff}" IsReadOnly="True" AutoGenerateColumns="False" MaxHeight="160"><DataGrid.Columns><DataGridTextColumn Header="Change" Binding="{Binding Change}"/><DataGridTextColumn Header="Current" Binding="{Binding Current}" Width="*"/><DataGridTextColumn Header="Generated" Binding="{Binding Generated}" Width="*"/></DataGrid.Columns></DataGrid><ui:Button Content="Accept conversion" Command="{Binding ConfirmConversionCommand}" Appearance="Primary" HorizontalAlignment="Left"/></StackPanel>
+                                </Border>
+                                <TextBlock Text="{Binding ConversionMessage}" TextWrapping="Wrap" Foreground="{DynamicResource WarningBrush}"/>
+                                <Expander Header="Anchor sheet" Margin="0,8,0,0"><StackPanel>
+                                    <ui:Button Content="Add standing time" Command="{Binding AddStandingTimeCommand}" HorizontalAlignment="Left"/>
+                                    <DataGrid ItemsSource="{Binding StandingTimes}" AutoGenerateColumns="False" CanUserAddRows="False" MaxHeight="150"><DataGrid.Columns><DataGridTextColumn Header="Anchor id" Binding="{Binding AnchorId}"/><DataGridTextColumn Header="Weekday (0=Mon)" Binding="{Binding Weekday}"/><DataGridTextColumn Header="Start" Binding="{Binding Start, Converter={StaticResource HourMinuteConverter}}"/><DataGridTextColumn Header="Duration" Binding="{Binding DurationMinutes}"/><DataGridTextColumn Header="Effective" Binding="{Binding EffectiveFrom}"/><DataGridTemplateColumn Header=""><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel><Button Content="Save" Command="{Binding DataContext.SaveStandingTimeCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/><TextBlock Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns></DataGrid>
+                                    <ui:Button Content="Add date override" Command="{Binding AddAnchorOverrideCommand}" HorizontalAlignment="Left"/>
+                                    <DataGrid ItemsSource="{Binding AnchorDateOverrides}" AutoGenerateColumns="False" CanUserAddRows="False" MaxHeight="150"><DataGrid.Columns><DataGridTextColumn Header="Anchor id" Binding="{Binding AnchorId}"/><DataGridTextColumn Header="Date" Binding="{Binding Date}"/><DataGridTextColumn Header="Start" Binding="{Binding Start, Converter={StaticResource HourMinuteConverter}}"/><DataGridTextColumn Header="Duration" Binding="{Binding DurationMinutes}"/><DataGridCheckBoxColumn Header="Cancelled" Binding="{Binding IsCancelled}"/><DataGridTemplateColumn Header=""><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel><Button Content="Save" Command="{Binding DataContext.SaveAnchorOverrideCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/><TextBlock Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns></DataGrid>
+                                </StackPanel></Expander>
+                                <Separator Margin="0,8"/><WrapPanel><ui:Button Content="Regenerate now" Command="{Binding RegenerateNowCommand}"/><TextBlock Margin="8,0" VerticalAlignment="Center" Text="{Binding MaintenanceMessage}" Foreground="{DynamicResource WarningBrush}"/></WrapPanel><TextBlock Text="{Binding ClashWarningMessage}" TextWrapping="Wrap" Foreground="{DynamicResource WarningBrush}"/>
+                                <TextBlock Text="Monthly Maghrib paste (one HH:mm value per day)" FontWeight="SemiBold" Margin="0,8,0,2"/><WrapPanel><DatePicker SelectedDate="{Binding BulkMonth}"/><ui:Button Content="Preview changes" Command="{Binding PreviewMaghribBulkPasteCommand}"/><ui:Button Content="Apply atomically" Appearance="Primary" Command="{Binding ApplyMaghribBulkPasteCommand}"/></WrapPanel><TextBox Text="{Binding MaghribBulkText}" AcceptsReturn="True" Height="70" VerticalScrollBarVisibility="Auto"/><TextBlock Text="{Binding BulkMessage}"/>
+                            </StackPanel>
+                        </Expander>
                         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal">
-                            <Button Content="Add period" Command="{Binding AddPeriodCommand}" />
+                            <Button Content="Add period" Command="{Binding AddPeriodCommand}" IsEnabled="{Binding CanEditLegacyPeriods}" />
                             <ui:Button Content="Save" Command="{Binding SaveCommand}" Appearance="Primary" />
                             <Button Content="Cancel" Command="{Binding CancelCommand}" />
                             <ui:Button Content="Delete timetable" Command="{Binding DeleteCommand}" Appearance="Danger" />
                         </StackPanel>
-                        <DataGrid ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" AutoGenerateColumns="False" CanUserAddRows="False" BeginningEdit="OnPeriodBeginningEdit">
+                        <DataGrid ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="{Binding IsGenerated}" BeginningEdit="OnPeriodBeginningEdit">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
                                 <DataGridTextColumn Header="Start" Binding="{Binding Start, Converter={StaticResource HourMinuteConverter}, UpdateSourceTrigger=PropertyChanged}" />

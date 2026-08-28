@@ -104,7 +104,7 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] Native invitation/password recovery: Velopack-managed `aqiclock://reset-password` protocol, current-user single-instance forwarding, recovery-token validation, password update window, and temporary-session revocation.
 - [x] Professional Fluent UX polish: WPF-UI 4.3, navy accent, PerMonitorV2, branded authentication/settings surfaces, six-tab Admin styling, and polished normal/compact clock presentation.
 - [x] Release pipeline to the public `MoFawkes/aqi-clock-releases` repository (B-7), with cloud URL/anon variables and repository-scoped `RELEASES_TOKEN` configured.
-- [ ] Publish and visually accept the first tagged `v0.9.x` installer/update/uninstall round-trip.
+- [ ] Complete and record the real-machine v0.13.3 → v0.14.0 update round-trip (offered, downloaded, applied on restart); v0.14.0 publication itself is complete.
 - [ ] Run full manual test checklist on Win10 + Win11, incl. sleep/resume, offline day, DST-date simulation.
 - [ ] Pilot install on 3–5 staff machines; collect logs/feedback.
 - [ ] Confirm business inputs B-1 … B-8 with owner (defaults accepted; B-8 asset still outstanding).
@@ -136,11 +136,11 @@ Ordered by implementation dependency: each phase builds only on the phases above
 
 ### Next teacher meeting — scheduling workflow
 
-- [ ] Discuss automatic Naseehah and Salah timing: edit anchors once and reflow lesson rows around them.
-- [ ] Discuss faster timetable creation from start time, lesson count, lesson length, and the Naseehah/Salah anchors.
-- [ ] Confirm whether non-lesson rows remain fixed anchors while lesson rows flow; the existing whole-list save supports this without a schema change.
+- [x] Implement automatic Naseehah and Salah timing through reusable organisation anchors.
+- [x] Implement generated timetable creation from blocks, start time, lesson length, and selected anchors.
+- [x] Keep anchors fixed while teaching rows split/reflow without losing teaching minutes.
 - [x] Ship the interim schema-free interruption reflow tool for v0.14.0; keep the full block/anchor generator discussion for v0.15.0.
-- [ ] v0.15.0: add a diagnostics export for the mobile `notification_log`, then
+- [x] v0.15.0: add durable delivery and schedule-snapshot diagnostics export; then
   use the live-term class switch from 25 August to re-run the full delivered-
   notification portion of `MOB-T06` without relying on Android's 24-hour UI.
 

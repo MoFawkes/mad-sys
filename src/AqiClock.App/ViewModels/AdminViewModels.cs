@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using AqiClock.Application.Abstractions;
@@ -11,6 +12,7 @@ using AqiClock.Application.Messages;
 using AqiClock.Application.Sync;
 using AqiClock.App.Services;
 using AqiClock.Domain.Entities;
+using AqiClock.Domain.Scheduling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -62,6 +64,7 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
         if (Classes is not null) tasks.Add(Classes.LoadAsync(token));
         if (StudentDevices is not null) tasks.Add(StudentDevices.LoadAsync(token));
         await Task.WhenAll(tasks);
+        if (IsOnline) await Timetables.RegenerateOnAdminEntryAsync(token);
     }
     public void Receive(SessionChanged message) => UiDispatch.Run(() =>
     {
@@ -83,6 +86,7 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
         IsEditable = message.State != ConnectivityState.Offline;
         _offlineBanner = message.State == ConnectivityState.Offline ? "Editing is unavailable while offline." : null;
         UpdateBanner();
+        if (message.State == ConnectivityState.Online) _ = Timetables.RegenerateOnAdminEntryAsync();
     });
 
     private void InitializeConnectivity(ConnectivityState state)
@@ -231,6 +235,41 @@ public partial class PeriodEditorItem : ObservableObject
     public int SortOrder { get; set; }
 }
 
+public partial class GeneratorBlockEditorItem : ObservableObject
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    [ObservableProperty] private string _blockKind = "lessons";
+    [ObservableProperty] private string? _name;
+    [ObservableProperty] private int _lessonCount = 1;
+    [ObservableProperty] private int _minutes = 25;
+    [ObservableProperty] private bool _hostsNaseehah;
+}
+
+public partial class AnchorChoiceEditorItem : ObservableObject
+{
+    public required OrganizationAnchor Anchor { get; init; }
+    [ObservableProperty] private bool _isSelected;
+    public string Name => Anchor.Name;
+}
+
+public partial class AnchorStandingEditorItem : ObservableObject
+{
+    public Guid Id { get; init; } = Guid.NewGuid(); public bool IsNew { get; init; }
+    [ObservableProperty] private Guid _anchorId; [ObservableProperty] private int? _weekday;
+    [ObservableProperty] private TimeSpan _start; [ObservableProperty] private int? _durationMinutes;
+    [ObservableProperty] private DateTime _effectiveFrom = DateTime.Today; [ObservableProperty] private string? _error;
+}
+
+public partial class AnchorOverrideEditorItem : ObservableObject
+{
+    public Guid Id { get; init; } = Guid.NewGuid(); public bool IsNew { get; init; }
+    [ObservableProperty] private Guid _anchorId; [ObservableProperty] private DateTime _date = DateTime.Today;
+    [ObservableProperty] private TimeSpan? _start; [ObservableProperty] private int? _durationMinutes;
+    [ObservableProperty] private bool _isCancelled; [ObservableProperty] private string? _error;
+}
+
+public sealed record ConversionDiffItem(string Change, string Current, string Generated);
+
 public partial class TimetableEditorViewModel : ObservableObject, IRecipient<DataChanged>
 {
     private readonly ISupabaseGateway _gateway; private readonly ISyncService _sync; private readonly ITimetableRepository _repository; private readonly IWeekScheduleRepository _week; private readonly IDateOverrideRepository _overrides; private readonly IWindowService _windows; private readonly IClassRepository? _classes;
@@ -247,11 +286,45 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
     [ObservableProperty] private string _breakName = "Break";
     [ObservableProperty] private int _breakMinutes = 20;
     [ObservableProperty] private int _shiftMinutes;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanEditLegacyPeriods))]
+    [NotifyCanExecuteChangedFor(nameof(AddPeriodCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RemovePeriodCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveUpCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveDownCommand))]
+    [NotifyCanExecuteChangedFor(nameof(InsertBreakCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ShiftLaterCommand))]
+    private bool _isGenerated;
+    [ObservableProperty] private string _generatorSessionKind = "pm";
+    [ObservableProperty] private TimeSpan _generatorDayStart = new(18, 15, 0);
+    [ObservableProperty] private TimeSpan? _generatorAdvisoryEnd;
+    [ObservableProperty] private string _generatorNamingPattern = "Lesson {number}";
+    [ObservableProperty] private string? _generatorMessage;
+    [ObservableProperty] private DateTimeOffset? _lastGeneratorRunAt;
+    [ObservableProperty] private string? _maintenanceMessage;
+    [ObservableProperty] private string? _clashWarningMessage;
+    [ObservableProperty] private DateTime? _bulkMonth = DateTime.Today;
+    [ObservableProperty] private string _maghribBulkText = string.Empty;
+    [ObservableProperty] private string? _bulkMessage;
+    [ObservableProperty] private string? _conversionMessage;
+    [ObservableProperty] private bool _hasConversionPreview;
+    public bool CanEditLegacyPeriods => !IsGenerated;
+    public bool IsMaintenanceOverdue => LastGeneratorRunAt is null || DateTimeOffset.UtcNow - LastGeneratorRunAt > TimeSpan.FromHours(48);
     public ObservableCollection<Timetable> Items { get; } = [];
     public ObservableCollection<PeriodEditorItem> Periods { get; } = [];
+    public ObservableCollection<GeneratorBlockEditorItem> GeneratorBlocks { get; } = [];
+    public ObservableCollection<AnchorChoiceEditorItem> GeneratorAnchors { get; } = [];
+    public ObservableCollection<PeriodEditorItem> GeneratorPreview { get; } = [];
+    public ObservableCollection<AnchorStandingEditorItem> StandingTimes { get; } = [];
+    public ObservableCollection<AnchorOverrideEditorItem> AnchorDateOverrides { get; } = [];
+    public ObservableCollection<AnchorDateOverrideWrite> BulkPreview { get; } = [];
+    public ObservableCollection<ConversionDiffItem> ConversionDiff { get; } = [];
+    private AnchorConfigurationSnapshot? _anchorConfiguration;
+    private GeneratorServerPreview? _pendingConversionPreview;
+    private DateOnly _previewDate = DateOnly.FromDateTime(DateTime.Today);
 
     public TimetableEditorViewModel(ISupabaseGateway gateway, ISyncService sync, ITimetableRepository repository, IWeekScheduleRepository week, IDateOverrideRepository overrides, IWindowService windows, IMessenger messenger)
-    { _gateway = gateway; _sync = sync; _repository = repository; _week = week; _overrides = overrides; _windows = windows; Periods.CollectionChanged += OnPeriodsChanged; messenger.Register(this); }
+    { _gateway = gateway; _sync = sync; _repository = repository; _week = week; _overrides = overrides; _windows = windows; Periods.CollectionChanged += OnPeriodsChanged; GeneratorBlocks.CollectionChanged += OnGeneratorRowsChanged; GeneratorAnchors.CollectionChanged += OnGeneratorRowsChanged; messenger.Register(this); }
 
     public TimetableEditorViewModel(ISupabaseGateway gateway, ISyncService sync, ITimetableRepository repository, IWeekScheduleRepository week, IDateOverrideRepository overrides, IClassRepository classes, IWindowService windows, IMessenger messenger)
         : this(gateway, sync, repository, week, overrides, windows, messenger) => _classes = classes;
@@ -266,10 +339,10 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
         _loading = false;
         Timetable? target = selectedId is { } id ? Items.FirstOrDefault(x => x.Id == id) : Items.FirstOrDefault();
         Selected = target;
-        if (target is not null) Select(target);
+        if (target is not null) { Select(target); await LoadGeneratorAsync(target, token); }
     }
 
-    partial void OnSelectedChanged(Timetable? value) { if (value is not null) Select(value); }
+    partial void OnSelectedChanged(Timetable? value) { if (value is not null) { Select(value); _ = LoadGeneratorAsync(value); } }
     private void Select(Timetable value) { _loading = true; Name = value.Name; IsArchived = value.IsArchived; DetachPeriodHandlers(); Periods.Clear(); foreach (Period p in value.Periods.OrderBy(x => x.SortOrder)) Periods.Add(new() { Id = p.Id, Name = p.Name, Start = p.StartTime.ToTimeSpan(), End = p.EndTime.ToTimeSpan(), IsLesson = p.IsLesson, SortOrder = p.SortOrder }); IsDirty = false; HasConflict = false; ValidationMessage = null; _loading = false; }
 
     /// <summary>Clear() raises a Reset with no OldItems, so discarded rows must be detached here or they keep marking the editor dirty.</summary>
@@ -280,11 +353,11 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
     private void OnPeriodChanged(object? sender, PropertyChangedEventArgs args) { if (!_loading) IsDirty = true; }
 
     [RelayCommand] private void NewTimetable() { Selected = new Timetable(Guid.NewGuid(), "New timetable", false, []); IsDirty = true; }
-    [RelayCommand] private void AddPeriod() { Periods.Add(new() { Id = Guid.NewGuid(), Name = "New period", Start = new(9, 0, 0), End = new(10, 0, 0), SortOrder = Periods.Count }); IsDirty = true; }
-    [RelayCommand] private void RemovePeriod(PeriodEditorItem item) { Periods.Remove(item); IsDirty = true; }
-    [RelayCommand] private void MoveUp(PeriodEditorItem item) { int index = Periods.IndexOf(item); if (index > 0) { Periods.Move(index, index - 1); IsDirty = true; } }
-    [RelayCommand] private void MoveDown(PeriodEditorItem item) { int index = Periods.IndexOf(item); if (index >= 0 && index < Periods.Count - 1) { Periods.Move(index, index + 1); IsDirty = true; } }
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanEditLegacyPeriods))] private void AddPeriod() { Periods.Add(new() { Id = Guid.NewGuid(), Name = "New period", Start = new(9, 0, 0), End = new(10, 0, 0), SortOrder = Periods.Count }); IsDirty = true; }
+    [RelayCommand(CanExecute = nameof(CanEditLegacyPeriods))] private void RemovePeriod(PeriodEditorItem item) { Periods.Remove(item); IsDirty = true; }
+    [RelayCommand(CanExecute = nameof(CanEditLegacyPeriods))] private void MoveUp(PeriodEditorItem item) { int index = Periods.IndexOf(item); if (index > 0) { Periods.Move(index, index - 1); IsDirty = true; } }
+    [RelayCommand(CanExecute = nameof(CanEditLegacyPeriods))] private void MoveDown(PeriodEditorItem item) { int index = Periods.IndexOf(item); if (index >= 0 && index < Periods.Count - 1) { Periods.Move(index, index + 1); IsDirty = true; } }
+    [RelayCommand(CanExecute = nameof(CanEditLegacyPeriods))]
     private void InsertBreak(PeriodEditorItem after)
     {
         ValidationMessage = null;
@@ -323,7 +396,7 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
         IsDirty = true;
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanEditLegacyPeriods))]
     private void ShiftLater(PeriodEditorItem? from)
     {
         ValidationMessage = null;
@@ -364,19 +437,14 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
         return true;
     }
 
-    private static bool IsMinuteWithinDay(TimeSpan value) => value >= TimeSpan.Zero && value <= new TimeSpan(23, 59, 0);
+    private static bool IsMinuteWithinDay(TimeSpan value) => SchedulingValueRules.IsMinuteWithinDay(value);
     private static void ApplyShift(IEnumerable<(PeriodEditorItem Item, TimeSpan Start, TimeSpan End)> shifted)
     {
         foreach (var item in shifted) { item.Item.Start = item.Start; item.Item.End = item.End; }
     }
     private string UniquePeriodName(string requested)
     {
-        if (!Periods.Any(item => string.Equals(item.Name.Trim(), requested, StringComparison.OrdinalIgnoreCase))) return requested;
-        for (int suffix = 2; ; suffix++)
-        {
-            string candidate = $"{requested} ({suffix})";
-            if (!Periods.Any(item => string.Equals(item.Name.Trim(), candidate, StringComparison.OrdinalIgnoreCase))) return candidate;
-        }
+        return SchedulingValueRules.UniquePeriodName(requested, Periods.Select(item => item.Name));
     }
     [RelayCommand] private void MarkDirty() => IsDirty = true;
     [RelayCommand] private void Cancel() { if (Selected is not null) Select(Selected); }
@@ -450,6 +518,389 @@ public partial class TimetableEditorViewModel : ObservableObject, IRecipient<Dat
         if (Periods.GroupBy(x => x.Name.Trim(), StringComparer.OrdinalIgnoreCase).Any(x => x.Count() > 1)) { ValidationMessage = "Period names must be unique within a timetable."; return false; }
         PeriodEditorItem[] ordered = Periods.OrderBy(x => x.Start).ToArray(); if (ordered.Zip(ordered.Skip(1)).Any(pair => pair.First.End > pair.Second.Start)) WarningMessage = "Some periods overlap. Saving is allowed.";
         return true;
+    }
+
+    private async Task LoadGeneratorAsync(Timetable timetable, CancellationToken token = default)
+    {
+        try
+        {
+            _loading = true;
+            GeneratorAuthoringSnapshot authoring = await _gateway.GetGeneratorAuthoringAsync(timetable.Id, token);
+            _anchorConfiguration ??= await _gateway.GetAnchorConfigurationAsync(token);
+            try { _previewDate = await _gateway.GetCurrentOrganizationDateAsync(token); }
+            catch (NotSupportedException) { }
+            GeneratorBlocks.Clear(); GeneratorAnchors.Clear(); StandingTimes.Clear(); AnchorDateOverrides.Clear();
+            foreach (AnchorStandingTime row in _anchorConfiguration.StandingTimes) StandingTimes.Add(new() { Id = row.Id, AnchorId = row.AnchorId, Weekday = row.Weekday, Start = row.StartTime.ToTimeSpan(), DurationMinutes = row.DurationMinutes, EffectiveFrom = row.EffectiveFrom.ToDateTime(TimeOnly.MinValue) });
+            foreach (AnchorDateOverride row in _anchorConfiguration.DateOverrides) AnchorDateOverrides.Add(new() { Id = row.Id, AnchorId = row.AnchorId, Date = row.Date.ToDateTime(TimeOnly.MinValue), Start = row.StartTime?.ToTimeSpan(), DurationMinutes = row.DurationMinutes, IsCancelled = row.IsCancelled });
+            foreach (OrganizationAnchor anchor in _anchorConfiguration.Anchors)
+                GeneratorAnchors.Add(new() { Anchor = anchor, IsSelected = authoring.Anchors.Any(x => x.AnchorId == anchor.Id) });
+            if (authoring.Definition is { } definition)
+            {
+                IsGenerated = true;
+                GeneratorSessionKind = definition.SessionKind;
+                GeneratorDayStart = definition.DayStart.ToTimeSpan();
+                GeneratorAdvisoryEnd = definition.AdvisoryDayEnd?.ToTimeSpan();
+                GeneratorNamingPattern = definition.NamingPattern;
+                foreach (TimetableGeneratorBlock block in authoring.Blocks)
+                    GeneratorBlocks.Add(new() { Id = block.Id, BlockKind = block.BlockKind, Name = block.Name,
+                        LessonCount = block.LessonCount ?? 1, Minutes = block.LessonMinutes ?? block.BreakMinutes ?? 1,
+                        HostsNaseehah = block.HostsNaseehah });
+            }
+            else IsGenerated = false;
+            RefreshGeneratorPreview();
+            GeneratorMaintenanceRun? run = await _gateway.GetLatestGeneratorMaintenanceRunAsync(token);
+            LastGeneratorRunAt = run?.StartedAt;
+            OnPropertyChanged(nameof(IsMaintenanceOverdue));
+            MaintenanceMessage = run?.Error ?? (IsMaintenanceOverdue ? "Generator maintenance has not succeeded in the last 48 hours." : null);
+            await RefreshClashWarningsAsync(token);
+            IsDirty = false;
+        }
+        catch (NotSupportedException) { IsGenerated = false; }
+        catch (ServerWriteException ex) { GeneratorMessage = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private void OnGeneratorRowsChanged(object? sender, NotifyCollectionChangedEventArgs args)
+    {
+        if (args.OldItems is not null) foreach (ObservableObject item in args.OldItems) item.PropertyChanged -= OnGeneratorRowChanged;
+        if (args.NewItems is not null) foreach (ObservableObject item in args.NewItems) item.PropertyChanged += OnGeneratorRowChanged;
+        if (!_loading) IsDirty = true;
+        RefreshGeneratorPreview();
+    }
+    private void OnGeneratorRowChanged(object? sender, PropertyChangedEventArgs args) { if (!_loading) IsDirty = true; RefreshGeneratorPreview(); }
+    partial void OnGeneratorSessionKindChanged(string value) { if (!_loading) IsDirty = true; RefreshGeneratorPreview(); }
+    partial void OnGeneratorDayStartChanged(TimeSpan value) { if (!_loading) IsDirty = true; RefreshGeneratorPreview(); }
+    partial void OnGeneratorAdvisoryEndChanged(TimeSpan? value) { if (!_loading) IsDirty = true; RefreshGeneratorPreview(); }
+    partial void OnGeneratorNamingPatternChanged(string value) { if (!_loading) IsDirty = true; RefreshGeneratorPreview(); }
+
+    [RelayCommand] private void AddGeneratorBlock() => GeneratorBlocks.Add(new());
+    [RelayCommand] private void RemoveGeneratorBlock(GeneratorBlockEditorItem item) => GeneratorBlocks.Remove(item);
+    [RelayCommand]
+    private void RefreshGeneratorPreview()
+    {
+        if (_anchorConfiguration is null || Selected is null) return;
+        try
+        {
+            DateOnly date = _previewDate;
+            var blocks = GeneratorBlocks.Select(item => new GeneratorBlock(item.Id,
+                item.BlockKind == "break" ? GeneratorBlockKind.Break : GeneratorBlockKind.Lessons,
+                item.Name ?? string.Empty, item.BlockKind == "break" ? 1 : item.LessonCount,
+                item.Minutes, item.HostsNaseehah)).ToArray();
+            var anchors = GeneratorAnchors.Where(item => item.IsSelected)
+                .Select(item => ResolveAnchor(item.Anchor, date)).Where(item => item is not null).Cast<ResolvedAnchor>().ToArray();
+            GeneratorResult result = AlQalamExpansionRules.Expand(Selected.Id,
+                string.Equals(GeneratorSessionKind, "am", StringComparison.OrdinalIgnoreCase) ? AqiClock.Domain.Scheduling.GeneratorSessionKind.Am : AqiClock.Domain.Scheduling.GeneratorSessionKind.Pm,
+                TimeOnly.FromTimeSpan(GeneratorDayStart), blocks, anchors,
+                GeneratorAdvisoryEnd is { } advisory ? TimeOnly.FromTimeSpan(advisory) : null,
+                GeneratorNamingPattern);
+            GeneratorPreview.Clear();
+            for (int index = 0; index < result.Periods.Count; index++)
+            {
+                GeneratedPeriod period = result.Periods[index];
+                GeneratorPreview.Add(new() { Id = period.Id, Name = period.Name, Start = period.Start.ToTimeSpan(), End = period.End.ToTimeSpan(), IsLesson = period.IsLesson, SortOrder = index });
+            }
+            GeneratorMessage = result.Warnings.Count == 0 ? null : string.Join(" ", result.Warnings.Select(x => x.Message));
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { GeneratorMessage = ex.Message; GeneratorPreview.Clear(); }
+    }
+
+    private GeneratorDefinitionWrite CurrentGeneratorDefinition() => new(
+        GeneratorSessionKind, TimeOnly.FromTimeSpan(GeneratorDayStart),
+        GeneratorAdvisoryEnd is { } end ? TimeOnly.FromTimeSpan(end) : null,
+        GeneratorNamingPattern);
+
+    private GeneratorBlockWrite[] CurrentGeneratorBlocks() => GeneratorBlocks.Select((item, index) =>
+        new GeneratorBlockWrite(item.Id, index, item.BlockKind, item.Name,
+            item.BlockKind == "lessons" ? item.LessonCount : null,
+            item.BlockKind == "lessons" ? item.Minutes : null,
+            item.BlockKind == "break" ? item.Minutes : null, item.HostsNaseehah)).ToArray();
+
+    private Guid[] CurrentGeneratorAnchorIds() => GeneratorAnchors.Where(x => x.IsSelected)
+        .Select(x => x.Anchor.Id).ToArray();
+
+    private async Task<GeneratorServerPreview> RefreshServerGeneratorPreviewAsync(CancellationToken token)
+    {
+        if (Selected is null) throw new InvalidOperationException("Select a timetable first.");
+        GeneratorServerPreview preview = await _gateway.PreviewGeneratedTimetableAsync(
+            Selected.Id, CurrentGeneratorDefinition(), CurrentGeneratorBlocks(), CurrentGeneratorAnchorIds(), token);
+        _previewDate = preview.Date;
+        GeneratorPreview.Clear();
+        foreach (PeriodRow period in preview.Periods.OrderBy(x => x.SortOrder))
+            GeneratorPreview.Add(new() { Id = period.Id, Name = period.Name, Start = period.StartTime.ToTimeSpan(),
+                End = period.EndTime.ToTimeSpan(), IsLesson = period.IsLesson, SortOrder = period.SortOrder });
+        return preview;
+    }
+
+    private ResolvedAnchor? ResolveAnchor(OrganizationAnchor anchor, DateOnly date)
+    {
+        AnchorDateOverride? dateRow = _anchorConfiguration!.DateOverrides.FirstOrDefault(x => x.AnchorId == anchor.Id && x.Date == date);
+        if (dateRow?.IsCancelled == true) return null;
+        if (dateRow is not null) return new(anchor.Id, anchor.Key, anchor.Name, dateRow.StartTime!.Value, dateRow.DurationMinutes);
+        int weekday = ((int)date.DayOfWeek + 6) % 7;
+        AnchorStandingTime? row = _anchorConfiguration.StandingTimes
+            .Where(x => x.AnchorId == anchor.Id && x.EffectiveFrom <= date && x.Weekday == weekday)
+            .OrderByDescending(x => x.EffectiveFrom).FirstOrDefault()
+            ?? _anchorConfiguration.StandingTimes.Where(x => x.AnchorId == anchor.Id && x.EffectiveFrom <= date && x.Weekday is null)
+                .OrderByDescending(x => x.EffectiveFrom).FirstOrDefault();
+        return row is null ? null : new(anchor.Id, anchor.Key, anchor.Name, row.StartTime, row.DurationMinutes);
+    }
+
+    [RelayCommand]
+    private async Task SaveGeneratorAsync(CancellationToken token)
+    {
+        if (Selected is null || GeneratorBlocks.Count == 0) { GeneratorMessage = "Create a valid preview before saving."; return; }
+        try
+        {
+            PeriodRow[] clientPreview = GeneratorPreview.Select((item, index) =>
+                new PeriodRow(item.Id, Selected.Id, item.Name, TimeOnly.FromTimeSpan(item.Start),
+                    TimeOnly.FromTimeSpan(item.End), index, item.IsLesson)).ToArray();
+            GeneratorServerPreview preview = await RefreshServerGeneratorPreviewAsync(token);
+            if (!clientPreview.SequenceEqual(preview.Periods))
+            {
+                GeneratorMessage = $"The server preview for {preview.Date:yyyy-MM-dd} differs from the preview you reviewed. " +
+                    "The server version is now shown; review it and click Save generator again to accept it.";
+                return;
+            }
+            await _gateway.SaveGeneratedTimetableAsync(Selected.Id, CurrentGeneratorDefinition(), CurrentGeneratorBlocks(),
+                CurrentGeneratorAnchorIds(), preview.Periods, token);
+            IsGenerated = true; IsDirty = false; GeneratorMessage = "Generator saved.";
+        }
+        catch (ServerWriteException ex) { GeneratorMessage = ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task PreviewConversionAsync(CancellationToken token)
+    {
+        ConversionDiff.Clear(); HasConversionPreview = false; _pendingConversionPreview = null;
+        if (Selected is null || IsGenerated) { ConversionMessage = "Select a legacy timetable to convert."; return; }
+        if (!TryInferLegacyDefinition(out string? failure)) { ConversionMessage = failure; return; }
+        try
+        {
+            GeneratorServerPreview preview = await RefreshServerGeneratorPreviewAsync(token);
+            _pendingConversionPreview = preview;
+            BuildConversionDiff(preview.Periods);
+            HasConversionPreview = true;
+            ConversionMessage = $"Server preview for {preview.Date:yyyy-MM-dd}: {ConversionDiff.Count} change(s). Review before converting.";
+        }
+        catch (ServerWriteException ex) { ConversionMessage = ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task ConfirmConversionAsync(CancellationToken token)
+    {
+        if (Selected is null || _pendingConversionPreview is null || !HasConversionPreview) return;
+        if (!_windows.Confirm("Convert this timetable using the server preview shown? This is one-way.", "Convert to generated")) return;
+        try
+        {
+            await _gateway.SaveGeneratedTimetableAsync(Selected.Id, CurrentGeneratorDefinition(), CurrentGeneratorBlocks(),
+                CurrentGeneratorAnchorIds(), _pendingConversionPreview.Periods, token);
+            IsGenerated = true; IsDirty = false; HasConversionPreview = false;
+            ConversionMessage = "Timetable converted to generated.";
+        }
+        catch (ServerWriteException ex) { ConversionMessage = ex.Message; }
+    }
+
+    private bool TryInferLegacyDefinition(out string? failure)
+    {
+        failure = null;
+        PeriodEditorItem[] rows = Periods.OrderBy(x => x.SortOrder).ToArray();
+        if (rows.Length == 0) { failure = "Cannot infer blocks: the timetable has no periods."; return false; }
+        for (int index = 1; index < rows.Length; index++)
+            if (rows[index - 1].End != rows[index].Start)
+            { failure = $"Cannot infer blocks: '{rows[index - 1].Name}' and '{rows[index].Name}' are not contiguous."; return false; }
+        OrganizationAnchor? anchorLike = _anchorConfiguration?.Anchors.FirstOrDefault(anchor => rows.Any(row =>
+            string.Equals(row.Name, anchor.Name, StringComparison.OrdinalIgnoreCase) ||
+            row.Name.StartsWith(anchor.Name + " +", StringComparison.OrdinalIgnoreCase)));
+        if (anchorLike is not null)
+        { failure = $"Cannot infer anchor placement for '{anchorLike.Name}' safely; build this generator explicitly."; return false; }
+
+        PeriodEditorItem[] lessons = rows.Where(x => x.IsLesson).ToArray();
+        if (lessons.Length == 0) { failure = "Cannot infer a lesson naming pattern: no lesson rows exist."; return false; }
+        Match first = Regex.Match(lessons[0].Name, "^(.*?)(\\d+)([^\\d]*)$", RegexOptions.CultureInvariant);
+        if (!first.Success) { failure = $"Cannot infer a lesson number from '{lessons[0].Name}'."; return false; }
+        string prefix = first.Groups[1].Value; string suffix = first.Groups[3].Value;
+        for (int index = 0; index < lessons.Length; index++)
+        {
+            Match match = Regex.Match(lessons[index].Name, "^(.*?)(\\d+)([^\\d]*)$", RegexOptions.CultureInvariant);
+            if (!match.Success || match.Groups[1].Value != prefix || match.Groups[3].Value != suffix ||
+                !int.TryParse(match.Groups[2].Value, CultureInfo.InvariantCulture, out int number) || number != index + 1)
+            { failure = $"Cannot infer one sequential naming pattern at '{lessons[index].Name}'."; return false; }
+        }
+
+        _loading = true;
+        try
+        {
+            GeneratorBlocks.Clear();
+            for (int index = 0; index < rows.Length;)
+            {
+                PeriodEditorItem row = rows[index];
+                int minutes = checked((int)(row.End - row.Start).TotalMinutes);
+                if (minutes <= 0) { failure = $"Cannot infer a positive duration for '{row.Name}'."; return false; }
+                if (!row.IsLesson)
+                {
+                    GeneratorBlocks.Add(new() { BlockKind = "break", Name = row.Name, LessonCount = 1, Minutes = minutes });
+                    index++; continue;
+                }
+                int count = 1;
+                while (index + count < rows.Length && rows[index + count].IsLesson &&
+                       rows[index + count].End - rows[index + count].Start == row.End - row.Start) count++;
+                GeneratorBlocks.Add(new() { BlockKind = "lessons", LessonCount = count, Minutes = minutes });
+                index += count;
+            }
+            foreach (AnchorChoiceEditorItem anchor in GeneratorAnchors) anchor.IsSelected = false;
+            GeneratorDayStart = rows[0].Start;
+            GeneratorSessionKind = rows[0].Start.Hours < 15 ? "am" : "pm";
+            GeneratorNamingPattern = prefix + "{number}" + suffix;
+        }
+        catch (OverflowException) { failure = "Cannot infer blocks: a period duration is outside the supported range."; return false; }
+        finally { _loading = false; }
+        IsDirty = true; RefreshGeneratorPreview();
+        return true;
+    }
+
+    private void BuildConversionDiff(IReadOnlyList<PeriodRow> generated)
+    {
+        int count = Math.Max(Periods.Count, generated.Count);
+        for (int index = 0; index < count; index++)
+        {
+            PeriodEditorItem? before = index < Periods.Count ? Periods[index] : null;
+            PeriodRow? after = index < generated.Count ? generated[index] : null;
+            string current = before is null ? "—" : $"{before.Name} {before.Start:hh\\:mm}–{before.End:hh\\:mm}";
+            string next = after is null ? "—" : $"{after.Name} {after.StartTime:HH:mm}–{after.EndTime:HH:mm}";
+            if (current != next || before?.Id != after?.Id)
+                ConversionDiff.Add(new(before is null ? "Add" : after is null ? "Remove" : "Change", current, next));
+        }
+    }
+
+    [RelayCommand]
+    private void PreviewMaghribBulkPaste()
+    {
+        BulkPreview.Clear(); BulkMessage = null;
+        if (BulkMonth is null) { BulkMessage = "Choose a month."; return; }
+        string[] rows = MaghribBulkText.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        int days = DateTime.DaysInMonth(BulkMonth.Value.Year, BulkMonth.Value.Month);
+        if (rows.Length != days) { BulkMessage = $"Paste exactly {days} times, one for each day."; return; }
+        for (int day = 1; day <= days; day++)
+        {
+            if (!TimeOnly.TryParseExact(rows[day - 1], ["H:mm", "HH:mm"], CultureInfo.InvariantCulture, DateTimeStyles.None, out TimeOnly time))
+            { BulkPreview.Clear(); BulkMessage = $"Day {day} is not a valid HH:mm time."; return; }
+            DateOnly date = new(BulkMonth.Value.Year, BulkMonth.Value.Month, day);
+            AnchorDateOverride? existing = _anchorConfiguration?.DateOverrides.FirstOrDefault(x => x.Date == date &&
+                _anchorConfiguration.Anchors.FirstOrDefault(a => a.Key == "maghrib")?.Id == x.AnchorId);
+            if (existing?.StartTime != time || existing?.IsCancelled == true)
+                BulkPreview.Add(new(date, time, existing?.DurationMinutes ?? AlQalamExpansionRules.PrayerMinutes));
+        }
+        BulkMessage = $"{BulkPreview.Count} date(s) will change.";
+    }
+
+    [RelayCommand] private void AddStandingTime()
+    {
+        OrganizationAnchor? anchor = _anchorConfiguration is { Anchors.Count: > 0 } configuration ? configuration.Anchors[0] : null;
+        if (anchor is not null) StandingTimes.Add(new() { IsNew = true, AnchorId = anchor.Id });
+    }
+    [RelayCommand]
+    private async Task SaveStandingTimeAsync(AnchorStandingEditorItem item, CancellationToken token)
+    {
+        try
+        {
+            Guid org = await _gateway.GetCurrentOrganizationIdAsync(token);
+            await _gateway.SaveAnchorStandingTimeAsync(new(item.Id, org, item.AnchorId, item.Weekday,
+                TimeOnly.FromTimeSpan(item.Start), item.DurationMinutes, DateOnly.FromDateTime(item.EffectiveFrom)), item.IsNew, token);
+            _anchorConfiguration = await _gateway.GetAnchorConfigurationAsync(token); item.Error = null;
+        }
+        catch (ServerWriteException ex) { item.Error = ex.Message; }
+    }
+    [RelayCommand] private void AddAnchorOverride()
+    {
+        OrganizationAnchor? anchor = _anchorConfiguration is { Anchors.Count: > 0 } configuration ? configuration.Anchors[0] : null;
+        if (anchor is not null) AnchorDateOverrides.Add(new() { IsNew = true, AnchorId = anchor.Id });
+    }
+    [RelayCommand]
+    private async Task SaveAnchorOverrideAsync(AnchorOverrideEditorItem item, CancellationToken token)
+    {
+        try
+        {
+            if (!item.IsCancelled && item.Start is null) { item.Error = "A time is required unless the anchor is cancelled."; return; }
+            Guid org = await _gateway.GetCurrentOrganizationIdAsync(token);
+            await _gateway.SaveAnchorDateOverrideAsync(new(item.Id, org, item.AnchorId, DateOnly.FromDateTime(item.Date),
+                item.IsCancelled ? null : TimeOnly.FromTimeSpan(item.Start!.Value), item.IsCancelled ? null : item.DurationMinutes, item.IsCancelled), item.IsNew, token);
+            _anchorConfiguration = await _gateway.GetAnchorConfigurationAsync(token); item.Error = null;
+        }
+        catch (ServerWriteException ex) { item.Error = ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task ApplyMaghribBulkPasteAsync(CancellationToken token)
+    {
+        PreviewMaghribBulkPaste();
+        if (!string.IsNullOrEmpty(BulkMessage) && !BulkMessage.EndsWith("will change.", StringComparison.Ordinal)) return;
+        OrganizationAnchor? maghrib = _anchorConfiguration?.Anchors.FirstOrDefault(x => x.Key == "maghrib");
+        if (maghrib is null) { BulkMessage = "The Maghrib anchor is unavailable."; return; }
+        try
+        {
+            int changed = await _gateway.BulkUpsertAnchorDateOverridesAsync(maghrib.Id, BulkPreview.ToArray(), token);
+            _anchorConfiguration = await _gateway.GetAnchorConfigurationAsync(token);
+            BulkMessage = $"Saved {changed} Maghrib date(s) atomically.";
+        }
+        catch (ServerWriteException ex) { BulkMessage = ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task RegenerateNowAsync(CancellationToken token)
+    {
+        try { GeneratorMaintenanceRun run = await _gateway.RegenerateGeneratedTimetablesAsync(token); LastGeneratorRunAt = run.StartedAt; OnPropertyChanged(nameof(IsMaintenanceOverdue)); MaintenanceMessage = run.Error ?? $"Regenerated {run.TimetablesWritten} timetable(s)."; await _sync.SyncTableAsync(CacheTable.Periods, token); await RefreshClashWarningsAsync(token); }
+        catch (ServerWriteException ex) { MaintenanceMessage = ex.Message; }
+    }
+
+    private async Task RefreshClashWarningsAsync(CancellationToken token)
+    {
+        try
+        {
+            IReadOnlyList<Timetable> timetables = await _repository.GetAllAsync(token);
+            Dictionary<Guid, Timetable> byId = timetables.ToDictionary(item => item.Id);
+            WeekSchedule schedule = await _week.GetAsync(token);
+            WeekScheduleEntry[] classRows = schedule.AllEntries.Where(entry =>
+                entry.AudienceClassId is not null && entry.TimetableId is not null).ToArray();
+            if (classRows.GroupBy(entry => (entry.Weekday, entry.AudienceClassId)).Any(group => group.Count() > 1))
+            { ClashWarningMessage = "Cross-class clash check unavailable: the week schedule has duplicate class rows."; return; }
+
+            Guid[] referenced = classRows.Select(entry => entry.TimetableId!.Value).Distinct().ToArray();
+            var generated = new HashSet<Guid>();
+            foreach (Guid timetableId in referenced)
+                if ((await _gateway.GetGeneratorAuthoringAsync(timetableId, token)).Definition is not null)
+                    generated.Add(timetableId);
+            Dictionary<Guid, string> classNames = _classes is null ? [] :
+                (await _classes.GetAllAsync(token)).ToDictionary(item => item.Id, item => item.Name);
+            var warnings = new List<string>();
+            foreach (IGrouping<DayOfWeek, WeekScheduleEntry> day in classRows.GroupBy(entry => entry.Weekday))
+            {
+                WeekScheduleEntry[] candidates = day.Where(entry => generated.Contains(entry.TimetableId!.Value)).ToArray();
+                for (int leftIndex = 0; leftIndex < candidates.Length; leftIndex++)
+                for (int rightIndex = leftIndex + 1; rightIndex < candidates.Length; rightIndex++)
+                {
+                    WeekScheduleEntry left = candidates[leftIndex], right = candidates[rightIndex];
+                    if (left.AudienceClassId == right.AudienceClassId || left.TimetableId == right.TimetableId) continue;
+                    if (!byId.TryGetValue(left.TimetableId!.Value, out Timetable? leftTimetable) ||
+                        !byId.TryGetValue(right.TimetableId!.Value, out Timetable? rightTimetable))
+                    { ClashWarningMessage = "Cross-class clash check unavailable: a scheduled timetable is missing locally."; return; }
+                    IReadOnlyList<GeneratedPeriodClash> clashes = GeneratedTimetableClashDetector.Find(
+                        leftTimetable.Periods, rightTimetable.Periods);
+                    GeneratedPeriodClash? clash = clashes.Count == 0 ? null : clashes[0];
+                    if (clash is null) continue;
+                    string leftClass = classNames.GetValueOrDefault(left.AudienceClassId!.Value, left.AudienceClassId.Value.ToString("D"));
+                    string rightClass = classNames.GetValueOrDefault(right.AudienceClassId!.Value, right.AudienceClassId.Value.ToString("D"));
+                    warnings.Add($"{day.Key}: {leftClass} '{clash.Left.Name}' and {rightClass} '{clash.Right.Name}' disagree from {clash.Start:HH:mm} to {clash.End:HH:mm}.");
+                }
+            }
+            ClashWarningMessage = warnings.Count == 0 ? null : "Cross-class clock clash: " + string.Join(" ", warnings);
+        }
+        catch (NotSupportedException) { ClashWarningMessage = null; }
+    }
+
+    public async Task RegenerateOnAdminEntryAsync(CancellationToken token = default)
+    {
+        try { await RegenerateNowAsync(token); }
+        catch (NotSupportedException) { }
     }
     public void Receive(DataChanged message)
     {
