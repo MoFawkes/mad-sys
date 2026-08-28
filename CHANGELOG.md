@@ -14,6 +14,13 @@ All notable changes to this project will be documented in this file.
 
 - Added the generator RLS matrix and database-wide anon privilege invariant. Corrected grant drift was defence-in-depth: RLS and the absence of anon policies already prevented row exposure.
 
+## 0.14.1 - 2026-08-28
+
+### Fixed
+
+- Kept signed-in desktop clients running from cached state when Supabase Auth session refresh reaches the HTTP timeout, instead of aborting startup before the clock, tray, updater, and offline sync state appear.
+- Isolated startup steps so optional service failures do not suppress the core clock UI, while clock and core-window failures still surface the existing error dialog.
+
 ## 0.14.0 - 2026-08-24
 
 This release brings the held Expo mobile companion and the latest desktop
