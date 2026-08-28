@@ -288,10 +288,9 @@ export type NotificationScheduleSnapshot = {
 export async function recordNotificationDelivery(entry: NotificationDelivery): Promise<void> {
   const database = await getDatabase();
   await database.runAsync(
-    `INSERT INTO notification_delivery(
+    `INSERT OR IGNORE INTO notification_delivery(
        event_key,identifier,delivered_at,observed_via,title,body,trigger_time
-     ) VALUES(?,?,?,?,?,?,?)
-     ON CONFLICT(identifier,delivered_at) DO NOTHING`,
+     ) VALUES(?,?,?,?,?,?,?)`,
     [
       entry.eventKey,
       entry.identifier,

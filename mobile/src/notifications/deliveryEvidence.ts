@@ -32,9 +32,9 @@ export function notificationToDelivery(
 
 export async function sweepPresentedNotifications(): Promise<void> {
   const notifications = await Notifications.getPresentedNotificationsAsync();
-  await Promise.all(notifications.map((notification) =>
-    recordNotificationDelivery(notificationToDelivery(notification, 'presented_sweep')),
-  ));
+  for (const notification of notifications) {
+    await recordNotificationDelivery(notificationToDelivery(notification, 'presented_sweep'));
+  }
 }
 
 export function registerNotificationDeliveryCapture(): () => void {

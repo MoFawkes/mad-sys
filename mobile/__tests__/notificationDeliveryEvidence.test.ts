@@ -15,6 +15,8 @@ jest.mock('@/src/data/repositories', () => ({
 }));
 
 describe('notification delivery evidence', () => {
+  beforeEach(() => jest.clearAllMocks());
+
   it('maps the native delivery timestamp and AQI metadata', () => {
     const notification = {
       date: Date.parse('2026-08-27T18:40:00.000Z'),
@@ -61,5 +63,32 @@ describe('notification delivery evidence', () => {
       identifier: 'start:lesson:2026-08-27',
       observedVia: 'presented_sweep',
     }));
+  });
+
+  it('serializes presented-notification writes', async () => {
+    const NotificationsModule = jest.requireMock('expo-notifications') as {
+      getPresentedNotificationsAsync: jest.Mock;
+    };
+    const { recordNotificationDelivery } = jest.requireMock(
+      '@/src/data/repositories',
+    ) as { recordNotificationDelivery: jest.Mock };
+    const notifications = ['one', 'two', 'three'].map((identifier, index) => ({
+      date: Date.parse(`2026-08-27T18:4${index}:00.000Z`),
+      request: { identifier, content: { data: {} } },
+    })) as unknown as Notifications.Notification[];
+    let active = 0;
+    let maximumActive = 0;
+    recordNotificationDelivery.mockImplementation(async () => {
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      await Promise.resolve();
+      active -= 1;
+    });
+    NotificationsModule.getPresentedNotificationsAsync.mockResolvedValue(notifications);
+
+    await sweepPresentedNotifications();
+
+    expect(recordNotificationDelivery).toHaveBeenCalledTimes(3);
+    expect(maximumActive).toBe(1);
   });
 });
