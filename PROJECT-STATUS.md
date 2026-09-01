@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-08-23
+Last updated: 2026-09-01
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -60,6 +60,7 @@ mobile device acceptance to receive fixes they asked for.
 - The v0.14.0 candidate carries desktop Back/Esc/title-bar navigation, merged multi-class agendas, shared-timetable deduplication, combined notifications, mobile stale-alarm reconciliation, and the interruption reflow tool. All release acceptance rows are closed. The Admin clash warning was withdrawn because legitimate staggered timetables overlap permanently; revisit it with the Part 4 generator model. The only remaining release action is the planned 2026-08-24 tag and tag-bound publication verification.
 - Scope added on 2026-08-18: v0.14.0 also carries a schema-free desktop interruption reflow tool so term can start without hand-adjusting every later lesson when Maghrib moves. It inserts named non-lesson rows or shifts a selected row and all later rows, closes seams, rejects midnight crossings atomically, and continues saving ordinary periods through the existing whole-list RPC. The full block/anchor generator remains v0.15.0 work.
 - Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, and the desktop untagged-period notification semantic difference.
+- 2026-09-01 egress finding (see Activity log): sync has no incremental/delta path — every heartbeat and every realtime change re-pulls a full table with `select=*`, fanned out to every connected device. The 30s→5min heartbeat fix lowers the steady-state baseline; per-row incremental apply on realtime change remains open follow-up work below.
 
 ## v0.9.3 scope
 
@@ -208,6 +209,12 @@ Completed:
 
 In progress / next:
 
+- Follow-up from the 2026-09-01 egress finding: apply Realtime insert/update/
+  delete payloads directly to the local cache (desktop and mobile) instead of
+  re-pulling the whole table on every change, to remove the remaining
+  full-table-per-device fan-out. Needs column-mapped Realtime models on
+  desktop and a cache upsert/delete API on both clients; verify against a
+  local Supabase stack before shipping.
 - Finish the hands-on System and 150% DPI portions of the UI/DPI matrix.
 - Perform the v0.9.2 → v0.9.5 auto-update check on a pilot machine.
 - Complete the installer/update/uninstaller round trip and record results in
@@ -260,6 +267,39 @@ In progress / next:
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
 
 ## Activity log
+
+- 2026-09-01 — Investigated the Supabase project's Free Plan egress overage
+  (11.90 GB used of a 5 GB billing-period allowance; ~100% attributed to
+  PostgREST). Root cause: neither sync client does incremental sync — the
+  desktop `SyncService` heartbeat (`SyncService.cs`) unconditionally ran a
+  full `select=*` pull of every synced table (9 for staff devices) on a
+  30-second cycle regardless of whether Realtime had already delivered any
+  change, and the same full-table `select=*` pattern (`SupabaseGateway.PullAsync`,
+  mobile `syncService.ts` `pullAndReplace`) also re-runs on every Realtime
+  `postgres_changes` signal rather than applying the changed row from the
+  payload. This 30-second baseline poll, multiplied by every open desktop
+  tray app, was the dominant identified cost. Fixed the baseline driver by
+  raising the desktop heartbeat's default interval from 30 seconds to 5
+  minutes (`SyncService.cs`): Realtime already pushes on-change updates
+  within its existing per-table debounce, so the heartbeat only needs to
+  serve as an infrequent reconciliation safety net, not a steady poll. This
+  is roughly a 10x reduction in default-heartbeat pull volume with no schema
+  or API surface change. Mobile has no equivalent heartbeat/polling loop, so
+  no mobile change was needed for this part.
+  Deferred as follow-up (tracked below, not yet implemented): applying the
+  Realtime insert/update/delete payload directly to the local cache instead
+  of re-pulling the whole table on every change. That would remove the
+  remaining "one edit re-downloads the full table on every connected
+  device" fan-out, but requires column-mapped Realtime models (the current
+  `RealtimeTimetable`/etc. types in `SupabaseGateway.cs` are empty markers
+  used only to detect *that* a table changed, not read its payload) and a
+  cache API that supports single-row upsert/delete alongside the existing
+  full-snapshot replace — a larger, riskier change to make against a
+  production database without a local verification pass, so it was not
+  rushed into this session. Also worth checking operationally: whether any
+  developer/test devices are left connected to the production Supabase URL
+  for extended periods, since the real dataset is too small to explain
+  multi-GB/day on its own.
 
 - 2026-08-23 — Final v0.14.0 acceptance closed. D1 passed against desktop
   `0.13.4-dev.16+00a2ab8` after PR #28 corrected inactive-user classification
