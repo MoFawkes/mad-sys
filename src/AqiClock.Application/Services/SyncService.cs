@@ -56,7 +56,7 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
         this.session = session;
         this.audience = audience;
         _usesDefaultHeartbeat = heartbeatInterval is null;
-        _heartbeatInterval = heartbeatInterval ?? TimeSpan.FromSeconds(30);
+        _heartbeatInterval = heartbeatInterval ?? TimeSpan.FromMinutes(5);
         messenger.Register(this);
     }
 
