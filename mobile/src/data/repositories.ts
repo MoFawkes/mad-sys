@@ -269,6 +269,86 @@ export async function recordNotificationLogEntry(
   );
 }
 
+export type NotificationDelivery = {
+  eventKey: string | null;
+  identifier: string | null;
+  deliveredAt: string;
+  observedVia: 'foreground_listener' | 'presented_sweep';
+  title: string | null;
+  body: string | null;
+  triggerTime: string | null;
+};
+
+export type NotificationScheduleSnapshot = {
+  id: number;
+  capturedAt: string;
+  payload: string;
+};
+
+export async function recordNotificationDelivery(entry: NotificationDelivery): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync(
+    `INSERT OR IGNORE INTO notification_delivery(
+       event_key,identifier,delivered_at,observed_via,title,body,trigger_time
+     ) VALUES(?,?,?,?,?,?,?)`,
+    [
+      entry.eventKey,
+      entry.identifier,
+      entry.deliveredAt,
+      entry.observedVia,
+      entry.title,
+      entry.body,
+      entry.triggerTime,
+    ],
+  );
+}
+
+export async function recordNotificationScheduleSnapshot(
+  payload: string,
+  capturedAt = new Date(),
+): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync(
+    'INSERT INTO notification_schedule_snapshot(captured_at,payload) VALUES(?,?)',
+    [capturedAt.toISOString(), payload],
+  );
+}
+
+export async function getNotificationDeliveries(): Promise<(NotificationDelivery & { id: number })[]> {
+  const database = await getDatabase();
+  const rows = await database.getAllAsync<{
+    id: number;
+    event_key: string | null;
+    identifier: string | null;
+    delivered_at: string;
+    observed_via: NotificationDelivery['observedVia'];
+    title: string | null;
+    body: string | null;
+    trigger_time: string | null;
+  }>(`SELECT id,event_key,identifier,delivered_at,observed_via,title,body,trigger_time
+      FROM notification_delivery ORDER BY id`);
+  return rows.map((row) => ({
+    id: row.id,
+    eventKey: row.event_key,
+    identifier: row.identifier,
+    deliveredAt: row.delivered_at,
+    observedVia: row.observed_via,
+    title: row.title,
+    body: row.body,
+    triggerTime: row.trigger_time,
+  }));
+}
+
+export async function getNotificationScheduleSnapshots(): Promise<NotificationScheduleSnapshot[]> {
+  const database = await getDatabase();
+  const rows = await database.getAllAsync<{
+    id: number;
+    captured_at: string;
+    payload: string;
+  }>('SELECT id,captured_at,payload FROM notification_schedule_snapshot ORDER BY id');
+  return rows.map((row) => ({ id: row.id, capturedAt: row.captured_at, payload: row.payload }));
+}
+
 function mapAnnouncement(row: AnnouncementRow): Announcement {
   return {
     id: row.id,

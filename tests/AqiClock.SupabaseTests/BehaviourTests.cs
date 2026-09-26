@@ -203,4 +203,26 @@ public sealed class BehaviourTests(SupabaseFixture fixture)
             "announcements,classes,date_overrides,period_classes,periods,profiles,timetables,week_schedule",
             tables);
     }
+
+    [SupabaseFact]
+    public async Task AnonHasNoPrivilegesOnAnyPublicTable()
+    {
+        string? leakedPrivileges = await fixture.SqlScalarAsync<string>(
+            """
+            select string_agg(
+                format('%I.%I:%s', namespace.nspname, relation.relname, privilege.name),
+                ', ' order by relation.relname, privilege.name)
+            from pg_class as relation
+            join pg_namespace as namespace on namespace.oid = relation.relnamespace
+            cross join (values
+                ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'),
+                ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')
+            ) as privilege(name)
+            where namespace.nspname = 'public'
+              and relation.relkind in ('r', 'p')
+              and has_table_privilege('anon', relation.oid, privilege.name)
+            """);
+
+        Assert.Null(leakedPrivileges);
+    }
 }

@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased - 0.15.0
+
+### Added
+
+- Added a six-field automatic timetable form with a date-selectable server preview, derived prayer/Naseehah placement, exact restoration of the original hand-authored periods, and cross-class clock-label warnings.
+- Added an organisation-level Prayer times screen: atomic full-month Maghrib paste plus Asr, Isha, and Friday Jumu'ah standing times under one effective date.
+- Added transactional daily regeneration, isolated failure records, unchanged-write suppression, stable IDs, and a logged Cloudflare Worker Cron client.
+- Added release-gating coverage for prayer precedence and cancellation, maintenance caller separation, per-timetable failure isolation, unchanged-write suppression, the 15:00 session boundary, preview-day behavior, shape validation, fixed prayer times, and exact timetable restoration.
+- Added durable mobile notification-delivery and schedule-snapshot evidence with privacy-safe JSON export.
+
+### Security
+
+- Added the five-table timetable-automation RLS matrix, RPC-only writes, explicit function grants/revokes, and the database-wide anon privilege invariant.
+
 ## 0.14.1 - 2026-08-28
 
 ### Fixed

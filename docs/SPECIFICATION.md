@@ -70,12 +70,15 @@ Rules:
 - A **week schedule** assigns one timetable (or "no school") to each weekday.
 - A **date override** assigns a specific calendar date a specific timetable or "closed" (holidays, exam days, special events), taking precedence over the week schedule.
 - Effective timetable resolution for a date: date override → week schedule for that weekday → no school.
+- A timetable may opt into automatic lesson times using first lesson time, 1–20 authored lessons, lesson length, one optional break, and prayer adjustment. A preview date checks Friday or future-month behaviour without changing the stored shape.
+- Existing timetables remain manual until an administrator opts in. Turning automation off restores the exact period rows captured at opt-in.
 
 ### 3.6 Admin editing
 - Admins edit timetables, periods, the week schedule, and date overrides in-app.
 - Editing requires an active connection (writes go straight to Supabase; no offline edit queue — see DECISIONS.md ADR-007).
 - Validation on save: end > start; warn (not block) on overlapping periods within a timetable; block duplicate period names within a timetable.
 - The timetable editor can insert a named non-lesson interruption after a row and shift a selected row plus every later row by signed minutes. Reflow closes the preceding seam, disambiguates inserted names, and rejects the whole operation if any resulting minute falls outside 00:00–23:59. The entered break length is the amount by which later rows move; if the source timetable already has a gap after the chosen row, the inserted break absorbs that gap and its displayed duration is correspondingly longer.
+- The Prayer times screen accepts one Maghrib jamaat time per day for a selected month and three standing rows (Asr, Isha, Friday Jumu'ah) under one "Applies from" date. Prayer and Naseehah rows are derived; teachers do not select anchors or author generator blocks.
 - Edits propagate to all clients via Supabase Realtime within seconds; each client recomputes its display and reschedules notifications immediately.
 
 ### 3.7 Staff read-only mode
@@ -148,6 +151,6 @@ These do not block architecture; defaults are chosen so implementation can start
 ## 6. Constraints and assumptions
 
 - Windows 10 1809+ and Windows 11 (toast API and WPF/.NET 8 requirement).
-- One organisation, expected scale: ≤ 200 concurrent clients, ≤ 10 timetables, ≤ 20 periods/timetable, ≤ 365 overrides/year. All data comfortably fits in memory; sync can be whole-snapshot.
+- One organisation, expected scale: ≤ 200 concurrent clients, ≤ 10 timetables, ≤ 20 authored lessons/timetable, ≤ 365 overrides/year. Prayer insertion and lesson splitting may make a generated timetable exceed 20 output rows; this is a sizing assumption, not a generated-output constraint. All data comfortably fits in memory; sync can be whole-snapshot.
 - Staff machines may sleep, hibernate, restart, and lose connectivity at any time.
 - The machine clock is trusted for display and notification timing (see ARCHITECTURE.md §8 for the clock-skew note).

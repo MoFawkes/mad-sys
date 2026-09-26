@@ -61,10 +61,33 @@ CREATE INDEX ix_week_schedule_weekday ON week_schedule(weekday);
 CREATE TABLE organizations (id TEXT PRIMARY KEY, name TEXT NOT NULL, timezone TEXT NOT NULL);
 `,
   },
+  {
+    version: 5,
+    sql: `
+CREATE TABLE notification_delivery (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_key TEXT, identifier TEXT, delivered_at TEXT NOT NULL,
+  observed_via TEXT NOT NULL, title TEXT, body TEXT, trigger_time TEXT
+);
+CREATE UNIQUE INDEX ux_notification_delivery_identifier_delivered_at
+  ON notification_delivery(identifier, delivered_at);
+CREATE TABLE notification_schedule_snapshot (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, captured_at TEXT NOT NULL, payload TEXT NOT NULL
+);
+`,
+  },
+  {
+    version: 6,
+    sql: `
+DROP INDEX ux_notification_delivery_identifier_delivered_at;
+CREATE UNIQUE INDEX ux_notification_delivery_identifier_delivered_at
+  ON notification_delivery(COALESCE(identifier, ''), delivered_at);
+`,
+  },
 ];
 
 export async function applyCacheMigrations(database: SQLiteDatabase): Promise<void> {
-  await database.execAsync('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
+  await database.execAsync('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
   const row = await database.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   const currentVersion = row?.user_version ?? 0;
   const pending = CACHE_MIGRATIONS.filter((migration) => migration.version > currentVersion);

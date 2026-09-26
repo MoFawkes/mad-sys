@@ -1,6 +1,6 @@
 # AQI Clock — Application Architecture
 
-Status: Implemented desktop + v0.11 mobile companion · Last updated: 2026-07-28
+Status: Implemented desktop + mobile companion · Last updated: 2026-08-27
 
 ---
 
@@ -74,7 +74,7 @@ Single-instance enforcement: named mutex; a second launch activates the existing
 | `AnnouncementsView` | `AnnouncementsViewModel` | List + unread; admin compose section when role=Admin |
 | `SignInWindow` | `SignInViewModel` | Email/password |
 | `SettingsWindow` | `SettingsViewModel` | Local settings |
-| `AdminWindow` (tabbed) | `AdminViewModel` + child VMs: `TimetableEditorViewModel`, `WeekScheduleViewModel`, `OverridesViewModel`, `AuditViewModel`, `UsersViewModel` | Only reachable when role=Admin |
+| `AdminWindow` (tabbed) | `AdminViewModel` + child VMs: `TimetableEditorViewModel`, `PrayerTimesViewModel`, `WeekScheduleViewModel`, `OverridesViewModel`, `AuditViewModel`, `UsersViewModel` | Only reachable when role=Admin |
 
 Navigation: window-based (no frame navigation). A `WindowService` abstraction opens/activates windows so ViewModels stay testable.
 
@@ -110,6 +110,10 @@ All computation uses **local wall-clock time** in the organisation's timezone; p
 ---
 
 ## 5. Data flow
+
+The desktop sends a six-value `TimetableShape` to a pure, date-selectable preview RPC. On Save it sends that shape again, never period rows; PostgreSQL expands and persists the authoritative result in one transaction and returns it. The C# expansion remains as a preview/parity implementation, guarded against SQL drift by `SqlExpansionMatchesDomainFixtures`. Daily unattended maintenance is Cloudflare Worker Cron (02:17 UTC) → one service-role PostgREST RPC → one PostgreSQL transaction. It regenerates ordinary period rows in place for the organisation-local date, preserving shipped-client compatibility.
+
+The admin clash detector remains C#-only. It compares concurrently selectable generated timetables resolved through class-specific `week_schedule` rows and warns when overlapping `(name,start,end)` labels differ. Identical labels and shared timetables are silent.
 
 ```
 Supabase Postgres --initial/reconnect pull--> SQLite cache --repositories--> ScheduleEngine --> ViewModels
@@ -148,6 +152,8 @@ Data volume is tiny (KBs), so sync is a **full snapshot pull per table**, not de
 ---
 
 ## 7. Notification behaviour
+
+Mobile owns durable delivery evidence. A foreground listener and repeat presented-notification sweep insert idempotently into `notification_delivery`; every reconcile captures desired/actual state in `notification_schedule_snapshot`. Diagnostics exports both tables before sign-out, and privacy teardown clears them.
 
 Three categories: **lesson start**, **end warning** (N min before end, default 5), **announcement**. Each locally toggleable.
 

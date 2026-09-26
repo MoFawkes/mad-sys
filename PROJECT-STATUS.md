@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-08-23
+Last updated: 2026-09-26
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -12,14 +12,14 @@ the acceptance script.
 
 | Area | State |
 |---|---|
-| Staff pilot | v0.13.3 is published; v0.14.0 acceptance is complete and awaiting the planned 2026-08-24 tag |
-| Public release channel | v0.13.3 is live on `MoFawkes/aqi-clock-releases` |
-| Source | `main` at `011aac1` includes PR #28 and all acceptance fixes; v0.14.0 remains intentionally untagged until 2026-08-24 |
-| Production backend | Migration `20260807120000` applied; audience-aware schema and RPCs verified |
-| Latest release | v0.13.3 — role-choice audience chooser and display-scaling fixes |
-| Next release | v0.14.0 unified desktop teacher-feedback, interruption reflow, and Expo mobile acceptance |
+| Staff pilot | v0.14.0 is published; feature/device acceptance is complete, while the real-machine v0.13.3 → v0.14.0 update/restart round-trip remains open |
+| Public release channel | v0.14.0 is Latest on `MoFawkes/aqi-clock-releases` |
+| Source | `main` at `0889e44`; annotated tag `v0.14.0` includes PR #28 and the final acceptance record |
+| Production backend | Migration history runs through `20260827223000`; the four original generator migrations are applied, with zero generated timetable/configuration rows |
+| Latest release | v0.14.0 — unified desktop teacher-feedback, interruption reflow, and Expo mobile companion |
+| Next release | v0.15.0 simplified timetable automation implemented; teacher acceptance passed, compatibility/deployment gates remain |
 | Candidate CI | All four required checks passed for final acceptance-fix PR #28 |
-| Release workflow | v0.13.3 is tag-published; v0.14.0 is accepted, with tagging deferred to Monday 2026-08-24 |
+| Release workflow | Run `32755130666` is green; v0.14.0 was published at 2026-08-24 18:42:41Z with full, delta, setup, portable, and stable-manifest assets |
 
 ## Release split — decided 2026-08-02
 
@@ -57,8 +57,8 @@ mobile device acceptance to receive fixes they asked for.
 - The 2026-08-02 emulator notes referred only to mutable source line numbers, which now land in the APK-evidence prose rather than checklist rows. That evidence is untraceable, credits no current acceptance row, and must not be relied on. Re-run the emulator checklist using the stable `MOB-F*` and `MOB-A*` identifiers in `docs/MANUAL-TESTS.md`; Pixel-only timing and endurance rows use `MOB-T*`.
 - Production reconciliation on 2026-08-01 found all seven migration versions and the complete student-device schema already applied. The hosted signup gate was verified against production intent: public email signup returned 403 **Public signup is disabled**, while an anonymous identity enrolled successfully and could select its own `student_devices` row under RLS.
 - The Pixel 9 Pro timing and endurance suite (`MOB-T01`–`MOB-T05`) passed by owner confirmation on 2026-08-12. `MOB-T06` is accepted as a scoped pass for stale-class cancellation and reboot-driven rescheduling; the explicit residual evidence gap for 19–20 August remains documented. All mobile functional and emulator alarm rows now pass. Final `MOB-F10` evidence used EAS build `e815e646-e89c-4648-9acb-d2ce230e9396` from `38468a2`, SHA-256 `FC98A2AF9AA8CF7FA9E05ADE197494BB7CF2398CA6C736468FFD95A9ED53C324`: in-app teardown returned to role choice, left no app-data files, and reduced package alarms to zero without clearing app data. The resulting anonymous identity and device row were deleted; the Pixel was untouched.
-- The v0.14.0 candidate carries desktop Back/Esc/title-bar navigation, merged multi-class agendas, shared-timetable deduplication, combined notifications, mobile stale-alarm reconciliation, and the interruption reflow tool. All release acceptance rows are closed. The Admin clash warning was withdrawn because legitimate staggered timetables overlap permanently; revisit it with the Part 4 generator model. The only remaining release action is the planned 2026-08-24 tag and tag-bound publication verification.
-- Scope added on 2026-08-18: v0.14.0 also carries a schema-free desktop interruption reflow tool so term can start without hand-adjusting every later lesson when Maghrib moves. It inserts named non-lesson rows or shifts a selected row and all later rows, closes seams, rejects midnight crossings atomically, and continues saving ordinary periods through the existing whole-list RPC. The full block/anchor generator remains v0.15.0 work.
+- The published v0.14.0 release carries desktop Back/Esc/title-bar navigation, merged multi-class agendas, shared-timetable deduplication, combined notifications, mobile stale-alarm reconciliation, and the interruption reflow tool. Feature/device acceptance rows are closed. Publication is verified separately from installed-update acceptance: a real v0.13.3 machine must still confirm that v0.14.0 is offered and applies on restart. The Admin clash warning was withdrawn because legitimate staggered timetables overlap permanently; revisit it with the Part 4 generator model.
+- Scope added on 2026-08-18: v0.14.0 also carries a schema-free desktop interruption reflow tool so term can start without hand-adjusting every later lesson when Maghrib moves. It inserts named non-lesson rows or shifts a selected row and all later rows, closes seams, rejects midnight crossings atomically, and continues saving ordinary periods through the existing whole-list RPC. v0.15.0 replaces the unreleased block/anchor proposal with the six-field automatic timetable form recorded in ADR-030.
 - Pre-wide-rollout risks: Supabase realtime volume/tier, anonymous-user cleanup, stale `last_seen_at`, and the desktop untagged-period notification semantic difference.
 
 ## v0.9.3 scope
@@ -209,7 +209,8 @@ Completed:
 In progress / next:
 
 - Finish the hands-on System and 150% DPI portions of the UI/DPI matrix.
-- Perform the v0.9.2 → v0.9.5 auto-update check on a pilot machine.
+- Perform the v0.13.3 → v0.14.0 auto-update check on a real pilot machine:
+  confirm the update is offered, downloads, and applies on restart.
 - Complete the installer/update/uninstaller round trip and record results in
   `docs/MANUAL-TESTS.md`.
 - Track the pre-existing timetable-editor period-cell commit quirk as
@@ -218,6 +219,20 @@ In progress / next:
   remaining System/150% DPI and pilot update checks as post-publication work.
 
 ## Release gates
+
+### v0.15.0 generator and delivery-evidence gate (2026-08-27)
+
+The 2026-09-25 simplification supersedes the block/anchor authoring UI. Timetables now use a six-field shape, Prayer times is an organisation-level Maghrib/fixed-times screen, generated saves are server-authoritative, and disabling automation restores the captured hand-authored rows. Hosted inspection on 2026-09-26 corrected the earlier release-boundary assumption: production already carries all four original generator migrations through `20260827223000`. Their migration files and history remain immutable; `20260925173216` and `20260925173217` are now guarded forward-only simplification migrations that alter shared tables in place and discard only the empty block/timetable-anchor tables.
+
+| Gate | Result |
+|---|---|
+| Domain | 77 passed |
+| Desktop application | 190 passed; 1 optional interactive smoke skipped |
+| Integration | 10 passed |
+| Supabase/RLS | 374 passed; repeat clean reset, v0.9.6 incremental replay, hosted-equivalent `20260827223000` data-preservation replay, guard-abort case, and logical rollback rehearsal all passed |
+| Mobile | 114 passed; TypeScript and ESLint green |
+| Worker | 4 passed; Wrangler dry-run green |
+| Remaining | v0.14.1 compatibility rows; mobile evidence rows; owner confirmation that no out-of-band Worker was deployed; Worker deploy; update round-trip |
 
 | Gate | Owner | State |
 |---|---|---|
@@ -256,10 +271,58 @@ In progress / next:
 | v0.10.0 merge, tag, and public assets | Engineering | Complete — `v0.10.0` at `15ecb86`; release run `30049223114` green |
 | v0.10.0 published artifact verification | Engineering | Complete — stable full/delta index, portable digest/version, cloud config, and updater target verified |
 | Remaining System/150% DPI matrix | Owner / Engineering | Pending post-publication |
-| v0.9.2 → v0.9.5 pilot auto-update | Owner / Engineering | Pending |
+| v0.14.0 tag and public assets | Engineering | Complete — `v0.14.0` at `0889e44`; release run `32755130666` green |
+| v0.14.0 public manifest/full/delta consistency | Engineering | Complete — hashes and byte counts verified against all uploaded assets |
+| v0.13.3 → v0.14.0 pilot auto-update | Owner | Pending — real-machine offer/download/apply-on-restart evidence required |
 | Win10 + Win11 full manual checklist | Owner / Engineering | Pending |
 
 ## Activity log
+
+- 2026-09-26 — Completed the production-safe v0.15 generator transition. The
+  four hosted migrations were restored byte-for-byte and the two v0.15 files
+  rewritten as forward-only changes. Read-only hosted counts found 4 anchors,
+  0 standing times, 0 date overrides, 2 maintenance runs, and no generated
+  timetable/configuration/block/anchor-link rows. The migration now guards all
+  four old authoring counts, alters shared tables in place, removes legacy
+  write policies/grants and function overloads, preserves triggers and history,
+  and drops only the obsolete block/link tables. Clean and incremental paths,
+  a hosted-equivalent preservation fixture, the guard-abort case, and the
+  pre-generator logical rollback all passed locally; the complete Supabase/RLS
+  suite remains 374/374.
+
+- 2026-09-26 — Hosted migration inspection disproved the clean-boundary
+  assumption used by the first v0.15 simplification. The linked production
+  project (`Madrasah Clock`) contains all four original generator migration
+  history rows through `20260827223000`, and the corresponding block/anchor
+  tables still exist. Aggregate inspection found zero generated timetables,
+  generator definitions, blocks, or timetable-anchor rows, so a guarded
+  forward simplification can remain data-loss-free. The B4 APK points to this
+  same project. No remote state was changed; restoring the applied files and
+  rewriting the two v0.15 migrations is now a commit/PR blocker.
+
+- 2026-09-26 — The v0.15.0 timetable-automation teacher checklist passed all
+  fourteen rows on local Release build `0.14.2-dev.6+6e17f80`. Remediation
+  verification confirmed nullable Jumu'ah length storage, expiry-warning
+  persistence through regeneration, and read-only offline/recovery behaviour.
+  The live run also exposed and corrected stale server validation that still
+  required ordinary weekday Zuhr after the UI had been trimmed to Asr, Isha,
+  and Friday Jumu'ah. A fresh database reset applied both consolidated
+  migrations and the full Supabase/RLS suite passed 374 tests; desktop passed
+  190 with one optional interactive smoke skipped, Domain 77, Integration 10,
+  and the solution built with zero warnings and zero errors. Detailed manual
+  evidence is recorded in `docs/MANUAL-TESTS.md`.
+
+- 2026-08-24 — Published v0.14.0 from annotated tag `v0.14.0` at `0889e44`.
+  Release run `32755130666` completed green, including all four gates and the
+  2m21s publish job. The public release became Latest at 18:42:41Z and contains
+  full (87,125,499 bytes), delta (9,382,428 bytes), setup, portable, and
+  `releases.stable.json` assets. The manifest lists matching 0.14.0 Full and
+  Delta entries with hashes and exact byte counts. Publication followed two
+  distinct credential failures: the original `RELEASES_TOKEN` had expired
+  (401), then its fine-grained replacement lacked contents-write permission
+  (403). The corrected token published successfully. This does not close the
+  real-machine v0.13.3 → v0.14.0 offer/apply-on-restart round-trip, which remains
+  owner-run and open.
 
 - 2026-08-23 — Final v0.14.0 acceptance closed. D1 passed against desktop
   `0.13.4-dev.16+00a2ab8` after PR #28 corrected inactive-user classification
@@ -291,8 +354,9 @@ In progress / next:
   19–20 August deliveries are no longer provable: a stale class-A alarm that
   fired and then self-healed would not be caught. One time-boxed `adb backup`
   attempt yielded only a 47-byte header. The Pixel's durable
-  `notification_log` must remain intact—no revocation, sign-out, or reinstall—
-  until a diagnostics export can read it.
+  The old `notification_log` preservation requirement is moot: it held
+  announcements only. v0.15.0 adds delivery and schedule-snapshot tables;
+  export them before sign-out, after which privacy teardown clears them.
 - 2026-08-19 — Architecture built the reflow acceptance binary
   `0.13.4-dev.9+b3454c6` (Release, 0 warnings, 0 errors) and confirmed the
   previous Release output `0.13.4-dev.7+df6bd64` predates `ed50c17`, so desktop

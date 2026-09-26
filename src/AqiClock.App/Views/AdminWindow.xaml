@@ -15,6 +15,7 @@
     <ui:FluentWindow.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <converters:HourMinuteConverter x:Key="HourMinuteConverter" />
+        <converters:NullableMinutesConverter x:Key="NullableMinutesConverter" />
         <Style TargetType="DataGrid">
             <Setter Property="Background" Value="{DynamicResource CardBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -98,7 +99,17 @@
                             <Border Background="{DynamicResource WarningBackgroundBrush}" CornerRadius="8" Padding="10" Visibility="{Binding HasConflict, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <StackPanel Orientation="Horizontal"><TextBlock Text="Changed remotely just now — " /><Button Content="Reload" Command="{Binding ReloadCommand}" /><Button Content="Overwrite" Command="{Binding OverwriteCommand}" /></StackPanel>
                             </Border>
-                            <WrapPanel Margin="0,8,0,6" VerticalAlignment="Center">
+                            <WrapPanel Margin="0,8,0,6" VerticalAlignment="Center" IsEnabled="{Binding CanEditLegacyPeriods}">
+                                <WrapPanel.Style>
+                                    <Style TargetType="WrapPanel">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsAutomatic}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </WrapPanel.Style>
                                 <TextBlock Text="Break" VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <TextBox Width="130" Text="{Binding BreakName, UpdateSourceTrigger=PropertyChanged}" ToolTip="Name for the inserted non-lesson row" />
                                 <TextBox Width="58" Margin="6,0,0,0" Text="{Binding BreakMinutes, UpdateSourceTrigger=PropertyChanged}" ToolTip="Break length in minutes" />
@@ -109,13 +120,85 @@
                                 <Button Content="Apply shift" Command="{Binding ShiftLaterCommand}" CommandParameter="{Binding SelectedPeriod}" />
                             </WrapPanel>
                         </StackPanel>
+                        <StackPanel DockPanel.Dock="Top" Margin="0,8,0,8">
+                            <CheckBox Content="Set lesson times automatically"
+                                      IsChecked="{Binding IsAutomatic, Mode=TwoWay}"
+                                      FontWeight="SemiBold" />
+                            <Border Margin="0,8,0,0" Padding="12"
+                                    BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                                    BorderThickness="1" CornerRadius="8">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsAutomatic}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="170" />
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="170" />
+                                            <ColumnDefinition Width="100" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Row="0" Text="First lesson starts" VerticalAlignment="Center" />
+                                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DayStart, Converter={StaticResource HourMinuteConverter}, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBlock Grid.Row="0" Grid.Column="2" Text="Number of lessons" VerticalAlignment="Center" Margin="16,0,0,0" />
+                                        <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding LessonCount, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBlock Grid.Row="1" Text="Lesson length" VerticalAlignment="Center" />
+                                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal"><TextBox Width="58" Text="{Binding LessonMinutes, UpdateSourceTrigger=PropertyChanged}" /><TextBlock Text=" min" VerticalAlignment="Center" /></StackPanel>
+                                        <CheckBox Grid.Row="1" Grid.Column="2" Content="Include a break" IsChecked="{Binding HasBreak}" Margin="16,0,0,0" />
+                                        <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" IsEnabled="{Binding HasBreak}"><TextBlock Text="after " VerticalAlignment="Center" /><TextBox Width="42" Text="{Binding BreakAfterLesson, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                                        <TextBlock Grid.Row="2" Grid.Column="2" Text="Break length" VerticalAlignment="Center" Margin="16,0,0,0" />
+                                        <StackPanel Grid.Row="2" Grid.Column="3" Orientation="Horizontal" IsEnabled="{Binding HasBreak}"><TextBox Width="58" Text="{Binding AutomaticBreakMinutes, UpdateSourceTrigger=PropertyChanged}" /><TextBlock Text=" min" VerticalAlignment="Center" /></StackPanel>
+                                        <CheckBox Grid.Row="3" Grid.ColumnSpan="2" Content="Adjust around prayer times" IsChecked="{Binding AdjustsForPrayer}" Margin="0,8,0,0" />
+                                        <TextBlock Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="2" Text="Naseehah is placed automatically: on the morning break or with the nearest evening prayer." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="16,8,0,0" />
+                                    </Grid>
+                                    <WrapPanel Margin="0,10,0,4">
+                                        <TextBlock Text="Preview day" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <DatePicker SelectedDate="{Binding PreviewDate}" />
+                                        <Button Content="Refresh preview" Command="{Binding RefreshPreviewCommand}" Margin="8,0,0,0" />
+                                    </WrapPanel>
+                                    <ListView ItemsSource="{Binding GeneratorPreview}" MaxHeight="220">
+                                        <ListView.View>
+                                            <GridView>
+                                                <GridViewColumn Header="Period" DisplayMemberBinding="{Binding Name}" Width="260" />
+                                                <GridViewColumn Header="Start" DisplayMemberBinding="{Binding Start, Converter={StaticResource HourMinuteConverter}}" Width="90" />
+                                                <GridViewColumn Header="End" DisplayMemberBinding="{Binding End, Converter={StaticResource HourMinuteConverter}}" Width="90" />
+                                            </GridView>
+                                        </ListView.View>
+                                    </ListView>
+                                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="{DynamicResource WarningBrush}" Margin="0,6,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
                         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal">
-                            <Button Content="Add period" Command="{Binding AddPeriodCommand}" />
+                            <Button Content="Add period" Command="{Binding AddPeriodCommand}" IsEnabled="{Binding CanEditLegacyPeriods}" />
                             <ui:Button Content="Save" Command="{Binding SaveCommand}" Appearance="Primary" />
                             <Button Content="Cancel" Command="{Binding CancelCommand}" />
                             <ui:Button Content="Delete timetable" Command="{Binding DeleteCommand}" Appearance="Danger" />
                         </StackPanel>
-                        <DataGrid ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" AutoGenerateColumns="False" CanUserAddRows="False" BeginningEdit="OnPeriodBeginningEdit">
+                        <DataGrid ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="{Binding IsGenerated}" BeginningEdit="OnPeriodBeginningEdit">
+                            <DataGrid.Style>
+                                <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsAutomatic}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.Style>
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
                                 <DataGridTextColumn Header="Start" Binding="{Binding Start, Converter={StaticResource HourMinuteConverter}, UpdateSourceTrigger=PropertyChanged}" />
@@ -153,6 +236,46 @@
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
+            </TabItem>
+            <TabItem Header="Prayer times">
+                <ScrollViewer DataContext="{Binding PrayerTimes}" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="24" MaxWidth="760" HorizontalAlignment="Center">
+                        <TextBlock Text="Maghrib times" FontSize="22" FontWeight="SemiBold" />
+                        <TextBlock Text="Paste the jamaat time for every day in the selected month. Enter one 24-hour time per line."
+                                   TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,14" />
+                        <WrapPanel Margin="0,0,0,8">
+                            <TextBlock Text="Month" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <DatePicker SelectedDate="{Binding Month}" Width="170" />
+                            <Button Content="Load month" Command="{Binding LoadMonthCommand}" Margin="8,0,0,0" />
+                        </WrapPanel>
+                        <TextBox Text="{Binding MaghribText, UpdateSourceTrigger=PropertyChanged}"
+                                 AcceptsReturn="True" Height="170" VerticalScrollBarVisibility="Auto"
+                                 FontFamily="Consolas" ToolTip="For example: 18:21" />
+                        <WrapPanel Margin="0,8,0,0">
+                            <Button Content="Check" Command="{Binding CheckMaghribCommand}" />
+                            <ui:Button Content="Save times" Command="{Binding SaveMaghribCommand}" Appearance="Primary" Margin="8,0,0,0" />
+                        </WrapPanel>
+                        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="0,8,0,0" />
+
+                        <Separator Margin="0,22,0,18" />
+                        <TextBlock Text="Fixed prayer times" FontSize="22" FontWeight="SemiBold" />
+                        <TextBlock Text="These times remain in force until a later effective date is saved. Friday Jumu'ah replaces Zuhr on Friday."
+                                   TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,12" />
+                        <WrapPanel Margin="0,0,0,8">
+                            <TextBlock Text="Applies from" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <DatePicker SelectedDate="{Binding EffectiveFrom}" Width="170" />
+                        </WrapPanel>
+                        <DataGrid ItemsSource="{Binding FixedTimes}" AutoGenerateColumns="False" CanUserAddRows="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Prayer" Binding="{Binding Label}" IsReadOnly="True" Width="*" />
+                                <DataGridTextColumn Header="Starts" Binding="{Binding Start, Converter={StaticResource HourMinuteConverter}, UpdateSourceTrigger=PropertyChanged}" Width="140" />
+                                <DataGridTextColumn Header="Length (min)" Binding="{Binding DurationMinutes, Converter={StaticResource NullableMinutesConverter}, UpdateSourceTrigger=PropertyChanged}" Width="140" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <ui:Button Content="Save fixed times" Command="{Binding SaveFixedTimesCommand}" Appearance="Primary" HorizontalAlignment="Left" Margin="0,10,0,0" />
+                        <TextBlock Text="{Binding FixedTimesMessage}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
             <TabItem Header="Classes / Audiences">
               <Grid DataContext="{Binding Classes}" Margin="10">

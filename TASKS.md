@@ -104,7 +104,7 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] Native invitation/password recovery: Velopack-managed `aqiclock://reset-password` protocol, current-user single-instance forwarding, recovery-token validation, password update window, and temporary-session revocation.
 - [x] Professional Fluent UX polish: WPF-UI 4.3, navy accent, PerMonitorV2, branded authentication/settings surfaces, six-tab Admin styling, and polished normal/compact clock presentation.
 - [x] Release pipeline to the public `MoFawkes/aqi-clock-releases` repository (B-7), with cloud URL/anon variables and repository-scoped `RELEASES_TOKEN` configured.
-- [ ] Publish and visually accept the first tagged `v0.9.x` installer/update/uninstall round-trip.
+- [ ] Complete and record the real-machine v0.13.3 → v0.14.0 update round-trip (offered, downloaded, applied on restart); v0.14.0 publication itself is complete.
 - [ ] Run full manual test checklist on Win10 + Win11, incl. sleep/resume, offline day, DST-date simulation.
 - [ ] Pilot install on 3–5 staff machines; collect logs/feedback.
 - [ ] Confirm business inputs B-1 … B-8 with owner (defaults accepted; B-8 asset still outstanding).
@@ -136,11 +136,17 @@ Ordered by implementation dependency: each phase builds only on the phases above
 
 ### Next teacher meeting — scheduling workflow
 
-- [ ] Discuss automatic Naseehah and Salah timing: edit anchors once and reflow lesson rows around them.
-- [ ] Discuss faster timetable creation from start time, lesson count, lesson length, and the Naseehah/Salah anchors.
-- [ ] Confirm whether non-lesson rows remain fixed anchors while lesson rows flow; the existing whole-list save supports this without a schema change.
-- [x] Ship the interim schema-free interruption reflow tool for v0.14.0; keep the full block/anchor generator discussion for v0.15.0.
-- [ ] v0.15.0: add a diagnostics export for the mobile `notification_log`, then
+- [x] Implement automatic Naseehah and Salah timing through reusable organisation anchors.
+- [x] Implement generated timetable creation from a six-field shape; derive session, lesson names, prayer selection, and Naseehah placement.
+- [x] Keep organisation prayer times fixed while teaching rows split/reflow without losing teaching minutes.
+- [x] Ship the interim schema-free interruption reflow tool for v0.14.0, then replace the unreleased block/anchor editor with the simple v0.15.0 form.
+- [x] Add Maghrib month paste and fixed Asr/Isha/Friday Jumu'ah editing on an organisation-level Prayer times screen.
+- [x] Make generated saves server-authoritative and restore the exact pre-conversion period snapshot when automation is disabled.
+- [x] Run the proposed two-file v0.15 baseline through clean-reset and rollback rehearsal; this did not cover the subsequently discovered applied `20260826/27` generator migrations.
+- [x] Restore the four generator migrations already applied through `20260827223000`, rewrite the v0.15 simplification as a guarded forward migration, and rerun the true production-baseline/rollback rehearsal.
+- [x] Complete the fourteen-row v0.15 teacher acceptance checklist.
+- [ ] Complete the v0.14.1 compatibility rollout gate before deploying v0.15.
+- [x] v0.15.0: add durable delivery and schedule-snapshot diagnostics export; then
   use the live-term class switch from 25 August to re-run the full delivered-
   notification portion of `MOB-T06` without relying on Android's 24-hour UI.
 

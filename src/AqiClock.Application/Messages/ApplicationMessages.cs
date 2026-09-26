@@ -9,3 +9,4 @@ public sealed record SessionChanged(SessionState State);
 public sealed record AudienceChanged(DeviceAudience State);
 public sealed record ClockTick(DateTime Now);
 public sealed record TimeJumped(DateTime Previous, DateTime Current);
+public sealed record PrayerTimesChanged;

@@ -69,6 +69,7 @@ This checklist is the ADR-011 acceptance script for Windows surfaces that are no
 
 ## Velopack install, update and uninstall
 
+- [ ] **v0.14.0 pilot update acceptance:** on a real machine running the published v0.13.3 build, confirm v0.14.0 is offered, downloads, reports a pending restart, and applies on restart with About showing v0.14.0. Publication and manifest checks do not satisfy this row.
 - [ ] Install `AqiClock.App-stable-Setup.exe` as a standard user; confirm no elevation is requested.
 - [ ] Confirm the Start-menu shortcut exists, launches one instance, and carries a consistent AQI Clock toast identity.
 - [ ] Confirm Settings → About shows the release tag version and `Up to date` after a successful check.
@@ -495,9 +496,39 @@ The residual gap is explicit: there is no delivered-notification proof for
 self-healed and never re-armed again, would escape this evidence. That fault is
 considered unlikely but is not disproved. A single time-boxed `adb backup`
 attempt produced only a 47-byte header, so the non-debuggable app's surviving
-`notification_log` rows could not be extracted. The Pixel must not be revoked,
-signed out, or reinstalled before that log can be exported, because
-`wipeCache()` deletes it.
+`notification_log` rows could not be extracted. The earlier preservation
+instruction is now withdrawn: that table contains announcement events only and
+cannot prove lesson delivery.
+
+**MOB-T06 durable-evidence re-run protocol (v0.15.0):** install the preview APK
+as an update, switch from class A to class B, and capture the admin-only
+notification diagnostics export once daily for at least three live teaching
+days. Do not dismiss AQI Clock notifications before the daily capture, and
+foreground the app before exporting so the presented-notification sweep records
+deliveries that occurred while the app was backgrounded or killed. For each day,
+retain the JSON and confirm its schedule snapshot contains the desired and
+actual class-B alarms and no stale class-A alarm. Confirm foreground deliveries
+use `foreground_listener`; background/killed tray deliveries may use
+`presented_sweep`. A notification delivered while the app is killed and then
+dismissed before the next foreground is evidenced by the schedule snapshot only,
+not as a delivery row. Export before sign-out or revocation: privacy teardown
+deliberately wipes both evidence tables.
+
+Record ADR-029's accepted residual in the read-out: mobile pre-schedules seven
+days from the latest reconciled base timetable, so a device that stops
+reconciling can drift by roughly two minutes per day. Daily reconciliation makes
+today exact; the endurance run must record the last reconcile time alongside
+any measured delivery drift.
+
+**B4 v0.15.0 preview handoff (2026-08-28):** EAS preview build
+`247166a5-5af1-40f2-8061-e1c428d1139c` finished from commit `b86663f` as an
+internal Android APK with app version `0.15.0`. The downloaded artifact is
+`AqiClock-v0.15.0-preview.apk`, SHA-256
+`78B328C68B004E21138CA356149FA5195270DC45B772DA32F83AC6E6979ECD11`.
+Install it over the existing Pixel app so the enrolled session and prior
+schedule state remain available for the class-switch endurance setup; do not
+clear app data. The three-live-teaching-day evidence run remains open until
+the daily exports and last-reconcile/drift readings above are captured.
 
 **v0.14.0 rebuilt-APK result (2026-08-18): PARTIAL PASS.** EAS preview build
 `f9f0a6a3-fc7c-4d2c-aa4d-341d50170216` passed `MOB-F07`, `MOB-F18`,
@@ -700,3 +731,46 @@ were deleted and production was re-queried with zero test rows remaining.
 4. Only then create or announce class-specific rows. The first second row for a weekday makes older clients' weekday-primary-key cache fail and freeze at its last good snapshot.
 
 Verify a default plus class row on one weekday, a closed matching track, deterministic multiple-match selection, and teacher/default versus student/track clock and toast behaviour.
+
+## v0.15.0 timetable automation — teacher acceptance
+
+Run all fourteen rows on the release candidate. Record build/version, tester, date, and PASS/FAIL evidence for each row.
+
+1. Create a timetable. Confirm automatic lesson times starts enabled; enter 17:50, 6 lessons, 25 minutes, no break, prayer adjustment on. Preview and save once. Confirm the clock uses the saved rows.
+2. Add a 25-minute break after lesson 4. Confirm lessons remain numbered 1–6 and the break sits between lessons 4 and 5.
+3. Turn prayer adjustment off. Confirm prayer rows and Naseehah vanish and lessons run back-to-back; turn it on and confirm they return.
+4. Enter 09:10, 8 lessons, 30 minutes, break after 4. Confirm the break is named `Break / Naseehah` without any separate Naseehah control.
+5. Open an existing hand-authored timetable. Confirm it remains manual and that add, reorder, delete, interruption reflow, and Save still work.
+6. Record an existing timetable's ids, names, times, order, and lesson flags. Enable automatic times, confirm the single replacement prompt, and save.
+7. Disable automatic times and confirm the exact rows recorded in row 6 return and are editable; no prayer or `(part 1)` rows remain.
+8. Change Preview day to next Friday and confirm Jumu'ah placement. Return to today and confirm no setting or stored period changed merely from previewing.
+9. On Prayer times, paste the selected month's complete Maghrib list, Check, and Save. Return to a PM timetable and confirm its Maghrib row moved.
+10. Paste a full month with one malformed line. Confirm the error identifies the day and no row from that attempt is saved.
+11. Set Friday Jumu'ah to 12:58 / 30 minutes with Applies from today and confirm a Friday preview uses it. Clear the length and confirm the timetable shows the Jumu'ah warning instead of saving an unusable expansion.
+12. Set Applies from to next month and change Isha. Confirm today's preview is unchanged and a preview date after the effective date uses the new time.
+13. Leave Maghrib coverage ending within 30 days. Confirm the timetable shows one plain-language expiry warning directing the teacher to Prayer times.
+14. Disconnect the network. Confirm Admin editing is unavailable through the existing offline state while the clock continues from cache.
+
+Throughout rows 1–14, confirm the UI does not expose the terms *block*, *anchor*, *session kind*, *naming pattern*, *conversion*, *regenerate*, *maintenance*, or *worker*.
+
+**Acceptance record — 2026-09-26:** PASS, rows 1–14. Owner with Codex-driven local UI verification on
+`0.14.2-dev.6+6e17f80c8fc394c5ea1f1f233cb9271712e64374`; Windows executable SHA-256
+`7A82D41CE045A43887B6C522EB5D4EDEBFF5E266FD98DDC14B739089B8E150C7`. Rows 1–10 and 12 passed in the
+initial run. Row 11 was repeated after the nullable editor and fixed-time RPC corrections: the screen exposed
+only Asr, Isha, and Friday Jumu'ah; clearing the Jumu'ah length saved successfully, PostgreSQL stored SQL
+`NULL` rather than zero, and the timetable displayed the Friday warning. Row 13 displayed
+`Prayer times are only entered up to 06 Oct. Add the next month's times on the Prayer times screen.` and the
+same warning remained after closing and reopening Admin, which reran regeneration. For row 14, pausing the
+local Supabase gateway left the clock ticking from cached data, changed Admin to the existing
+`Editing is unavailable while offline.` read-only state, and recovered both screens after the gateway resumed.
+Opening Admin against the paused gateway returned in 8.0 seconds without a dispatcher crash; the acceptance
+log contained the expected handled heartbeat timeout and no `Unhandled UI exception` after the test baseline.
+
+## v0.15.0 timetable automation rollout gate
+
+1. Back up and identify the target project. Confirm its migration history includes the four applied generator migrations through `20260827223000`; never delete, replace, or repair those hosted history rows.
+2. Rehearse a clean `supabase db reset` and run the full RLS/gateway suite. Separately reset through `20260827223000`, load `supabase/rehearsal/generator_state.sql`, apply the two forward migrations, and run `generator_forward_assertions.sql`. Also run the older v0.9.6 production-like path with `production_state.sql` and `assertions.sql`.
+3. Prove the transition fails closed with `generator_guard_state.sql`. Then rehearse `supabase/rollback/v0_15_generator_down.sql` from the hosted-equivalent migrated state and run `generator_rollback_assertions.sql`; the released manual save/audit behavior must work and migration-history rows must remain untouched.
+4. Apply the forward migrations, but leave every existing timetable manual. Before any v0.15 client rollout, verify a v0.14.1 desktop can still edit a non-generated timetable and v0.14.x mobile can pull ordinary generated `periods`.
+5. Deploy and verify the maintenance Worker against that migrated project.
+6. Only after steps 1–5 pass, create the v0.15 tag and publish the desktop release. Upgrade administrator desktops, then let a teacher opt the first timetable in. Complete rows 1–14 before wider conversion.

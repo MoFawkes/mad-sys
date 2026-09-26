@@ -1,6 +1,6 @@
 # AQI Clock — Database Design
 
-Status: Implemented · Last updated: 2026-08-03
+Status: Implemented · Last updated: 2026-08-27
 
 Supabase Postgres is the source of truth. The Windows and Expo clients keep disposable SQLite read caches; neither client renders a network response directly.
 
@@ -22,6 +22,12 @@ All organisation-owned tables use UUID keys and server timestamps. Period times 
 | `announcements` | Content, expiry, audience, update type, publication time/status, optional HTTPS eMasjid link, and soft-deletion timestamp |
 | `student_devices` | Anonymous Auth user to organisation enrolment: `user_id`, `org_id`, `created_at`, `last_seen_at` |
 | `audit_log` | Trigger-written before/after history; no client write path |
+
+Timetable automation uses five tables: `organization_anchors`, `anchor_standing_times`, `anchor_date_overrides`, scalar `timetable_generators`, and `generator_maintenance_runs`. A generator row stores `day_start`, lesson count/length, an optional break position/length, the prayer-adjustment flag, and `pre_conversion_periods`. Generated timetables retain ordinary `periods` as their wire format; `timetables.is_generated` makes those rows generator-owned and the JSON snapshot makes disabling automation an exact restore.
+
+`private.expand_timetable_shape` is the server authority for pure previews and `private.expand_generated_timetable` expands a stored scalar shape. `admin_save_generated_timetable` accepts only a timetable id and shape, expands and writes authoritatively in one transaction, and returns the saved rows. `admin_disable_generated_timetable` restores the captured rows. Prayer writes are atomic RPCs; authenticated clients have select-only grants on the five tables. Daily maintenance runs under an advisory transaction lock, skips unchanged timetables, and isolates individual failures. Service-only `run_generator_maintenance(org_id)` and admin-only `admin_regenerate_generated_timetables()` share that body.
+
+New public tables have RLS and explicit anon revokes. A database-wide test proves `anon` has no public-table privileges; the drift it found was defence-in-depth because affected tables already had RLS and no anon policies, not a live exposure.
 
 Announcement audiences are `everyone`, `teachers`, `graduates`, `am`, `pm`, and `specific_class`. A specific-class row must have `audience_class_id`; other audiences must not. Update types are `general`, `class_starts`, `naseehah`, `monthly_programme`, and `yearly_programme`. Status is `draft`, `scheduled`, or `published`.
 
@@ -71,6 +77,8 @@ Local-only state includes:
 ```text
 sync_state
 notification_log
+notification_delivery       # mobile observed delivery evidence
+notification_schedule_snapshot # mobile scheduling evidence
 announcement_read
 meta
 student_preferences     # mobile only

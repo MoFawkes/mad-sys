@@ -3,7 +3,9 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using AqiClock.Application.Abstractions;
@@ -11,6 +13,7 @@ using AqiClock.Application.Messages;
 using AqiClock.Application.Sync;
 using AqiClock.App.Services;
 using AqiClock.Domain.Entities;
+using AqiClock.Domain.Scheduling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -18,9 +21,11 @@ using QRCoder;
 
 namespace AqiClock.App.ViewModels;
 
-public partial class AdminViewModel : ObservableObject, IRecipient<SessionChanged>, IRecipient<ConnectivityChanged>
+public partial class AdminViewModel : ObservableObject, IRecipient<SessionChanged>, IRecipient<ConnectivityChanged>, IDisposable
 {
     private readonly IWindowService _windows;
+    private readonly CancellationTokenSource _lifetime = new();
+    private Task _reconnectTask = Task.CompletedTask;
     [ObservableProperty] private bool _isOnline;
     [ObservableProperty] private bool _isEditable;
     [ObservableProperty] private string? _banner;
@@ -35,6 +40,8 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
     public UsersViewModel Users { get; }
     public ClassesViewModel? Classes { get; }
     public StudentDevicesViewModel? StudentDevices { get; }
+    public PrayerTimesViewModel? PrayerTimes { get; }
+    internal Task ReconnectTask => _reconnectTask;
 
     public AdminViewModel(TimetableEditorViewModel timetables, WeekScheduleViewModel weekSchedule, OverridesViewModel overrides, AnnouncementComposeViewModel announcements, AuditViewModel audit, UsersViewModel users, ISyncService sync, IWindowService windows, IMessenger messenger)
     {
@@ -54,14 +61,40 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
         messenger.Register<SessionChanged>(this); messenger.Register<ConnectivityChanged>(this);
     }
 
+    public AdminViewModel(TimetableEditorViewModel timetables, WeekScheduleViewModel weekSchedule,
+        OverridesViewModel overrides, AnnouncementComposeViewModel announcements, AuditViewModel audit,
+        UsersViewModel users, ClassesViewModel classes, StudentDevicesViewModel studentDevices,
+        PrayerTimesViewModel prayerTimes, ISyncService sync, IWindowService windows, IMessenger messenger)
+    {
+        Timetables = timetables; WeekSchedule = weekSchedule; Overrides = overrides; Announcements = announcements;
+        Audit = audit; Users = users; Classes = classes; StudentDevices = studentDevices; PrayerTimes = prayerTimes;
+        _windows = windows; InitializeConnectivity(sync.State);
+        messenger.Register<SessionChanged>(this); messenger.Register<ConnectivityChanged>(this);
+    }
+
     partial void OnBannerChanged(string? value) => OnPropertyChanged(nameof(HasBanner));
 
     public async Task InitializeAsync(CancellationToken token = default)
     {
-        List<Task> tasks = [Timetables.LoadAsync(token), WeekSchedule.LoadAsync(token), Overrides.LoadAsync(token), Announcements.LoadAsync(token), Audit.LoadAsync(token), Users.LoadAsync(token)];
-        if (Classes is not null) tasks.Add(Classes.LoadAsync(token));
-        if (StudentDevices is not null) tasks.Add(StudentDevices.LoadAsync(token));
-        await Task.WhenAll(tasks);
+        try
+        {
+            List<Task> tasks = [Timetables.LoadAsync(token), WeekSchedule.LoadAsync(token), Overrides.LoadAsync(token), Announcements.LoadAsync(token), Audit.LoadAsync(token), Users.LoadAsync(token)];
+            if (Classes is not null) tasks.Add(Classes.LoadAsync(token));
+            if (StudentDevices is not null) tasks.Add(StudentDevices.LoadAsync(token));
+            if (PrayerTimes is not null) tasks.Add(PrayerTimes.LoadAsync(token));
+            await Task.WhenAll(tasks);
+            if (Timetables.IsAutomationReadUnavailable) SetConnectivity(ConnectivityState.Offline);
+            else if (IsOnline) await Timetables.RegenerateOnAdminEntryAsync(token);
+            if (Timetables.IsAutomationReadUnavailable) SetConnectivity(ConnectivityState.Offline);
+        }
+        catch (HttpRequestException)
+        {
+            SetConnectivity(ConnectivityState.Offline);
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        {
+            SetConnectivity(ConnectivityState.Offline);
+        }
     }
     public void Receive(SessionChanged message) => UiDispatch.Run(() =>
     {
@@ -79,13 +112,37 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
 
     public void Receive(ConnectivityChanged message) => UiDispatch.Run(() =>
     {
-        IsOnline = message.State == ConnectivityState.Online;
-        IsEditable = message.State != ConnectivityState.Offline;
-        _offlineBanner = message.State == ConnectivityState.Offline ? "Editing is unavailable while offline." : null;
-        UpdateBanner();
+        SetConnectivity(message.State);
+        if (message.State == ConnectivityState.Online)
+            _reconnectTask = ObserveReconnectAsync(_lifetime.Token);
     });
 
+    private async Task ObserveReconnectAsync(CancellationToken token)
+    {
+        try
+        {
+            await Timetables.LoadAsync(token);
+            if (Timetables.IsAutomationReadUnavailable)
+            {
+                SetConnectivity(ConnectivityState.Offline);
+                return;
+            }
+            await Timetables.RegenerateOnAdminEntryAsync(token);
+            if (Timetables.IsAutomationReadUnavailable) SetConnectivity(ConnectivityState.Offline);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception)
+        {
+            SetConnectivity(ConnectivityState.Offline);
+        }
+    }
+
     private void InitializeConnectivity(ConnectivityState state)
+    {
+        SetConnectivity(state);
+    }
+
+    private void SetConnectivity(ConnectivityState state)
     {
         IsOnline = state == ConnectivityState.Online;
         IsEditable = state != ConnectivityState.Offline;
@@ -94,6 +151,13 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
     }
 
     private void UpdateBanner() => Banner = _roleBanner ?? _offlineBanner;
+
+    public void Dispose()
+    {
+        _lifetime.Cancel();
+        _lifetime.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
 }
 
@@ -218,249 +282,6 @@ public partial class StudentDevicesViewModel(
         image.EndInit();
         image.Freeze();
         return image;
-    }
-}
-
-public partial class PeriodEditorItem : ObservableObject
-{
-    public Guid Id { get; init; }
-    [ObservableProperty] private string _name = string.Empty;
-    [ObservableProperty] private TimeSpan _start;
-    [ObservableProperty] private TimeSpan _end;
-    [ObservableProperty] private bool _isLesson = true;
-    public int SortOrder { get; set; }
-}
-
-public partial class TimetableEditorViewModel : ObservableObject, IRecipient<DataChanged>
-{
-    private readonly ISupabaseGateway _gateway; private readonly ISyncService _sync; private readonly ITimetableRepository _repository; private readonly IWeekScheduleRepository _week; private readonly IDateOverrideRepository _overrides; private readonly IWindowService _windows; private readonly IClassRepository? _classes;
-    private bool _loading;
-    private int _ownWriteDepth;
-    [ObservableProperty] private Timetable? _selected;
-    [ObservableProperty] private string _name = string.Empty;
-    [ObservableProperty] private bool _isArchived;
-    [ObservableProperty] private bool _isDirty;
-    [ObservableProperty] private bool _hasConflict;
-    [ObservableProperty] private string? _validationMessage;
-    [ObservableProperty] private string? _warningMessage;
-    [ObservableProperty] private PeriodEditorItem? _selectedPeriod;
-    [ObservableProperty] private string _breakName = "Break";
-    [ObservableProperty] private int _breakMinutes = 20;
-    [ObservableProperty] private int _shiftMinutes;
-    public ObservableCollection<Timetable> Items { get; } = [];
-    public ObservableCollection<PeriodEditorItem> Periods { get; } = [];
-
-    public TimetableEditorViewModel(ISupabaseGateway gateway, ISyncService sync, ITimetableRepository repository, IWeekScheduleRepository week, IDateOverrideRepository overrides, IWindowService windows, IMessenger messenger)
-    { _gateway = gateway; _sync = sync; _repository = repository; _week = week; _overrides = overrides; _windows = windows; Periods.CollectionChanged += OnPeriodsChanged; messenger.Register(this); }
-
-    public TimetableEditorViewModel(ISupabaseGateway gateway, ISyncService sync, ITimetableRepository repository, IWeekScheduleRepository week, IDateOverrideRepository overrides, IClassRepository classes, IWindowService windows, IMessenger messenger)
-        : this(gateway, sync, repository, week, overrides, windows, messenger) => _classes = classes;
-
-    public async Task LoadAsync(CancellationToken token = default)
-    {
-        Guid? selectedId = Selected?.Id;
-        IReadOnlyList<Timetable> rows = await _repository.GetAllAsync(token);
-        _loading = true;
-        Items.Clear();
-        foreach (Timetable row in rows.OrderBy(x => x.Name)) Items.Add(row);
-        _loading = false;
-        Timetable? target = selectedId is { } id ? Items.FirstOrDefault(x => x.Id == id) : Items.FirstOrDefault();
-        Selected = target;
-        if (target is not null) Select(target);
-    }
-
-    partial void OnSelectedChanged(Timetable? value) { if (value is not null) Select(value); }
-    private void Select(Timetable value) { _loading = true; Name = value.Name; IsArchived = value.IsArchived; DetachPeriodHandlers(); Periods.Clear(); foreach (Period p in value.Periods.OrderBy(x => x.SortOrder)) Periods.Add(new() { Id = p.Id, Name = p.Name, Start = p.StartTime.ToTimeSpan(), End = p.EndTime.ToTimeSpan(), IsLesson = p.IsLesson, SortOrder = p.SortOrder }); IsDirty = false; HasConflict = false; ValidationMessage = null; _loading = false; }
-
-    /// <summary>Clear() raises a Reset with no OldItems, so discarded rows must be detached here or they keep marking the editor dirty.</summary>
-    private void DetachPeriodHandlers() { foreach (PeriodEditorItem item in Periods) item.PropertyChanged -= OnPeriodChanged; }
-    partial void OnNameChanged(string value) { if (!_loading) IsDirty = true; }
-    partial void OnIsArchivedChanged(bool value) { if (!_loading) IsDirty = true; }
-    private void OnPeriodsChanged(object? sender, NotifyCollectionChangedEventArgs args) { if (args.OldItems is not null) foreach (PeriodEditorItem item in args.OldItems) item.PropertyChanged -= OnPeriodChanged; if (args.NewItems is not null) foreach (PeriodEditorItem item in args.NewItems) item.PropertyChanged += OnPeriodChanged; if (!_loading) IsDirty = true; }
-    private void OnPeriodChanged(object? sender, PropertyChangedEventArgs args) { if (!_loading) IsDirty = true; }
-
-    [RelayCommand] private void NewTimetable() { Selected = new Timetable(Guid.NewGuid(), "New timetable", false, []); IsDirty = true; }
-    [RelayCommand] private void AddPeriod() { Periods.Add(new() { Id = Guid.NewGuid(), Name = "New period", Start = new(9, 0, 0), End = new(10, 0, 0), SortOrder = Periods.Count }); IsDirty = true; }
-    [RelayCommand] private void RemovePeriod(PeriodEditorItem item) { Periods.Remove(item); IsDirty = true; }
-    [RelayCommand] private void MoveUp(PeriodEditorItem item) { int index = Periods.IndexOf(item); if (index > 0) { Periods.Move(index, index - 1); IsDirty = true; } }
-    [RelayCommand] private void MoveDown(PeriodEditorItem item) { int index = Periods.IndexOf(item); if (index >= 0 && index < Periods.Count - 1) { Periods.Move(index, index + 1); IsDirty = true; } }
-    [RelayCommand]
-    private void InsertBreak(PeriodEditorItem after)
-    {
-        ValidationMessage = null;
-        int afterIndex = Periods.IndexOf(after);
-        if (afterIndex < 0) { ValidationMessage = "Select the period after which to insert the break."; return; }
-        if (BreakMinutes <= 0) { ValidationMessage = "Break length must be greater than zero minutes."; return; }
-        if (string.IsNullOrWhiteSpace(BreakName)) { ValidationMessage = "Break name is required."; return; }
-        if (!TryDelta(BreakMinutes, out TimeSpan delta)) return;
-
-        int shiftIndex = afterIndex + 1;
-        if (!TryPlanShift(shiftIndex, delta, validateSeam: false, out var shifted)) return;
-        TimeSpan start = after.End;
-        TimeSpan end = shifted.Length == 0 ? start + delta : shifted[0].Start;
-        if (!IsMinuteWithinDay(start) || !IsMinuteWithinDay(end) || end <= start)
-        {
-            ValidationMessage = "That break would cross midnight or leave an invalid period boundary.";
-            return;
-        }
-
-        var inserted = new PeriodEditorItem
-        {
-            Id = Guid.NewGuid(),
-            Name = UniquePeriodName(BreakName.Trim()),
-            Start = start,
-            End = end,
-            IsLesson = false,
-        };
-        _loading = true;
-        try
-        {
-            Periods.Insert(shiftIndex, inserted);
-            ApplyShift(shifted);
-            SelectedPeriod = inserted;
-        }
-        finally { _loading = false; }
-        IsDirty = true;
-    }
-
-    [RelayCommand]
-    private void ShiftLater(PeriodEditorItem? from)
-    {
-        ValidationMessage = null;
-        int index = from is null ? -1 : Periods.IndexOf(from);
-        if (index < 0) { ValidationMessage = "Select the period from which to shift later rows."; return; }
-        if (ShiftMinutes == 0) { ValidationMessage = "Shift must be a non-zero number of minutes."; return; }
-        if (!TryDelta(ShiftMinutes, out TimeSpan delta) || !TryPlanShift(index, delta, validateSeam: true, out var shifted)) return;
-
-        _loading = true;
-        try
-        {
-            ApplyShift(shifted);
-            if (index > 0) Periods[index - 1].End = shifted[0].Start;
-        }
-        finally { _loading = false; }
-        IsDirty = true;
-    }
-
-    private bool TryDelta(int minutes, out TimeSpan delta)
-    {
-        try { delta = TimeSpan.FromMinutes(minutes); return true; }
-        catch (OverflowException) { delta = default; ValidationMessage = "The requested number of minutes is too large."; return false; }
-    }
-
-    private bool TryPlanShift(int index, TimeSpan delta, bool validateSeam, out (PeriodEditorItem Item, TimeSpan Start, TimeSpan End)[] shifted)
-    {
-        shifted = Periods.Skip(index).Select(item => (item, item.Start + delta, item.End + delta)).ToArray();
-        if (shifted.Any(item => !IsMinuteWithinDay(item.Item2) || !IsMinuteWithinDay(item.Item3)))
-        {
-            ValidationMessage = "That shift would move a period outside 00:00–23:59.";
-            return false;
-        }
-        if (validateSeam && index > 0 && shifted.Length > 0 && shifted[0].Item2 <= Periods[index - 1].Start)
-        {
-            ValidationMessage = "That shift would leave the preceding period with an invalid end time.";
-            return false;
-        }
-        return true;
-    }
-
-    private static bool IsMinuteWithinDay(TimeSpan value) => value >= TimeSpan.Zero && value <= new TimeSpan(23, 59, 0);
-    private static void ApplyShift(IEnumerable<(PeriodEditorItem Item, TimeSpan Start, TimeSpan End)> shifted)
-    {
-        foreach (var item in shifted) { item.Item.Start = item.Start; item.Item.End = item.End; }
-    }
-    private string UniquePeriodName(string requested)
-    {
-        if (!Periods.Any(item => string.Equals(item.Name.Trim(), requested, StringComparison.OrdinalIgnoreCase))) return requested;
-        for (int suffix = 2; ; suffix++)
-        {
-            string candidate = $"{requested} ({suffix})";
-            if (!Periods.Any(item => string.Equals(item.Name.Trim(), candidate, StringComparison.OrdinalIgnoreCase))) return candidate;
-        }
-    }
-    [RelayCommand] private void MarkDirty() => IsDirty = true;
-    [RelayCommand] private void Cancel() { if (Selected is not null) Select(Selected); }
-    [RelayCommand]
-    private async Task ReloadAsync(CancellationToken token)
-    {
-        HasConflict = false;
-        IsDirty = false;
-        await LoadAsync(token);
-    }
-    [RelayCommand] private void Overwrite() => HasConflict = false;
-
-    [RelayCommand]
-    private async Task SaveAsync(CancellationToken token)
-    {
-        if (Selected is null) { ValidationMessage = "Select or create a timetable before saving."; return; }
-        if (!Validate()) return;
-        _ownWriteDepth++;
-        try
-        {
-            Guid org = await _gateway.GetCurrentOrganizationIdAsync(token);
-            var row = new TimetableRow(Selected.Id, org, Name.Trim(), IsArchived);
-            var periods = new List<PeriodRow>(Periods.Count);
-            for (int index = 0; index < Periods.Count; index++)
-            {
-                PeriodEditorItem p = Periods[index];
-                periods.Add(new PeriodRow(p.Id, Selected.Id, p.Name.Trim(), TimeOnly.FromTimeSpan(p.Start), TimeOnly.FromTimeSpan(p.End), index, p.IsLesson));
-            }
-            await _gateway.SaveTimetableAsync(row, periods, token);
-            await _sync.SyncTableAsync(CacheTable.Timetables, token); await _sync.SyncTableAsync(CacheTable.Periods, token); await LoadAsync(token); Timetable? saved = Items.FirstOrDefault(x => x.Id == row.Id); Selected = saved; if (saved is not null) Select(saved); IsDirty = false; HasConflict = false;
-        }
-        catch (DuplicateRowException) { ValidationMessage = "A timetable or period name is already used."; }
-        catch (ServerDeniedException) { ValidationMessage = "Your role changed."; _windows.CloseAdminWindow(); }
-        catch (ServerWriteException ex) { ValidationMessage = ex.Message; }
-        finally { _ownWriteDepth--; }
-    }
-
-    [RelayCommand]
-    private async Task DeleteAsync(CancellationToken token)
-    {
-        if (Selected is null) return;
-        List<string> used = [];
-        WeekSchedule week = await _week.GetAsync(token);
-        Dictionary<Guid, string> classNames = _classes is null
-            ? new Dictionary<Guid, string>()
-            : (await _classes.GetAllAsync(token)).ToDictionary(item => item.Id, item => item.Name);
-        foreach (WeekScheduleEntry entry in week.AllEntries.Where(entry => entry.TimetableId == Selected.Id))
-        {
-            string qualifier = entry.AudienceClassId is { } classId && classNames.TryGetValue(classId, out string? className)
-                ? $" ({className})"
-                : entry.AudienceClassId is not null ? " (class-specific)" : string.Empty;
-            used.Add($"{entry.Weekday}{qualifier}");
-        }
-        foreach (DateOverride item in await _overrides.GetAllAsync(token)) if (item.TimetableId == Selected.Id) used.Add(item.Date.ToString("d MMM", CultureInfo.CurrentCulture));
-        if (used.Count > 0) { ValidationMessage = $"Used by: {string.Join(", ", used)} — reassign first"; return; }
-        if (!_windows.Confirm($"Delete '{Selected.Name}' and all of its periods? This cannot be undone.", "Delete timetable")) return;
-        try { await _gateway.DeleteAsync(CacheTable.Timetables, Selected.Id, token); await _sync.SyncTableAsync(CacheTable.Timetables, token); await _sync.SyncTableAsync(CacheTable.Periods, token); Selected = null; await LoadAsync(token); }
-        catch (ReferencedRowException) { ValidationMessage = "This timetable became referenced remotely — reassign it first."; }
-        catch (ServerDeniedException) { ValidationMessage = "Your role changed."; _windows.CloseAdminWindow(); }
-    }
-
-    [RelayCommand] private async Task DuplicateAsync(CancellationToken token) { if (Selected is null) return; Timetable source = Selected; NewTimetable(); Name = source.Name + " copy"; Periods.Clear(); foreach (Period p in source.Periods.OrderBy(x => x.SortOrder)) Periods.Add(new() { Id = Guid.NewGuid(), Name = p.Name, Start = p.StartTime.ToTimeSpan(), End = p.EndTime.ToTimeSpan(), IsLesson = p.IsLesson, SortOrder = p.SortOrder }); await SaveAsync(token); }
-    [RelayCommand] private async Task ToggleArchiveAsync(CancellationToken token) { IsArchived = !IsArchived; await SaveAsync(token); }
-
-    public bool Validate()
-    {
-        ValidationMessage = null; WarningMessage = null;
-        if (string.IsNullOrWhiteSpace(Name)) { ValidationMessage = "Timetable name is required."; return false; }
-        if (Items.Any(x => x.Id != Selected?.Id && string.Equals(x.Name, Name.Trim(), StringComparison.OrdinalIgnoreCase))) { ValidationMessage = "A timetable with this name already exists."; return false; }
-        if (Periods.Any(x => x.End <= x.Start)) { ValidationMessage = "Every period must end after it starts."; return false; }
-        if (Periods.GroupBy(x => x.Name.Trim(), StringComparer.OrdinalIgnoreCase).Any(x => x.Count() > 1)) { ValidationMessage = "Period names must be unique within a timetable."; return false; }
-        PeriodEditorItem[] ordered = Periods.OrderBy(x => x.Start).ToArray(); if (ordered.Zip(ordered.Skip(1)).Any(pair => pair.First.End > pair.Second.Start)) WarningMessage = "Some periods overlap. Saving is allowed.";
-        return true;
-    }
-    public void Receive(DataChanged message)
-    {
-        if (message.Table is not (CacheTable.Timetables or CacheTable.Periods) || _ownWriteDepth > 0) return;
-        void ApplyChange()
-        {
-            if (IsDirty) HasConflict = true;
-            else _ = LoadAsync();
-        }
-
-        UiDispatch.Run(ApplyChange);
     }
 }
 

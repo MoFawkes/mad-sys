@@ -10,6 +10,8 @@ obj/
 TestResults/
 coverage/
 artifacts/
+output/
+tmp/
 .env
 .env.*
 !.env.example

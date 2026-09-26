@@ -5,6 +5,7 @@ import {
   getOrganization,
   getStudentPreferences,
   loadScheduleSnapshot,
+  recordNotificationScheduleSnapshot,
 } from '@/src/data/repositories';
 import { getSupabaseClient } from '@/src/data/sessionStore';
 import {
@@ -179,6 +180,22 @@ async function reconcileScheduledNotificationsCore(
       body: request.content.body ?? null,
     }));
   const diff = diffScheduledNotifications(desired, ours);
+
+  await recordNotificationScheduleSnapshot(JSON.stringify({
+    desired: desired.map((item) => ({
+      identifier: item.identifier,
+      triggerTime: item.triggerTime.toISOString(),
+      title: item.title,
+      body: item.body,
+      kind: item.kind,
+    })),
+    actual: ours.map((item) => ({
+      ...item,
+      triggerTime: item.triggerTimeMs == null
+        ? null
+        : new Date(item.triggerTimeMs).toISOString(),
+    })),
+  }));
 
   await Promise.all(
     diff.cancel.map((identifier) =>

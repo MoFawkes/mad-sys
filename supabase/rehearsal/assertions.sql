@@ -4,14 +4,141 @@
 -- production_state.sql.
 -- Every failure raises, which fails the psql run via ON_ERROR_STOP.
 
--- Migration history took the incremental path: all ten versions recorded.
+-- Migration history took the incremental path: all sixteen versions recorded,
+-- including the four generator migrations already applied to the hosted estate.
 do $$
 declare versions text;
 begin
     select string_agg(version, ',' order by version) into versions
     from supabase_migrations.schema_migrations;
-    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000,20260807110000,20260807120000' then
+    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000,20260807110000,20260807120000,20260826214012,20260826225951,20260827204758,20260827223000,20260925173216,20260925173217' then
         raise exception 'Unexpected migration history: %', versions;
+    end if;
+end $$;
+
+-- v0.15 automation is installed without converting legacy timetable rows.
+do $$
+begin
+    if to_regprocedure('public.admin_save_generated_timetable(uuid,jsonb)') is null
+       or to_regprocedure('public.admin_disable_generated_timetable(uuid)') is null
+       or to_regprocedure('public.admin_bulk_upsert_anchor_date_overrides(uuid,jsonb)') is null
+       or to_regprocedure('public.admin_save_prayer_fixed_times(jsonb,date)') is null
+       or to_regprocedure('public.admin_preview_generated_timetable(uuid,jsonb,date)') is null then
+        raise exception 'Generator admin write RPCs are not installed';
+    end if;
+    if to_regclass('public.timetable_generator_blocks') is not null
+       or to_regclass('public.timetable_generator_anchors') is not null then
+        raise exception 'Discarded generator authoring tables were installed';
+    end if;
+    if (select count(*) from public.organization_anchors) <> 8 then
+        raise exception 'Generator migration did not backfill four anchors for both organizations';
+    end if;
+    if (select count(*) from public.periods where timetable_id = '00000000-0000-0000-0000-000000000100') <> 3 then
+        raise exception 'Generator migrations changed the released legacy timetable';
+    end if;
+    if exists (select 1 from public.timetables where is_generated)
+       or exists (select 1 from public.timetable_generators) then
+        raise exception 'Generator migration converted a timetable without teacher opt-in';
+    end if;
+    if to_regprocedure('public.run_generator_maintenance(uuid)') is null then
+        raise exception 'run_generator_maintenance(uuid) is missing';
+    end if;
+    if to_regprocedure('public.admin_regenerate_generated_timetables()') is null then
+        raise exception 'admin_regenerate_generated_timetables() is missing';
+    end if;
+    if to_regprocedure('private.generator_maintenance(uuid)') is null then
+        raise exception 'private.generator_maintenance(uuid) is missing';
+    end if;
+    if has_function_privilege('authenticated', 'public.run_generator_maintenance(uuid)', 'execute') then
+        raise exception 'authenticated can execute the service-only maintenance RPC';
+    end if;
+    if not has_function_privilege('service_role', 'public.run_generator_maintenance(uuid)', 'execute') then
+        raise exception 'service_role cannot execute the scheduled maintenance RPC';
+    end if;
+    if has_function_privilege('service_role', 'public.admin_regenerate_generated_timetables()', 'execute') then
+        raise exception 'service_role can execute the admin-only maintenance RPC';
+    end if;
+end $$;
+
+-- Forward transition removed every direct-write policy/grant and every old
+-- overload. RPC validation is the only authenticated write path.
+do $$
+declare
+    duplicate_name text;
+begin
+    if exists (
+        select 1
+        from pg_policies
+        where schemaname = 'public'
+          and tablename in (
+              'organization_anchors', 'anchor_standing_times',
+              'anchor_date_overrides', 'timetable_generators')
+          and (cmd <> 'SELECT' or policyname ~ '_(insert|update|delete)_admin$')
+    ) then
+        raise exception 'A legacy generator write policy survived the forward transition';
+    end if;
+
+    if exists (
+        select 1
+        from information_schema.role_table_grants
+        where table_schema = 'public'
+          and table_name in (
+              'organization_anchors', 'anchor_standing_times',
+              'anchor_date_overrides', 'timetable_generators')
+          and grantee = 'authenticated'
+          and privilege_type <> 'SELECT'
+    ) then
+        raise exception 'authenticated retained a direct generator table write grant';
+    end if;
+
+    if exists (
+        select 1
+        from information_schema.role_table_grants
+        where table_schema = 'public'
+          and table_name in (
+              'organization_anchors', 'anchor_standing_times',
+              'anchor_date_overrides', 'timetable_generators',
+              'generator_maintenance_runs')
+          and grantee = 'anon'
+    ) then
+        raise exception 'anon retained a generator table privilege';
+    end if;
+
+    select function_name into duplicate_name
+    from (
+        select procedure.proname as function_name, count(*) as overloads
+        from pg_proc procedure
+        join pg_namespace namespace on namespace.oid = procedure.pronamespace
+        where namespace.nspname in ('public', 'private')
+          and procedure.proname in (
+              'admin_preview_generated_timetable',
+              'admin_save_generated_timetable',
+              'admin_disable_generated_timetable',
+              'admin_bulk_upsert_anchor_date_overrides',
+              'admin_save_prayer_fixed_times',
+              'admin_regenerate_generated_timetables',
+              'run_generator_maintenance',
+              'generator_maintenance',
+              'expand_generated_timetable',
+              'expand_timetable_shape',
+              'apply_generator_anchors',
+              'generated_periods_json',
+              'generator_guid_sort_key',
+              'generator_add_minutes',
+              'generator_stable_id')
+        group by procedure.proname
+        having count(*) > 1
+    ) duplicates
+    limit 1;
+    if duplicate_name is not null then
+        raise exception 'Generator function overload survived for %', duplicate_name;
+    end if;
+
+    if to_regprocedure(
+        'public.admin_save_generated_timetable(uuid,jsonb,jsonb,uuid[],jsonb)') is not null
+       or to_regprocedure(
+        'public.admin_preview_generated_timetable(uuid,jsonb,jsonb,uuid[])') is not null then
+        raise exception 'An old generator entry-point signature survived';
     end if;
 end $$;
 

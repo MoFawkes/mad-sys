@@ -158,6 +158,8 @@ export async function wipeCache(): Promise<void> {
     }
     await transaction.runAsync('DELETE FROM sync_state');
     await transaction.runAsync('DELETE FROM notification_log');
+    await transaction.runAsync('DELETE FROM notification_delivery');
+    await transaction.runAsync('DELETE FROM notification_schedule_snapshot');
     await transaction.runAsync('DELETE FROM announcement_read');
     await transaction.runAsync('DELETE FROM student_preferences');
     await transaction.runAsync('DELETE FROM meta');
