@@ -130,7 +130,9 @@ Supabase Postgres --initial/reconnect pull--> SQLite cache --repositories--> Sch
 ## 6. Synchronisation and conflict rules
 
 ### Connectivity state machine
-`Online ⇄ Offline` with `Syncing` as a transient. Detection: Realtime socket state + failure/success of Supabase calls + a 30 s heartbeat re-check while offline (exponential backoff capped at 5 min, plus immediate retry on Windows `NetworkAddressChanged`).
+`Online ⇄ Offline` with `Syncing` as a transient. Detection: Realtime socket state + failure/success of Supabase calls. While healthy, a 5-minute heartbeat re-checks the session and Realtime subscription (Realtime already pushes changes, so this is a low-cost keepalive, not the primary sync path — see egress note below). On failure it retries with the tighter 30 s-based backoff, capped at 5 min, plus immediate retry on Windows `NetworkAddressChanged`.
+
+**Egress note:** the heartbeat previously forced a full `select=*` snapshot pull of every table every 30 seconds, on every device, indefinitely — a per-device baseline of ~2,880 full multi-table pulls/day regardless of whether anything changed, which dominates PostgREST egress as device count grows. Realtime is already relied on as the change signal (§ below), so the heartbeat's healthy-path pull was pure redundancy; it now only fires every 5 minutes as a drift-correction safety net.
 
 ### Sync algorithm (snapshot pull — see DECISIONS.md ADR-008)
 Data volume is tiny (KBs), so sync is a **full snapshot pull per table**, not delta sync:

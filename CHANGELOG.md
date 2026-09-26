@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased - 0.15.0
 
+### Fixed
+
+- Stopped the desktop heartbeat from forcing a full `select=*` snapshot pull of every synced table every 30 seconds while the connection is healthy; it now re-checks the session and Realtime subscription on that cadence and only performs the full drift-correction pull every 5 minutes, cutting steady-state per-device PostgREST egress roughly tenfold. Realtime already re-pulls the affected table on any change, so this removed pure redundancy rather than a needed sync path; failure-recovery retries keep the existing fast 30 s → 5 min backoff.
+
 ### Added
 
 - Added a six-field automatic timetable form with a date-selectable server preview, derived prayer/Naseehah placement, exact restoration of the original hand-authored periods, and cross-class clock-label warnings.

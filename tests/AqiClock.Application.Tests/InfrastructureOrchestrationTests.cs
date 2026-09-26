@@ -611,6 +611,29 @@ public sealed class InfrastructureOrchestrationTests
     }
 
     [Fact]
+    public async Task HealthyHeartbeatUsesLongPollIntervalInsteadOfThirtySeconds()
+    {
+        var gateway = new FakeGateway();
+        var time = new FakeTimeProvider();
+        await using var service = CreateSyncService(gateway, timeProvider: time);
+
+        await service.StartAsync();
+        int initialPulls = gateway.PullCounts.Values.Sum();
+
+        time.Advance(TimeSpan.FromSeconds(30));
+        await Task.Yield();
+        Assert.Equal(initialPulls, gateway.PullCounts.Values.Sum());
+
+        time.Advance(TimeSpan.FromMinutes(5) - TimeSpan.FromSeconds(30));
+        await WaitUntilAsync(
+            () => gateway.PullCounts.Values.Sum() > initialPulls,
+            "the 5-minute healthy heartbeat to run its drift-correction pull",
+            () => $"pulls={gateway.PullCounts.Values.Sum()}");
+
+        Assert.Equal(ConnectivityState.Online, service.State);
+    }
+
+    [Fact]
     public async Task HeartbeatSurvivesUnexpectedRefreshFailure()
     {
         var gateway = new FakeGateway();

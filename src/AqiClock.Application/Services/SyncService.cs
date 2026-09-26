@@ -27,6 +27,7 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
     private readonly SemaphoreSlim _syncGate = new(1, 1);
     private readonly SemaphoreSlim _subscriptionGate = new(1, 1);
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
+    private static readonly TimeSpan DefaultHealthyPollInterval = TimeSpan.FromMinutes(5);
     private readonly TimeSpan _heartbeatInterval;
     private readonly bool _usesDefaultHeartbeat;
     private CancellationTokenSource? _lifetime;
@@ -271,11 +272,21 @@ public sealed partial class SyncService : ISyncService, IRecipient<SessionChange
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            int delayStep = Math.Max(1, _failures);
-            TimeSpan delay = BackoffPolicy.GetDelay(
-                delayStep,
-                _heartbeatInterval,
-                _usesDefaultHeartbeat ? TimeSpan.FromMinutes(5) : TimeSpan.FromTicks(_heartbeatInterval.Ticks * 16));
+            TimeSpan delay;
+            if (_failures == 0)
+            {
+                // Realtime delivers changes as they happen; while healthy this tick is only a
+                // session/subscription health check, so it can run far less often than the fast
+                // retry cadence below needs during an actual outage.
+                delay = _usesDefaultHeartbeat ? DefaultHealthyPollInterval : _heartbeatInterval;
+            }
+            else
+            {
+                delay = BackoffPolicy.GetDelay(
+                    _failures,
+                    _heartbeatInterval,
+                    _usesDefaultHeartbeat ? TimeSpan.FromMinutes(5) : TimeSpan.FromTicks(_heartbeatInterval.Ticks * 16));
+            }
             try
             {
                 await Task.Delay(delay, timeProvider, cancellationToken).ConfigureAwait(false);
