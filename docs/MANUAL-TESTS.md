@@ -731,3 +731,46 @@ were deleted and production was re-queried with zero test rows remaining.
 4. Only then create or announce class-specific rows. The first second row for a weekday makes older clients' weekday-primary-key cache fail and freeze at its last good snapshot.
 
 Verify a default plus class row on one weekday, a closed matching track, deterministic multiple-match selection, and teacher/default versus student/track clock and toast behaviour.
+
+## v0.15.0 timetable automation — teacher acceptance
+
+Run all fourteen rows on the release candidate. Record build/version, tester, date, and PASS/FAIL evidence for each row.
+
+1. Create a timetable. Confirm automatic lesson times starts enabled; enter 17:50, 6 lessons, 25 minutes, no break, prayer adjustment on. Preview and save once. Confirm the clock uses the saved rows.
+2. Add a 25-minute break after lesson 4. Confirm lessons remain numbered 1–6 and the break sits between lessons 4 and 5.
+3. Turn prayer adjustment off. Confirm prayer rows and Naseehah vanish and lessons run back-to-back; turn it on and confirm they return.
+4. Enter 09:10, 8 lessons, 30 minutes, break after 4. Confirm the break is named `Break / Naseehah` without any separate Naseehah control.
+5. Open an existing hand-authored timetable. Confirm it remains manual and that add, reorder, delete, interruption reflow, and Save still work.
+6. Record an existing timetable's ids, names, times, order, and lesson flags. Enable automatic times, confirm the single replacement prompt, and save.
+7. Disable automatic times and confirm the exact rows recorded in row 6 return and are editable; no prayer or `(part 1)` rows remain.
+8. Change Preview day to next Friday and confirm Jumu'ah placement. Return to today and confirm no setting or stored period changed merely from previewing.
+9. On Prayer times, paste the selected month's complete Maghrib list, Check, and Save. Return to a PM timetable and confirm its Maghrib row moved.
+10. Paste a full month with one malformed line. Confirm the error identifies the day and no row from that attempt is saved.
+11. Set Friday Jumu'ah to 12:58 / 30 minutes with Applies from today and confirm a Friday preview uses it. Clear the length and confirm the timetable shows the Jumu'ah warning instead of saving an unusable expansion.
+12. Set Applies from to next month and change Isha. Confirm today's preview is unchanged and a preview date after the effective date uses the new time.
+13. Leave Maghrib coverage ending within 30 days. Confirm the timetable shows one plain-language expiry warning directing the teacher to Prayer times.
+14. Disconnect the network. Confirm Admin editing is unavailable through the existing offline state while the clock continues from cache.
+
+Throughout rows 1–14, confirm the UI does not expose the terms *block*, *anchor*, *session kind*, *naming pattern*, *conversion*, *regenerate*, *maintenance*, or *worker*.
+
+**Acceptance record — 2026-09-26:** PASS, rows 1–14. Owner with Codex-driven local UI verification on
+`0.14.2-dev.6+6e17f80c8fc394c5ea1f1f233cb9271712e64374`; Windows executable SHA-256
+`7A82D41CE045A43887B6C522EB5D4EDEBFF5E266FD98DDC14B739089B8E150C7`. Rows 1–10 and 12 passed in the
+initial run. Row 11 was repeated after the nullable editor and fixed-time RPC corrections: the screen exposed
+only Asr, Isha, and Friday Jumu'ah; clearing the Jumu'ah length saved successfully, PostgreSQL stored SQL
+`NULL` rather than zero, and the timetable displayed the Friday warning. Row 13 displayed
+`Prayer times are only entered up to 06 Oct. Add the next month's times on the Prayer times screen.` and the
+same warning remained after closing and reopening Admin, which reran regeneration. For row 14, pausing the
+local Supabase gateway left the clock ticking from cached data, changed Admin to the existing
+`Editing is unavailable while offline.` read-only state, and recovered both screens after the gateway resumed.
+Opening Admin against the paused gateway returned in 8.0 seconds without a dispatcher crash; the acceptance
+log contained the expected handled heartbeat timeout and no `Unhandled UI exception` after the test baseline.
+
+## v0.15.0 timetable automation rollout gate
+
+1. Back up and identify the target project. Confirm its migration history includes the four applied generator migrations through `20260827223000`; never delete, replace, or repair those hosted history rows.
+2. Rehearse a clean `supabase db reset` and run the full RLS/gateway suite. Separately reset through `20260827223000`, load `supabase/rehearsal/generator_state.sql`, apply the two forward migrations, and run `generator_forward_assertions.sql`. Also run the older v0.9.6 production-like path with `production_state.sql` and `assertions.sql`.
+3. Prove the transition fails closed with `generator_guard_state.sql`. Then rehearse `supabase/rollback/v0_15_generator_down.sql` from the hosted-equivalent migrated state and run `generator_rollback_assertions.sql`; the released manual save/audit behavior must work and migration-history rows must remain untouched.
+4. Apply the forward migrations, but leave every existing timetable manual. Before any v0.15 client rollout, verify a v0.14.1 desktop can still edit a non-generated timetable and v0.14.x mobile can pull ordinary generated `periods`.
+5. Deploy and verify the maintenance Worker against that migrated project.
+6. Only after steps 1–5 pass, create the v0.15 tag and publish the desktop release. Upgrade administrator desktops, then let a teacher opt the first timetable in. Complete rows 1–14 before wider conversion.

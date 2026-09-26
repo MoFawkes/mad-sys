@@ -175,3 +175,64 @@ jobs:
 
       - name: Run the full matrix against the incrementally migrated database
         run: dotnet test tests/AqiClock.SupabaseTests/AqiClock.SupabaseTests.csproj --configuration Release --no-restore
+
+      - name: Reset to the hosted generator baseline
+        run: supabase db reset --local --yes --no-seed --version 20260827223000
+
+      - name: Load hosted-equivalent generator data
+        shell: bash
+        run: |
+          eval "$(supabase status -o env)"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/rehearsal/generator_state.sql
+
+      - name: Apply the v0.15 forward transition
+        run: supabase migration up --local
+
+      - name: Assert generator data, policies and signatures survived correctly
+        shell: bash
+        run: |
+          eval "$(supabase status -o env)"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/rehearsal/generator_forward_assertions.sql
+
+      - name: Rehearse logical rollback to the pre-generator schema
+        shell: bash
+        run: |
+          eval "$(supabase status -o env)"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/rollback/v0_15_generator_down.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/rehearsal/generator_rollback_assertions.sql
+
+      - name: Reset to the hosted generator baseline for the guard case
+        run: supabase db reset --local --yes --no-seed --version 20260827223000
+
+      - name: Prove the forward transition fails closed with generated data
+        shell: bash
+        run: |
+          eval "$(supabase status -o env)"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/rehearsal/generator_guard_state.sql
+          set +e
+          output="$(supabase migration up --local 2>&1)"
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          if [ "$status" -eq 0 ]; then
+            echo "Forward migration unexpectedly succeeded with a generated timetable" >&2
+            exit 1
+          fi
+          if ! grep -q "Cannot simplify timetable automation while old generator data exists" <<< "$output"; then
+            echo "Forward migration failed for an unexpected reason" >&2
+            exit 1
+          fi
+          psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+              if exists (
+                  select 1 from supabase_migrations.schema_migrations
+                  where version = '20260925173216'
+              ) then
+                  raise exception 'Failed forward migration was recorded';
+              end if;
+              if to_regclass('public.timetable_generator_blocks') is null then
+                  raise exception 'Failed forward migration discarded old tables';
+              end if;
+          end $$;
+          SQL

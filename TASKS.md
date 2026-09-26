@@ -137,9 +137,15 @@ Ordered by implementation dependency: each phase builds only on the phases above
 ### Next teacher meeting — scheduling workflow
 
 - [x] Implement automatic Naseehah and Salah timing through reusable organisation anchors.
-- [x] Implement generated timetable creation from blocks, start time, lesson length, and selected anchors.
-- [x] Keep anchors fixed while teaching rows split/reflow without losing teaching minutes.
-- [x] Ship the interim schema-free interruption reflow tool for v0.14.0; keep the full block/anchor generator discussion for v0.15.0.
+- [x] Implement generated timetable creation from a six-field shape; derive session, lesson names, prayer selection, and Naseehah placement.
+- [x] Keep organisation prayer times fixed while teaching rows split/reflow without losing teaching minutes.
+- [x] Ship the interim schema-free interruption reflow tool for v0.14.0, then replace the unreleased block/anchor editor with the simple v0.15.0 form.
+- [x] Add Maghrib month paste and fixed Asr/Isha/Friday Jumu'ah editing on an organisation-level Prayer times screen.
+- [x] Make generated saves server-authoritative and restore the exact pre-conversion period snapshot when automation is disabled.
+- [x] Run the proposed two-file v0.15 baseline through clean-reset and rollback rehearsal; this did not cover the subsequently discovered applied `20260826/27` generator migrations.
+- [x] Restore the four generator migrations already applied through `20260827223000`, rewrite the v0.15 simplification as a guarded forward migration, and rerun the true production-baseline/rollback rehearsal.
+- [x] Complete the fourteen-row v0.15 teacher acceptance checklist.
+- [ ] Complete the v0.14.1 compatibility rollout gate before deploying v0.15.
 - [x] v0.15.0: add durable delivery and schedule-snapshot diagnostics export; then
   use the live-term class switch from 25 August to re-run the full delivered-
   notification portion of `MOB-T06` without relying on Android's 24-hour UI.

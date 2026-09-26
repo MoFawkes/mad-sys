@@ -1,5 +1,6 @@
 namespace AqiClock.Application.Abstractions;
 
+using AqiClock.Domain.Scheduling;
 using System.Text.Json.Nodes;
 
 public sealed record TableChangeSignal(CacheTable Table);
@@ -41,45 +42,43 @@ public interface ISupabaseGateway
         Task.FromException<string>(new NotSupportedException());
     Task<int> RevokeStudentDevicesAsync(CancellationToken cancellationToken = default) =>
         Task.FromException<int>(new NotSupportedException());
-    Task<GeneratorAuthoringSnapshot> GetGeneratorAuthoringAsync(Guid timetableId, CancellationToken cancellationToken = default) =>
-        Task.FromException<GeneratorAuthoringSnapshot>(new NotSupportedException());
-    Task<AnchorConfigurationSnapshot> GetAnchorConfigurationAsync(CancellationToken cancellationToken = default) =>
-        Task.FromException<AnchorConfigurationSnapshot>(new NotSupportedException());
+    Task<TimetableShape?> GetTimetableShapeAsync(Guid timetableId, CancellationToken cancellationToken = default) =>
+        Task.FromException<TimetableShape?>(new NotSupportedException());
+    Task<PrayerTimesSnapshot> GetPrayerTimesAsync(DateOnly month, CancellationToken cancellationToken = default) =>
+        Task.FromException<PrayerTimesSnapshot>(new NotSupportedException());
+    Task<PrayerTimesSnapshot> GetPrayerTimesAsync(DateOnly firstMonth, DateOnly lastMonth,
+        CancellationToken cancellationToken = default) =>
+        GetPrayerTimesAsync(firstMonth, cancellationToken);
     Task<GeneratorMaintenanceRun> RegenerateGeneratedTimetablesAsync(CancellationToken cancellationToken = default) =>
         Task.FromException<GeneratorMaintenanceRun>(new NotSupportedException());
     Task<GeneratorMaintenanceRun?> GetLatestGeneratorMaintenanceRunAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<GeneratorMaintenanceRun?>(null);
-    Task SaveGeneratedTimetableAsync(Guid timetableId, GeneratorDefinitionWrite definition,
-        IReadOnlyList<GeneratorBlockWrite> blocks, IReadOnlyList<Guid> anchorIds,
-        IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default) =>
-        Task.FromException(new NotSupportedException());
+    Task<IReadOnlyList<PeriodRow>> SaveGeneratedTimetableAsync(Guid timetableId, TimetableShape shape,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<IReadOnlyList<PeriodRow>>(new NotSupportedException());
+    Task<IReadOnlyList<PeriodRow>> DisableGeneratedTimetableAsync(Guid timetableId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<IReadOnlyList<PeriodRow>>(new NotSupportedException());
     Task<GeneratorServerPreview> PreviewGeneratedTimetableAsync(Guid timetableId,
-        GeneratorDefinitionWrite definition, IReadOnlyList<GeneratorBlockWrite> blocks,
-        IReadOnlyList<Guid> anchorIds, CancellationToken cancellationToken = default) =>
+        TimetableShape shape, DateOnly previewDate, CancellationToken cancellationToken = default) =>
         Task.FromException<GeneratorServerPreview>(new NotSupportedException());
     Task<int> BulkUpsertAnchorDateOverridesAsync(Guid anchorId,
         IReadOnlyList<AnchorDateOverrideWrite> rows, CancellationToken cancellationToken = default) =>
         Task.FromException<int>(new NotSupportedException());
-    Task SaveAnchorStandingTimeAsync(AnchorStandingTime row, bool isNew, CancellationToken cancellationToken = default) =>
-        Task.FromException(new NotSupportedException());
-    Task SaveAnchorDateOverrideAsync(AnchorDateOverride row, bool isNew, CancellationToken cancellationToken = default) =>
-        Task.FromException(new NotSupportedException());
+    Task<int> SavePrayerFixedTimesAsync(IReadOnlyList<PrayerFixedTimeWrite> rows, DateOnly effectiveFrom,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<int>(new NotSupportedException());
     Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default);
     Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default);
 }
 
 public sealed record AuditEntry(long Id, Guid? ActorId, string Action, string EntityType, Guid EntityId, JsonObject? Before, JsonObject? After, DateTimeOffset CreatedAt);
-public sealed record TimetableGeneratorDefinition(Guid TimetableId, Guid OrgId, string SessionKind, TimeOnly DayStart, TimeOnly? AdvisoryDayEnd, string NamingPattern);
-public sealed record TimetableGeneratorBlock(Guid Id, Guid TimetableId, Guid OrgId, int SortOrder, string BlockKind, string? Name, int? LessonCount, int? LessonMinutes, int? BreakMinutes, bool HostsNaseehah);
-public sealed record TimetableGeneratorAnchor(Guid TimetableId, Guid AnchorId, Guid OrgId);
 public sealed record OrganizationAnchor(Guid Id, Guid OrgId, string Key, string Name, int SortOrder);
 public sealed record AnchorStandingTime(Guid Id, Guid OrgId, Guid AnchorId, int? Weekday, TimeOnly StartTime, int? DurationMinutes, DateOnly EffectiveFrom);
 public sealed record AnchorDateOverride(Guid Id, Guid OrgId, Guid AnchorId, DateOnly Date, TimeOnly? StartTime, int? DurationMinutes, bool IsCancelled);
 public sealed record GeneratorMaintenanceRun(Guid Id, Guid OrgId, DateTimeOffset StartedAt, long DurationMs, DateOnly RegeneratedDate, int TimetablesWritten, string? Error);
-public sealed record GeneratorAuthoringSnapshot(TimetableGeneratorDefinition? Definition, IReadOnlyList<TimetableGeneratorBlock> Blocks, IReadOnlyList<TimetableGeneratorAnchor> Anchors);
-public sealed record AnchorConfigurationSnapshot(IReadOnlyList<OrganizationAnchor> Anchors, IReadOnlyList<AnchorStandingTime> StandingTimes, IReadOnlyList<AnchorDateOverride> DateOverrides);
-public sealed record GeneratorDefinitionWrite(string SessionKind, TimeOnly DayStart, TimeOnly? AdvisoryDayEnd, string NamingPattern);
-public sealed record GeneratorBlockWrite(Guid Id, int SortOrder, string BlockKind, string? Name, int? LessonCount, int? LessonMinutes, int? BreakMinutes, bool HostsNaseehah);
+public sealed record PrayerTimesSnapshot(IReadOnlyList<OrganizationAnchor> Anchors, IReadOnlyList<AnchorStandingTime> StandingTimes, IReadOnlyList<AnchorDateOverride> DateOverrides);
+public sealed record PrayerFixedTimeWrite(string AnchorKey, TimeOnly StartTime, int? DurationMinutes, int? Weekday = null);
 public sealed record AnchorDateOverrideWrite(DateOnly Date, TimeOnly? StartTime, int? DurationMinutes, bool IsCancelled = false);
 public sealed record GeneratorServerPreview(DateOnly Date, IReadOnlyList<PeriodRow> Periods);
 

@@ -169,6 +169,17 @@ Idempotency is the primary correctness property. Running maintenance twice for t
 Consequences: if all maintenance paths stop, clients retain the last valid timetable and prayer times drift gradually rather than disappearing. Daily rewrites add generator noise to `audit_log`, so the default Recent-changes view should filter those writes while retaining them as history. Previewing a future date expands on demand through the pure generator instead of reading stored variants.
 
 Rejected: ADR-028's dated variants through `date_overrides`, because the real v0.14.0 compatibility test rendered the wrong audience; runtime client reflow, because installed clients would not perform it; a minimum-version-gated variant system in v0.15.0, because the fleet update path is not yet proven; desktop-only triggering, because unattended daily maintenance is required; `pg_cron`, because it is not provisioned and the tier decision is outside this release; and multiple Worker-orchestrated calls, because regeneration and evidence must commit atomically.
+## ADR-030: Reduce timetable automation to teacher-owned shape and organisation prayer times
+**Accepted** 2026-09-25.
+
+The unreleased block list, timetable-to-anchor join table, session kind, naming pattern, and advisory end are replaced by a scalar timetable shape: start, lesson count, lesson minutes, optional break position/length, and prayer-adjustment flag. Session, lesson names, applicable anchors, and Naseehah placement are derived. The organisation Prayer times screen exposes only full-month Maghrib paste plus standing Asr, Isha, and Friday Jumu'ah under one effective date.
+
+Generated saves submit no period rows. PostgreSQL expands the shape and writes and returns the authoritative rows atomically; preview is a pure function bounded to the organisation's today through today + 366 days. Existing timetables remain manual until a teacher opts in. The first opt-in captures `pre_conversion_periods`; generated rows are read-only, so disabling automation can restore that snapshot exactly.
+
+This amends ADR-027's authoring model and ADR-029's visible maintenance controls without changing their compatibility choice: ordinary `periods` remain the wire format and unattended daily in-place regeneration remains. The C# engine stays as preview/parity code because its fixture comparison is the guard against the duplicated 10-minute prayer and 15-minute Naseehah constants drifting from SQL.
+
+Rejected: retaining the general schema behind a simpler UI, because it preserves two authoring models and a write-then-rollback preview; Maghrib-only configuration without standing prayers, because Asr, Isha, and Friday Jumu'ah are required for valid expansion; rollout conversion, because existing hand-authored timetables must remain untouched until a teacher chooses automation.
+
 ## Audience week-schedule follow-ups
 
 - Teacher preview of a non-default track needs a separate persisted `PreviewClassIds` concept and UI; it must not reuse student audience selection because that changes announcement visibility.

@@ -74,7 +74,7 @@ Single-instance enforcement: named mutex; a second launch activates the existing
 | `AnnouncementsView` | `AnnouncementsViewModel` | List + unread; admin compose section when role=Admin |
 | `SignInWindow` | `SignInViewModel` | Email/password |
 | `SettingsWindow` | `SettingsViewModel` | Local settings |
-| `AdminWindow` (tabbed) | `AdminViewModel` + child VMs: `TimetableEditorViewModel`, `WeekScheduleViewModel`, `OverridesViewModel`, `AuditViewModel`, `UsersViewModel` | Only reachable when role=Admin |
+| `AdminWindow` (tabbed) | `AdminViewModel` + child VMs: `TimetableEditorViewModel`, `PrayerTimesViewModel`, `WeekScheduleViewModel`, `OverridesViewModel`, `AuditViewModel`, `UsersViewModel` | Only reachable when role=Admin |
 
 Navigation: window-based (no frame navigation). A `WindowService` abstraction opens/activates windows so ViewModels stay testable.
 
@@ -111,7 +111,7 @@ All computation uses **local wall-clock time** in the organisation's timezone; p
 
 ## 5. Data flow
 
-Generated definitions are previewed by the pure C# engine. Save and conversion fetch a server preview; any C#/SQL difference requires explicit re-review, while the save RPC independently re-expands and treats submitted rows as an assertion. Daily unattended maintenance is Cloudflare Worker Cron (02:17 UTC) → one service-role PostgREST RPC → one PostgreSQL transaction. It regenerates ordinary period rows in place for the organisation-local date, preserving shipped-client compatibility.
+The desktop sends a six-value `TimetableShape` to a pure, date-selectable preview RPC. On Save it sends that shape again, never period rows; PostgreSQL expands and persists the authoritative result in one transaction and returns it. The C# expansion remains as a preview/parity implementation, guarded against SQL drift by `SqlExpansionMatchesDomainFixtures`. Daily unattended maintenance is Cloudflare Worker Cron (02:17 UTC) → one service-role PostgREST RPC → one PostgreSQL transaction. It regenerates ordinary period rows in place for the organisation-local date, preserving shipped-client compatibility.
 
 The admin clash detector remains C#-only. It compares concurrently selectable generated timetables resolved through class-specific `week_schedule` rows and warns when overlapping `(name,start,end)` labels differ. Identical labels and shared timetables are silent.
 

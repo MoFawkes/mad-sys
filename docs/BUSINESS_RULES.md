@@ -84,10 +84,13 @@ Same rules as a restart (rule 6): the app detects the time jump within a second,
 
 ## Generated timetable rules
 
-- Admins author lesson/break blocks plus organisation prayer anchors; expanded `periods` are read-only wire-format rows.
+- Admins author first lesson time, lesson count/length, an optional single break, and whether prayer adjustment is enabled. Session, lesson names, applicable organisation prayers, and Naseehah placement are derived; expanded `periods` are read-only wire-format rows.
+- Enabling automation is opt-in for an existing timetable and captures its period rows once. Disabling it restores those rows exactly and removes the generator definition.
+- Monthly entry is Maghrib-only. Asr, Isha, and Friday Jumu'ah are standing times sharing one effective date; Jumu'ah is stored as the Friday-specific Zuhr anchor.
 - Anchor resolution is date override, newest weekday standing row, then newest default standing row. Cancelled overrides remove anchors. Values are jamaat times from the institute sheet, never beginning times.
 - Friday Jumu'ah is a weekday data row. Its deliberately unset duration refuses expansion; it is never defaulted.
 - Expansion splits around anchors without losing teaching, applies late anchors against the bumped end, selects PM Naseehah from the baseline anchor set, and disambiguates duplicate names.
+- Morning Naseehah is carried by the break; evening Naseehah is attached to the applied prayer nearest 19:00. Turning prayer adjustment off removes both prayer rows and Naseehah.
 - Daily maintenance uses the organisation-local date and writes nothing when unchanged. Per-timetable failures appear in the run record.
 - Cross-class warnings have no duration floor: overlapping generated periods agree only when name, start, and end all agree.
 

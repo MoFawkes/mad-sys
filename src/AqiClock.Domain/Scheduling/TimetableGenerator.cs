@@ -3,10 +3,14 @@ using System.Text;
 
 namespace AqiClock.Domain.Scheduling;
 
-public enum GeneratorSessionKind { Am, Pm }
-public enum GeneratorBlockKind { Lessons, Break }
+public sealed record TimetableShape(
+    TimeOnly DayStart,
+    int LessonCount,
+    int LessonMinutes,
+    int? BreakAfterLesson,
+    int? BreakMinutes,
+    bool AdjustsForPrayer = true);
 
-public sealed record GeneratorBlock(Guid Id, GeneratorBlockKind Kind, string Name, int Count, int Minutes, bool HostsNaseehah = false);
 public sealed record ResolvedAnchor(Guid Id, string Key, string Name, TimeOnly Start, int? DurationMinutes);
 public sealed record GeneratedPeriod(Guid Id, string Name, TimeOnly Start, TimeOnly End, bool IsLesson);
 public sealed record GeneratorWarning(string Code, string Message);
@@ -14,25 +18,27 @@ public sealed record GeneratorResult(IReadOnlyList<GeneratedPeriod> Periods, IRe
 
 public static class TimetableGenerator
 {
+    // SQL expansion duplicates these values deliberately. Keep
+    // GeneratorMaintenanceTests.SqlExpansionMatchesDomainFixtures as the parity gate.
+    public const int PrayerMinutes = 10;
+    public const int NaseehahMinutes = 15;
+
     public static GeneratorResult Expand(
         Guid timetableId,
-        GeneratorSessionKind sessionKind,
-        TimeOnly dayStart,
-        IReadOnlyList<GeneratorBlock> blocks,
-        IReadOnlyList<ResolvedAnchor> anchors,
-        TimeOnly? advisoryDayEnd = null,
-        int prayerMinutes = 10,
-        int naseehahMinutes = 15,
-        string namingPattern = "Lesson {number}")
+        TimetableShape shape,
+        IReadOnlyList<ResolvedAnchor> anchors)
     {
-        ArgumentNullException.ThrowIfNull(blocks);
+        ArgumentNullException.ThrowIfNull(shape);
         ArgumentNullException.ThrowIfNull(anchors);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(prayerMinutes);
-        ArgumentOutOfRangeException.ThrowIfNegative(naseehahMinutes);
+        Validate(shape);
 
-        List<GeneratedPeriod> authored = LayOut(timetableId, dayStart, blocks, namingPattern);
-        ResolvedAnchor[] candidates = anchors
-            .Where(anchor => anchor.Start >= dayStart)
+        GeneratorSessionKind sessionKind = shape.DayStart < new TimeOnly(15, 0)
+            ? GeneratorSessionKind.Am
+            : GeneratorSessionKind.Pm;
+        List<GeneratorBlock> blocks = ToBlocks(timetableId, shape, sessionKind);
+        List<GeneratedPeriod> authored = LayOut(timetableId, shape.DayStart, blocks);
+        ResolvedAnchor[] candidates = (shape.AdjustsForPrayer ? anchors : [])
+            .Where(anchor => anchor.Start >= shape.DayStart)
             .OrderBy(anchor => anchor.Start)
             .ThenBy(anchor => anchor.Id)
             .ToArray();
@@ -43,18 +49,45 @@ public static class TimetableGenerator
         // and may consequently place later anchors, but they cannot retroactively become
         // the host. This makes expansion deterministic for every legal admin-authored row.
         (_, IReadOnlyList<ResolvedAnchor> baselineApplied) =
-            ApplyAnchors(timetableId, authored, candidates, null, prayerMinutes, naseehahMinutes);
+            ApplyAnchors(timetableId, authored, candidates, null, PrayerMinutes, NaseehahMinutes);
         ResolvedAnchor? naseehahAnchor = sessionKind == GeneratorSessionKind.Pm
             ? baselineApplied.OrderBy(anchor => DistanceFromSeven(anchor.Start)).ThenBy(anchor => anchor.Start).FirstOrDefault()
             : null;
         (List<GeneratedPeriod> periods, _) =
-            ApplyAnchors(timetableId, authored, candidates, naseehahAnchor, prayerMinutes, naseehahMinutes);
-        if (sessionKind == GeneratorSessionKind.Pm && naseehahAnchor is null)
+            ApplyAnchors(timetableId, authored, candidates, naseehahAnchor, PrayerMinutes, NaseehahMinutes);
+        if (shape.AdjustsForPrayer && sessionKind == GeneratorSessionKind.Pm && naseehahAnchor is null)
             warnings.Add(new("naseehah-unplaced", "No anchor falls within the PM session; Naseehah was not placed."));
-
-        if (advisoryDayEnd is { } softEnd && periods.Count > 0 && periods[^1].End > softEnd)
-            warnings.Add(new("advisory-day-end-overrun", $"The generated session ends at {periods[^1].End:HH:mm}, after the advisory end {softEnd:HH:mm}."));
         return new(periods, warnings);
+    }
+
+    private static void Validate(TimetableShape shape)
+    {
+        if (shape.LessonCount is < 1 or > 20)
+            throw new ArgumentOutOfRangeException(nameof(shape), "Lesson count must be between 1 and 20.");
+        if (shape.LessonMinutes is < 5 or > 120)
+            throw new ArgumentOutOfRangeException(nameof(shape), "Lesson length must be between 5 and 120 minutes.");
+        if (shape.BreakAfterLesson.HasValue != shape.BreakMinutes.HasValue)
+            throw new ArgumentException("Break position and length must either both be supplied or both be omitted.", nameof(shape));
+        if (shape.BreakAfterLesson is { } after && (after < 1 || after >= shape.LessonCount))
+            throw new ArgumentOutOfRangeException(nameof(shape), "The break must be after a lesson and before the final lesson.");
+        if (shape.BreakMinutes is { } minutes && minutes is < 5 or > 120)
+            throw new ArgumentOutOfRangeException(nameof(shape), "Break length must be between 5 and 120 minutes.");
+    }
+
+    private static List<GeneratorBlock> ToBlocks(Guid timetableId, TimetableShape shape, GeneratorSessionKind sessionKind)
+    {
+        var result = new List<GeneratorBlock>();
+        int beforeBreak = shape.BreakAfterLesson ?? shape.LessonCount;
+        result.Add(new(StableId(timetableId, "shape:lessons:before"), GeneratorBlockKind.Lessons, string.Empty, beforeBreak, shape.LessonMinutes));
+        if (shape.BreakAfterLesson is { } after)
+        {
+            bool hostsNaseehah = shape.AdjustsForPrayer && sessionKind == GeneratorSessionKind.Am;
+            result.Add(new(StableId(timetableId, "shape:break"), GeneratorBlockKind.Break,
+                hostsNaseehah ? "Break / Naseehah" : "Break", 1, shape.BreakMinutes!.Value, hostsNaseehah));
+            result.Add(new(StableId(timetableId, "shape:lessons:after"), GeneratorBlockKind.Lessons,
+                string.Empty, shape.LessonCount - after, shape.LessonMinutes));
+        }
+        return result;
     }
 
     private static (List<GeneratedPeriod> Periods, IReadOnlyList<ResolvedAnchor> Applied) ApplyAnchors(
@@ -77,7 +110,7 @@ public static class TimetableGenerator
         return (periods, applied);
     }
 
-    private static List<GeneratedPeriod> LayOut(Guid timetableId, TimeOnly start, IReadOnlyList<GeneratorBlock> blocks, string namingPattern)
+    private static List<GeneratedPeriod> LayOut(Guid timetableId, TimeOnly start, IReadOnlyList<GeneratorBlock> blocks)
     {
         var result = new List<GeneratedPeriod>();
         var names = new List<string>();
@@ -92,7 +125,7 @@ public static class TimetableGenerator
             {
                 TimeOnly end = AddMinutes(cursor, block.Minutes);
                 string requested = block.Kind == GeneratorBlockKind.Lessons
-                    ? namingPattern.Replace("{number}", (++lessonNumber).ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal)
+                    ? $"Lesson {++lessonNumber}"
                     : block.HostsNaseehah && !block.Name.Contains("Naseehah", StringComparison.OrdinalIgnoreCase)
                         ? block.Name + " / Naseehah"
                         : block.Name;
@@ -146,4 +179,8 @@ public static class TimetableGenerator
         byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{timetableId:N}:{identity}"));
         return new Guid(hash.AsSpan(0, 16));
     }
+
+    private enum GeneratorSessionKind { Am, Pm }
+    private enum GeneratorBlockKind { Lessons, Break }
+    private sealed record GeneratorBlock(Guid Id, GeneratorBlockKind Kind, string Name, int Count, int Minutes, bool HostsNaseehah = false);
 }

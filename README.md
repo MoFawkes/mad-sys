@@ -43,6 +43,7 @@ tests/                      Domain, Application, and integration test projects
 mobile/                     Expo SDK 54 companion, SQLite cache, notifications, Jest tests
 docs/                       Planning and architecture documentation
 supabase/                   SQL migrations and seed — source of truth for the server schema
+workers/                    Scheduled maintenance Worker and its tests
 ```
 
 ## Prerequisites

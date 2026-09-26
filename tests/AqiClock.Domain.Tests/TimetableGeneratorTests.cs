@@ -10,8 +10,7 @@ public sealed class TimetableGeneratorTests
     [Fact]
     public void R6Pm25August2026MatchesEveryMinute()
     {
-        GeneratorResult result = AlQalamExpansionRules.Expand(TimetableId, GeneratorSessionKind.Pm, new(18, 15),
-            [new(Guid.Parse("20000000-0000-0000-0000-000000000001"), GeneratorBlockKind.Lessons, "", 5, 25)],
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId, new(new(18, 15), 5, 25, null, null),
             [new(Guid.Parse("30000000-0000-0000-0000-000000000001"), "asr", "Asr", new(18, 40), 10),
              new(Guid.Parse("30000000-0000-0000-0000-000000000002"), "maghrib", "Maghrib", new(20, 12), 10)]);
 
@@ -29,10 +28,7 @@ public sealed class TimetableGeneratorTests
     [Fact]
     public void R6AmMondayToThursdayFinishesBeforeZuhr()
     {
-        GeneratorResult result = AlQalamExpansionRules.Expand(TimetableId, GeneratorSessionKind.Am, new(9, 10),
-            [new(Guid.NewGuid(), GeneratorBlockKind.Lessons, "", 4, 30),
-             new(Guid.NewGuid(), GeneratorBlockKind.Break, "Break / Naseehah", 1, 25, true),
-             new(Guid.NewGuid(), GeneratorBlockKind.Lessons, "", 4, 30)],
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId, new(new(9, 10), 8, 30, 4, 25),
             [new(Guid.NewGuid(), "zuhr", "Zuhr", new(13, 37), 10)]);
 
         Assert.Equal(9, result.Periods.Count);
@@ -45,16 +41,14 @@ public sealed class TimetableGeneratorTests
     [Fact]
     public void MissingApplicableAnchorDurationRefusesExpansion()
     {
-        Assert.Throws<InvalidOperationException>(() => AlQalamExpansionRules.Expand(TimetableId, GeneratorSessionKind.Am, new(9, 10),
-            [new(Guid.NewGuid(), GeneratorBlockKind.Lessons, "", 8, 30)],
+        Assert.Throws<InvalidOperationException>(() => TimetableGenerator.Expand(TimetableId, new(new(9, 10), 8, 30, null, null),
             [new(Guid.NewGuid(), "zuhr", "Zuhr", new(12, 58), null)]));
     }
 
     [Fact]
     public void LateIshaAppliesAgainstBumpedSessionEnd()
     {
-        GeneratorResult result = AlQalamExpansionRules.Expand(TimetableId, GeneratorSessionKind.Pm, new(18, 15),
-            [new(Guid.NewGuid(), GeneratorBlockKind.Lessons, "", 5, 25)],
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId, new(new(18, 15), 5, 25, null, null),
             [new(Guid.NewGuid(), "asr", "Asr", new(18, 40), 10),
              new(Guid.NewGuid(), "maghrib", "Maghrib", new(19, 30), 10),
              new(Guid.NewGuid(), "isha", "Isha", new(20, 30), 10)]);
@@ -67,10 +61,7 @@ public sealed class TimetableGeneratorTests
     [Fact]
     public void FridayUsesResolvedRowAndSplitsLessonSevenWithoutFridayLogic()
     {
-        GeneratorResult result = AlQalamExpansionRules.Expand(TimetableId, GeneratorSessionKind.Am, new(9, 10),
-            [new(Guid.NewGuid(), GeneratorBlockKind.Lessons, "", 4, 30),
-             new(Guid.NewGuid(), GeneratorBlockKind.Break, "Break", 1, 25, true),
-             new(Guid.NewGuid(), GeneratorBlockKind.Lessons, "", 4, 30)],
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId, new(new(9, 10), 8, 30, 4, 25),
             [new(Guid.NewGuid(), "zuhr", "Zuhr", new(12, 58), 30)]);
 
         At(result.Periods[7], "Lesson 7 (part 1)", "12:35", "12:58");
@@ -82,11 +73,11 @@ public sealed class TimetableGeneratorTests
     [Fact]
     public void MovingAnchorPreservesIdsOfUntouchedLessons()
     {
-        var block = new GeneratorBlock(Guid.NewGuid(), GeneratorBlockKind.Lessons, "", 5, 25);
+        var shape = new TimetableShape(new(18, 15), 5, 25, null, null);
         Guid anchorId = Guid.NewGuid();
-        GeneratorResult first = AlQalamExpansionRules.Expand(TimetableId, GeneratorSessionKind.Pm, new(18, 15), [block],
+        GeneratorResult first = TimetableGenerator.Expand(TimetableId, shape,
             [new(anchorId, "maghrib", "Maghrib", new(19, 32), 10)]);
-        GeneratorResult moved = AlQalamExpansionRules.Expand(TimetableId, GeneratorSessionKind.Pm, new(18, 15), [block],
+        GeneratorResult moved = TimetableGenerator.Expand(TimetableId, shape,
             [new(anchorId, "maghrib", "Maghrib", new(19, 35), 10)]);
 
         foreach (string untouched in (string[])["Lesson 1", "Lesson 2", "Lesson 3", "Lesson 5"])
@@ -98,27 +89,44 @@ public sealed class TimetableGeneratorTests
     [Fact]
     public void PmWithoutApplicableAnchorWarnsAndDoesNotInventSlot()
     {
-        GeneratorResult result = AlQalamExpansionRules.Expand(TimetableId, GeneratorSessionKind.Pm, new(18, 15),
-            [new(Guid.NewGuid(), GeneratorBlockKind.Lessons, "", 1, 25)],
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId, new(new(18, 15), 1, 25, null, null),
             [new(Guid.NewGuid(), "isha", "Isha", new(20, 30), 10)]);
         Assert.Equal("naseehah-unplaced", Assert.Single(result.Warnings).Code);
         Assert.DoesNotContain(result.Periods, period => !period.IsLesson);
     }
 
     [Fact]
-    public void AdvisoryEndOverrunWarnsWithoutShorteningLessons()
+    public void SessionDerivationChangesAtFifteenHundred()
     {
-        GeneratorResult result = AlQalamExpansionRules.Expand(TimetableId, GeneratorSessionKind.Am, new(9, 0),
-            [new(Guid.NewGuid(), GeneratorBlockKind.Lessons, "", 2, 30)], [], new(9, 45));
-        Assert.Equal(new TimeOnly(10, 0), result.Periods[^1].End);
-        Assert.Contains(result.Warnings, warning => warning.Code == "advisory-day-end-overrun");
+        Guid timetableId = Guid.NewGuid();
+        var anchor = new ResolvedAnchor(Guid.NewGuid(), "asr", "Asr", new(15, 10), 10);
+
+        GeneratorResult morning = TimetableGenerator.Expand(timetableId,
+            new(new(14, 59), 1, 30, null, null, true), [anchor]);
+        GeneratorResult evening = TimetableGenerator.Expand(timetableId,
+            new(new(15, 0), 1, 30, null, null, true), [anchor]);
+
+        Assert.Contains(morning.Periods, period => period.Name == "Asr"
+            && period.End - period.Start == TimeSpan.FromMinutes(TimetableGenerator.PrayerMinutes));
+        Assert.Contains(evening.Periods, period => period.Name == "Asr + Naseehah"
+            && period.End - period.Start == TimeSpan.FromMinutes(
+                TimetableGenerator.PrayerMinutes + TimetableGenerator.NaseehahMinutes));
+    }
+
+    [Fact]
+    public void PrayerAdjustmentOffProducesPlainScheduleWithoutNaseehahWarning()
+    {
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId,
+            new(new(18, 15), 3, 25, null, null, AdjustsForPrayer: false),
+            [new(Guid.NewGuid(), "asr", "Asr", new(18, 40), 10)]);
+        Assert.Equal(["Lesson 1", "Lesson 2", "Lesson 3"], result.Periods.Select(period => period.Name));
+        Assert.Empty(result.Warnings);
     }
 
     [Fact]
     public void LongAnchorPreservesTeachingAcrossTwoOriginalLessonSlots()
     {
-        GeneratorResult result = AlQalamExpansionRules.Expand(TimetableId, GeneratorSessionKind.Am, new(9, 0),
-            [new(Guid.NewGuid(), GeneratorBlockKind.Lessons, "", 3, 30)],
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId, new(new(9, 0), 3, 30, null, null),
             [new(Guid.NewGuid(), "zuhr", "Zuhr", new(9, 15), 70)]);
         Assert.Equal(90, result.Periods.Where(period => period.IsLesson)
             .Sum(period => (int)(period.End - period.Start).TotalMinutes));
@@ -126,34 +134,44 @@ public sealed class TimetableGeneratorTests
     }
 
     [Fact]
-    public void NamesAreUniqueAndAuthoredOptionsAffectOutput()
+    public void MorningBreakHostsNaseehahOnlyWhenPrayerAdjustmentIsOn()
     {
-        GeneratorResult result = AlQalamExpansionRules.Expand(TimetableId, GeneratorSessionKind.Am, new(9, 0),
-            [new(Guid.NewGuid(), GeneratorBlockKind.Break, "Break", 1, 10),
-             new(Guid.NewGuid(), GeneratorBlockKind.Break, "Break", 1, 10, true),
-             new(Guid.NewGuid(), GeneratorBlockKind.Lessons, "", 1, 10)], [], namingPattern: "Class {number}");
-        Assert.Equal(["Break", "Break / Naseehah", "Class 1"], result.Periods.Select(period => period.Name));
-    }
-
-    [Fact]
-    public void DuplicatePlainBreakNamesAreDisambiguatedForDatabaseConstraint()
-    {
-        GeneratorResult result = AlQalamExpansionRules.Expand(TimetableId, GeneratorSessionKind.Am, new(9, 0),
-            [new(Guid.NewGuid(), GeneratorBlockKind.Break, "Break", 1, 10),
-             new(Guid.NewGuid(), GeneratorBlockKind.Break, "Break", 1, 10)], []);
-        Assert.Equal(["Break", "Break (2)"], result.Periods.Select(period => period.Name));
+        GeneratorResult adjusted = TimetableGenerator.Expand(TimetableId, new(new(9, 0), 2, 30, 1, 10), []);
+        GeneratorResult plain = TimetableGenerator.Expand(TimetableId, new(new(9, 0), 2, 30, 1, 10, false), []);
+        Assert.Equal("Break / Naseehah", adjusted.Periods[1].Name);
+        Assert.Equal("Break", plain.Periods[1].Name);
     }
 
     [Fact]
     public void MarginalNaseehahHostInputTerminatesWithBaselineHost()
     {
-        GeneratorResult result = AlQalamExpansionRules.Expand(TimetableId, GeneratorSessionKind.Pm, new(18, 15),
-            [new(Guid.NewGuid(), GeneratorBlockKind.Lessons, "", 4, 15)],
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId, new(new(18, 15), 4, 15, null, null),
             [new(Guid.NewGuid(), "x", "X", new(18, 20), 10),
              new(Guid.NewGuid(), "z", "Z", new(19, 35), 10)]);
 
         Assert.Contains(result.Periods, period => period.Name == "X + Naseehah");
         Assert.Contains(result.Periods, period => period.Name == "Z");
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(7)]
+    public void BreakCanAppearAtEitherSupportedBoundary(int afterLesson)
+    {
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId,
+            new(new(9, 0), 8, 30, afterLesson, 10, AdjustsForPrayer: false), []);
+        Assert.Equal("Break", result.Periods[afterLesson].Name);
+        Assert.Equal(9, result.Periods.Count);
+        Assert.Equal("Lesson 8", result.Periods[^1].Name);
+    }
+
+    [Fact]
+    public void InvalidShapeIsRejectedBeforeExpansion()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            TimetableGenerator.Expand(TimetableId, new(new(9, 0), 21, 30, null, null), []));
+        Assert.Throws<ArgumentException>(() =>
+            TimetableGenerator.Expand(TimetableId, new(new(9, 0), 8, 30, 4, null), []));
     }
 
     private static void At(GeneratedPeriod period, string name, string start, string end)

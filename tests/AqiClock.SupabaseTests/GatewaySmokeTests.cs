@@ -361,80 +361,91 @@ public sealed class GatewaySmokeTests(SupabaseFixture fixture)
     }
 
     [SupabaseFact]
-    public async Task GeneratorAuthoringReadsOnlineAndAdminCanRegenerate()
+    public async Task SimplifiedGeneratorPreviewSaveRestoreAndPrayerWritesRoundTrip()
     {
         Guid timetableId = Guid.NewGuid();
-        Guid otherTimetableId = Guid.NewGuid();
-        Guid otherPeriodId = Guid.NewGuid();
-        Guid blockId = Guid.NewGuid();
+        Guid firstPeriodId = Guid.NewGuid();
+        Guid secondPeriodId = Guid.NewGuid();
         DateOnly targetDate = DateOnly.FromDateTime(await fixture.SqlScalarAsync<DateTime>(
             "select timezone('Europe/London', now())::date"));
-        await fixture.SqlAsync("insert into public.timetables(id,org_id,name,is_generated) values($1,$3,$4,true),($2,$3,$5,false)", timetableId, otherTimetableId, SupabaseFixture.OrgAId, $"Gateway generator {timetableId:N}", $"Gateway owner {otherTimetableId:N}");
-        await fixture.SqlAsync("insert into public.periods(id,timetable_id,name,start_time,end_time,sort_order,is_lesson) values($1,$2,'Owned elsewhere','08:00','08:30',0,true)", otherPeriodId, otherTimetableId);
+        DateOnly standingDate = targetDate.AddDays(10);
+        await fixture.SqlAsync("insert into public.timetables(id,org_id,name) values($1,$2,$3)", timetableId, SupabaseFixture.OrgAId, $"Gateway generator {timetableId:N}");
+        await fixture.SqlAsync("insert into public.periods(id,timetable_id,name,start_time,end_time,sort_order,is_lesson) values($1,$3,'Original 1','09:00','09:30',0,true),($2,$3,'Original break','09:30','09:40',1,false)", firstPeriodId, secondPeriodId, timetableId);
         try
         {
-            await fixture.SqlAsync("insert into public.timetable_generators(timetable_id,org_id,session_kind,day_start,naming_pattern) values($1,$2,'am','09:00','Class {number}')", timetableId, SupabaseFixture.OrgAId);
-            await fixture.SqlAsync("insert into public.timetable_generator_blocks(id,timetable_id,org_id,sort_order,block_kind,lesson_count,lesson_minutes,hosts_naseehah) values($1,$2,$3,0,'lessons',2,30,false)", blockId, timetableId, SupabaseFixture.OrgAId);
-
             using SupabaseGateway gateway = CreateGateway();
             await gateway.SignInAsync(SupabaseFixture.Email("admin1"), SupabaseFixture.Password);
-            GeneratorAuthoringSnapshot authoring = await gateway.GetGeneratorAuthoringAsync(timetableId);
-            AnchorConfigurationSnapshot anchors = await gateway.GetAnchorConfigurationAsync();
-            GeneratorMaintenanceRun run = await gateway.RegenerateGeneratedTimetablesAsync();
-            GeneratorMaintenanceRun? latest = await gateway.GetLatestGeneratorMaintenanceRunAsync();
-
-            Guid replacementBlock = Guid.NewGuid();
-            Guid maghrib = anchors.Anchors.Single(x => x.Key == "maghrib").Id;
+            Assert.Null(await gateway.GetTimetableShapeAsync(timetableId));
+            PrayerTimesSnapshot prayers = await gateway.GetPrayerTimesAsync(targetDate);
+            Guid maghrib = prayers.Anchors.Single(x => x.Key == "maghrib").Id;
             DateOnly bulkDate = targetDate.AddYears(5);
-            GeneratorResult expected = AlQalamExpansionRules.Expand(timetableId,
-                GeneratorSessionKind.Am, new(9, 5),
-                [new(replacementBlock, GeneratorBlockKind.Lessons, string.Empty, 1, 20)], []);
+            var shape = new TimetableShape(new(9, 5), 3, 20, null, null, false);
+            GeneratorResult expected = TimetableGenerator.Expand(timetableId, shape, []);
             PeriodRow[] expectedRows = expected.Periods.Select((period, index) =>
                 new PeriodRow(period.Id, timetableId, period.Name, period.Start, period.End, index, period.IsLesson)).ToArray();
-            GeneratorServerPreview serverPreview = await gateway.PreviewGeneratedTimetableAsync(timetableId,
-                new("am", new(9, 5), null, "Lesson {number}"),
-                [new(replacementBlock, 0, "lessons", null, 1, 20, null, false)], []);
+            long auditBefore = await fixture.SqlScalarAsync<long>("select count(*) from public.audit_log");
+            GeneratorServerPreview serverPreview = await gateway.PreviewGeneratedTimetableAsync(
+                timetableId, shape, targetDate);
             Assert.Equal(targetDate, serverPreview.Date);
             Assert.Equal(expectedRows, serverPreview.Periods);
-            Assert.Equal(blockId, await fixture.SqlScalarAsync<Guid>(
-                "select id from public.timetable_generator_blocks where timetable_id=$1", timetableId));
-            await gateway.SaveGeneratedTimetableAsync(timetableId,
-                new("am", new(9, 5), null, "Lesson {number}"),
-                [new(replacementBlock, 0, "lessons", null, 1, 20, null, false)],
-                [], serverPreview.Periods);
-            await Assert.ThrowsAnyAsync<ServerWriteException>(() => gateway.SaveGeneratedTimetableAsync(timetableId,
-                new("am", new(9, 5), null, "Lesson {number}"),
-                [new(replacementBlock, 0, "lessons", null, 1, 20, null, false)],
-                [], [expectedRows[0] with { EndTime = new(9, 26) }]));
-            await Assert.ThrowsAsync<ServerDeniedException>(() => gateway.SaveGeneratedTimetableAsync(timetableId,
-                new("am", new(9, 5), null, "Lesson {number}"),
-                [new(replacementBlock, 0, "lessons", null, 1, 20, null, false)],
-                [], [new(otherPeriodId, timetableId, "Stolen", new(9, 5), new(9, 25), 0, true)]));
+            Assert.Equal(0, await fixture.SqlScalarAsync<int>(
+                "select count(*)::integer from public.timetable_generators where timetable_id=$1", timetableId));
+            Assert.Equal(auditBefore, await fixture.SqlScalarAsync<long>("select count(*) from public.audit_log"));
+
+            IReadOnlyList<PeriodRow> saved = await gateway.SaveGeneratedTimetableAsync(timetableId, shape);
+            Assert.Equal(expectedRows, saved);
+            Assert.Equal(shape, await gateway.GetTimetableShapeAsync(timetableId));
+
             int bulkWritten = await gateway.BulkUpsertAnchorDateOverridesAsync(maghrib,
                 [new(bulkDate, new(18, 42), 10)]);
             DateOnly rejectedDate = bulkDate.AddDays(1);
             await Assert.ThrowsAnyAsync<ServerWriteException>(() => gateway.BulkUpsertAnchorDateOverridesAsync(maghrib,
                 [new(rejectedDate, new(18, 41), 10), new(rejectedDate.AddDays(1), new(18, 40), 0)]));
-
-            Assert.Equal("Class {number}", authoring.Definition?.NamingPattern);
-            Assert.Equal(blockId, Assert.Single(authoring.Blocks).Id);
-            Assert.Equal(4, anchors.Anchors.Count);
-            Assert.Equal(targetDate, run.RegeneratedDate);
-            Assert.True(run.TimetablesWritten > 0);
-            Assert.NotNull(latest);
-            Assert.Equal(replacementBlock, Assert.Single((await gateway.GetGeneratorAuthoringAsync(timetableId)).Blocks).Id);
             Assert.Equal(1, bulkWritten);
-            Assert.Contains((await gateway.GetAnchorConfigurationAsync()).DateOverrides,
+
+            int fixedWritten = await gateway.SavePrayerFixedTimesAsync(
+            [
+                new("asr", new(17, 0), 10), new("isha", new(20, 15), 10),
+                new("zuhr", new(13, 0), null, 4)
+            ], standingDate);
+            Assert.Equal(3, fixedWritten);
+            Assert.True(await fixture.SqlScalarAsync<bool>(
+                """
+                select standing.duration_minutes is null
+                from public.anchor_standing_times standing
+                join public.organization_anchors anchor on anchor.id = standing.anchor_id
+                where standing.org_id=$1 and anchor.key='zuhr'
+                  and standing.weekday=4 and standing.effective_from=$2
+                """, SupabaseFixture.OrgAId, standingDate));
+            Assert.Equal(2, await fixture.SqlScalarAsync<int>(
+                """
+                select count(*)::integer
+                from public.anchor_standing_times standing
+                join public.organization_anchors anchor on anchor.id = standing.anchor_id
+                where standing.org_id=$1 and anchor.key in ('asr','isha')
+                  and standing.weekday is null and standing.duration_minutes is not null
+                  and standing.effective_from=$2
+                """, SupabaseFixture.OrgAId, standingDate));
+            await Assert.ThrowsAnyAsync<ServerWriteException>(() => gateway.SavePrayerFixedTimesAsync(
+            [
+                new("asr", new(17, 0), 10, 1), new("isha", new(20, 15), 10),
+                new("zuhr", new(13, 0), null, 4)
+            ], standingDate));
+
+            IReadOnlyList<PeriodRow> restored = await gateway.DisableGeneratedTimetableAsync(timetableId);
+            Assert.Equal([firstPeriodId, secondPeriodId], restored.Select(item => item.Id));
+            Assert.Null(await gateway.GetTimetableShapeAsync(timetableId));
+            Assert.Contains((await gateway.GetPrayerTimesAsync(bulkDate)).DateOverrides,
                 item => item.AnchorId == maghrib && item.Date == bulkDate && item.StartTime == new TimeOnly(18, 42));
-            Assert.DoesNotContain((await gateway.GetAnchorConfigurationAsync()).DateOverrides,
+            Assert.DoesNotContain((await gateway.GetPrayerTimesAsync(rejectedDate)).DateOverrides,
                 item => item.AnchorId == maghrib && item.Date == rejectedDate);
         }
         finally
         {
             await fixture.SqlAsync("delete from public.anchor_date_overrides where org_id=$1 and date between $2 and $3", SupabaseFixture.OrgAId, targetDate.AddYears(5), targetDate.AddYears(5).AddDays(2));
-            await fixture.SqlAsync("delete from public.generator_maintenance_runs where org_id=$1 and regenerated_date=$2", SupabaseFixture.OrgAId, targetDate);
+            await fixture.SqlAsync("delete from public.anchor_standing_times where org_id=$1 and effective_from=$2", SupabaseFixture.OrgAId, standingDate);
             await fixture.SqlAsync("update public.timetables set is_generated=false where id=$1", timetableId);
-            await fixture.SqlAsync("delete from public.timetables where id in ($1,$2)", timetableId, otherTimetableId);
+            await fixture.SqlAsync("delete from public.timetables where id=$1", timetableId);
         }
     }
 

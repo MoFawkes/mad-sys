@@ -12,18 +12,20 @@ public sealed class GeneratorRlsMatrixTests(SupabaseFixture fixture)
     {
         var saveBody = new JsonObject
         {
-            ["p_timetable_id"] = Guid.NewGuid(), ["p_definition"] = new JsonObject(),
-            ["p_blocks"] = new JsonArray(), ["p_anchor_ids"] = new JsonArray(), ["p_periods"] = new JsonArray(),
+            ["p_timetable_id"] = Guid.NewGuid(), ["p_shape"] = new JsonObject(),
         };
         var bulkBody = new JsonObject { ["p_anchor_id"] = Guid.NewGuid(), ["p_rows"] = new JsonArray() };
         var previewBody = new JsonObject
         {
-            ["p_timetable_id"] = Guid.NewGuid(), ["p_definition"] = new JsonObject(),
-            ["p_blocks"] = new JsonArray(), ["p_anchor_ids"] = new JsonArray(),
+            ["p_timetable_id"] = Guid.NewGuid(), ["p_shape"] = new JsonObject(),
+            ["p_date"] = "2030-01-01",
         };
+        var disableBody = new JsonObject { ["p_timetable_id"] = Guid.NewGuid() };
+        var fixedBody = new JsonObject { ["p_rows"] = new JsonArray(), ["p_effective_from"] = "2030-01-01" };
         foreach ((string rpc, JsonObject body) in (ValueTuple<string, JsonObject>[])
             [("admin_save_generated_timetable", saveBody), ("admin_bulk_upsert_anchor_date_overrides", bulkBody),
-             ("admin_preview_generated_timetable", previewBody)])
+             ("admin_preview_generated_timetable", previewBody), ("admin_disable_generated_timetable", disableBody),
+             ("admin_save_prayer_fixed_times", fixedBody)])
         {
             using HttpResponseMessage anon = await fixture.RestAsync(TestPersona.Anon, HttpMethod.Post, $"rpc/{rpc}", body);
             using HttpResponseMessage staff = await fixture.RestAsync(TestPersona.Staff, HttpMethod.Post, $"rpc/{rpc}", body);
@@ -37,8 +39,7 @@ public sealed class GeneratorRlsMatrixTests(SupabaseFixture fixture)
     private static readonly string[] Tables =
     [
         "organization_anchors", "anchor_standing_times", "anchor_date_overrides",
-        "timetable_generators", "timetable_generator_blocks", "timetable_generator_anchors",
-        "generator_maintenance_runs",
+        "timetable_generators", "generator_maintenance_runs",
     ];
 
     public static TheoryData<string, TestPersona, string, CellExpectation> Cases()
@@ -58,9 +59,7 @@ public sealed class GeneratorRlsMatrixTests(SupabaseFixture fixture)
                     TestPersona.Staff when table != "generator_maintenance_runs" => CellExpectation.Visible,
                     _ => CellExpectation.Hidden,
                 }
-                : persona == TestPersona.Admin && table != "generator_maintenance_runs"
-                    ? CellExpectation.WriteAllowed
-                    : CellExpectation.WriteDenied;
+                : CellExpectation.WriteDenied;
             data.Add(table, persona, operation, expected);
         }
         return data;
@@ -134,7 +133,6 @@ public sealed class GeneratorRlsMatrixTests(SupabaseFixture fixture)
             await fixture.SqlAsync("delete from public.timetables where id = $1", timetableId);
             await fixture.SqlAsync("delete from public.anchor_standing_times where id = $1", id);
             await fixture.SqlAsync("delete from public.anchor_date_overrides where id = $1", id);
-            await fixture.SqlAsync("delete from public.timetable_generator_blocks where id = $1", id);
             await fixture.SqlAsync("delete from public.generator_maintenance_runs where id = $1", id);
             await fixture.SqlAsync(
                 "insert into public.organization_anchors (org_id,key,name,sort_order) values ($1,'zuhr','Zuhr',0),($1,'isha','Isha',3) on conflict (org_id,key) do update set name=excluded.name,sort_order=excluded.sort_order",
@@ -154,12 +152,12 @@ public sealed class GeneratorRlsMatrixTests(SupabaseFixture fixture)
                 new JsonObject { ["name"] = "Zuhr" }, CleanupAsync);
         }
 
-        bool needsGenerator = table is "timetable_generators" or "timetable_generator_blocks" or "timetable_generator_anchors";
+        bool needsGenerator = table is "timetable_generators";
         if (needsGenerator)
         {
             await fixture.SqlAsync("insert into public.timetables(id,org_id,name) values($1,$2,$3)", timetableId, SupabaseFixture.OrgAId, $"Generator RLS {id:N}");
             if (table != "timetable_generators" || operation != "insert")
-                await fixture.SqlAsync("insert into public.timetable_generators(timetable_id,org_id,session_kind,day_start) values($1,$2,'am','09:10')", timetableId, SupabaseFixture.OrgAId);
+                await fixture.SqlAsync("insert into public.timetable_generators(timetable_id,org_id,day_start,lesson_count,lesson_minutes,adjusts_for_prayer,pre_conversion_periods) values($1,$2,'09:10',8,30,false,'[]'::jsonb)", timetableId, SupabaseFixture.OrgAId);
         }
 
         switch (table)
@@ -187,24 +185,9 @@ public sealed class GeneratorRlsMatrixTests(SupabaseFixture fixture)
                     new JsonObject { ["start_time"] = "13:37" }, CleanupAsync);
             case "timetable_generators":
                 return new(
-                    new JsonObject { ["timetable_id"] = timetableId.ToString(), ["org_id"] = SupabaseFixture.OrgAId.ToString(), ["session_kind"] = "am", ["day_start"] = "09:10" },
+                    new JsonObject { ["timetable_id"] = timetableId.ToString(), ["org_id"] = SupabaseFixture.OrgAId.ToString(), ["day_start"] = "09:10", ["lesson_count"] = 8, ["lesson_minutes"] = 30, ["adjusts_for_prayer"] = false, ["pre_conversion_periods"] = new JsonArray() },
                     $"{table}?timetable_id=eq.{timetableId}&select=timetable_id", $"{table}?timetable_id=eq.{timetableId}", $"{table}?timetable_id=eq.{timetableId}",
                     new JsonObject { ["day_start"] = "09:10" }, CleanupAsync);
-            case "timetable_generator_blocks":
-                if (operation != "insert") await fixture.SqlAsync(
-                    "insert into public.timetable_generator_blocks(id,timetable_id,org_id,sort_order,block_kind,lesson_count,lesson_minutes) values($1,$2,$3,0,'lessons',4,30)",
-                    id, timetableId, SupabaseFixture.OrgAId);
-                return Standard(table, id,
-                    new JsonObject { ["id"] = id.ToString(), ["timetable_id"] = timetableId.ToString(), ["org_id"] = SupabaseFixture.OrgAId.ToString(), ["sort_order"] = 0, ["block_kind"] = "lessons", ["lesson_count"] = 4, ["lesson_minutes"] = 30 },
-                    new JsonObject { ["lesson_count"] = 4 }, CleanupAsync);
-            case "timetable_generator_anchors":
-                if (operation != "insert") await fixture.SqlAsync(
-                    "insert into public.timetable_generator_anchors(timetable_id,anchor_id,org_id) values($1,$2,$3)", timetableId, anchorId, SupabaseFixture.OrgAId);
-                string filter = $"timetable_id=eq.{timetableId}&anchor_id=eq.{anchorId}";
-                return new(
-                    new JsonObject { ["timetable_id"] = timetableId.ToString(), ["anchor_id"] = anchorId.ToString(), ["org_id"] = SupabaseFixture.OrgAId.ToString() },
-                    $"{table}?{filter}&select=timetable_id", $"{table}?{filter}", $"{table}?{filter}",
-                    new JsonObject { ["org_id"] = SupabaseFixture.OrgAId.ToString() }, CleanupAsync);
             default:
                 throw new ArgumentOutOfRangeException(nameof(table), table, null);
         }

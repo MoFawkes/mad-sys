@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Nodes;
 using AqiClock.Application.Abstractions;
 using AqiClock.Application.Configuration;
+using AqiClock.Domain.Scheduling;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Supabase.Postgrest.Attributes;
@@ -195,24 +196,38 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         return document.RootElement.GetInt32();
     }
 
-    public async Task<GeneratorAuthoringSnapshot> GetGeneratorAuthoringAsync(Guid timetableId, CancellationToken cancellationToken = default)
+    public async Task<TimetableShape?> GetTimetableShapeAsync(Guid timetableId, CancellationToken cancellationToken = default)
     {
         string filter = Uri.EscapeDataString(timetableId.ToString());
-        using JsonDocument definitionDocument = await GetJsonAsync($"rest/v1/timetable_generators?select=*&timetable_id=eq.{filter}", cancellationToken).ConfigureAwait(false);
-        using JsonDocument blocksDocument = await GetJsonAsync($"rest/v1/timetable_generator_blocks?select=*&timetable_id=eq.{filter}&order=sort_order.asc", cancellationToken).ConfigureAwait(false);
-        using JsonDocument anchorsDocument = await GetJsonAsync($"rest/v1/timetable_generator_anchors?select=*&timetable_id=eq.{filter}", cancellationToken).ConfigureAwait(false);
-        TimetableGeneratorDefinition? definition = definitionDocument.RootElement.GetArrayLength() == 0
-            ? null
-            : definitionDocument.RootElement[0].Deserialize<TimetableGeneratorDefinition>(JsonOptions);
-        return new(definition, DeserializeRows<TimetableGeneratorBlock>(blocksDocument).Cast<TimetableGeneratorBlock>().ToArray(),
-            DeserializeRows<TimetableGeneratorAnchor>(anchorsDocument).Cast<TimetableGeneratorAnchor>().ToArray());
+        using JsonDocument document = await GetJsonAsync(
+            $"rest/v1/timetable_generators?select=day_start,lesson_count,lesson_minutes,break_after_lesson,break_minutes,adjusts_for_prayer&timetable_id=eq.{filter}",
+            cancellationToken).ConfigureAwait(false);
+        if (document.RootElement.GetArrayLength() == 0) return null;
+        JsonElement row = document.RootElement[0];
+        return new(
+            TimeOnly.Parse(row.GetProperty("day_start").GetString()!, CultureInfo.InvariantCulture),
+            row.GetProperty("lesson_count").GetInt32(),
+            row.GetProperty("lesson_minutes").GetInt32(),
+            row.GetProperty("break_after_lesson").ValueKind == JsonValueKind.Null ? null : row.GetProperty("break_after_lesson").GetInt32(),
+            row.GetProperty("break_minutes").ValueKind == JsonValueKind.Null ? null : row.GetProperty("break_minutes").GetInt32(),
+            row.GetProperty("adjusts_for_prayer").GetBoolean());
     }
 
-    public async Task<AnchorConfigurationSnapshot> GetAnchorConfigurationAsync(CancellationToken cancellationToken = default)
+    public Task<PrayerTimesSnapshot> GetPrayerTimesAsync(DateOnly month, CancellationToken cancellationToken = default) =>
+        GetPrayerTimesAsync(month, month, cancellationToken);
+
+    public async Task<PrayerTimesSnapshot> GetPrayerTimesAsync(DateOnly firstMonth, DateOnly lastMonth,
+        CancellationToken cancellationToken = default)
     {
+        DateOnly start = new(firstMonth.Year, firstMonth.Month, 1);
+        DateOnly last = new(lastMonth.Year, lastMonth.Month, 1);
+        if (last < start) throw new ArgumentOutOfRangeException(nameof(lastMonth), "The final prayer month cannot precede the first month.");
+        DateOnly end = last.AddMonths(1);
         using JsonDocument anchorsDocument = await GetJsonAsync("rest/v1/organization_anchors?select=*&order=sort_order.asc", cancellationToken).ConfigureAwait(false);
         using JsonDocument standingDocument = await GetJsonAsync("rest/v1/anchor_standing_times?select=*&order=effective_from.asc", cancellationToken).ConfigureAwait(false);
-        using JsonDocument overridesDocument = await GetJsonAsync("rest/v1/anchor_date_overrides?select=*&order=date.asc", cancellationToken).ConfigureAwait(false);
+        using JsonDocument overridesDocument = await GetJsonAsync(
+            $"rest/v1/anchor_date_overrides?select=*&date=gte.{start:yyyy-MM-dd}&date=lt.{end:yyyy-MM-dd}&order=date.asc",
+            cancellationToken).ConfigureAwait(false);
         return new(DeserializeRows<OrganizationAnchor>(anchorsDocument).Cast<OrganizationAnchor>().ToArray(),
             DeserializeRows<AnchorStandingTime>(standingDocument).Cast<AnchorStandingTime>().ToArray(),
             DeserializeRows<AnchorDateOverride>(overridesDocument).Cast<AnchorDateOverride>().ToArray());
@@ -233,30 +248,35 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
             : document.RootElement[0].Deserialize<GeneratorMaintenanceRun>(JsonOptions);
     }
 
-    public async Task SaveGeneratedTimetableAsync(Guid timetableId, GeneratorDefinitionWrite definition,
-        IReadOnlyList<GeneratorBlockWrite> blocks, IReadOnlyList<Guid> anchorIds,
-        IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<PeriodRow>> SaveGeneratedTimetableAsync(Guid timetableId, TimetableShape shape,
+        CancellationToken cancellationToken = default)
     {
-        using JsonDocument _ = await PostRpcAsync("admin_save_generated_timetable", new
+        using JsonDocument document = await PostRpcAsync("admin_save_generated_timetable", new
         {
             p_timetable_id = timetableId,
-            p_definition = definition,
-            p_blocks = blocks,
-            p_anchor_ids = anchorIds,
-            p_periods = periods,
+            p_shape = shape,
         }, cancellationToken).ConfigureAwait(false);
+        return document.RootElement.Deserialize<PeriodRow[]>(JsonOptions)
+            ?? throw new ServerWriteException("The server returned no generated periods.", null);
+    }
+
+    public async Task<IReadOnlyList<PeriodRow>> DisableGeneratedTimetableAsync(Guid timetableId,
+        CancellationToken cancellationToken = default)
+    {
+        using JsonDocument document = await PostRpcAsync("admin_disable_generated_timetable",
+            new { p_timetable_id = timetableId }, cancellationToken).ConfigureAwait(false);
+        return document.RootElement.Deserialize<PeriodRow[]>(JsonOptions)
+            ?? throw new ServerWriteException("The server returned no restored periods.", null);
     }
 
     public async Task<GeneratorServerPreview> PreviewGeneratedTimetableAsync(Guid timetableId,
-        GeneratorDefinitionWrite definition, IReadOnlyList<GeneratorBlockWrite> blocks,
-        IReadOnlyList<Guid> anchorIds, CancellationToken cancellationToken = default)
+        TimetableShape shape, DateOnly previewDate, CancellationToken cancellationToken = default)
     {
         using JsonDocument document = await PostRpcAsync("admin_preview_generated_timetable", new
         {
             p_timetable_id = timetableId,
-            p_definition = definition,
-            p_blocks = blocks,
-            p_anchor_ids = anchorIds,
+            p_shape = shape,
+            p_date = previewDate,
         }, cancellationToken).ConfigureAwait(false);
         return document.RootElement.Deserialize<GeneratorServerPreview>(JsonOptions)
             ?? throw new ServerWriteException("The server returned an empty generator preview.", null);
@@ -270,13 +290,13 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         return document.RootElement.GetInt32();
     }
 
-    public Task SaveAnchorStandingTimeAsync(AnchorStandingTime row, bool isNew, CancellationToken cancellationToken = default) =>
-        SendRequestAsync(isNew ? HttpMethod.Post : HttpMethod.Patch,
-            "rest/v1/anchor_standing_times" + (isNew ? string.Empty : $"?id=eq.{row.Id}"), row, cancellationToken);
-
-    public Task SaveAnchorDateOverrideAsync(AnchorDateOverride row, bool isNew, CancellationToken cancellationToken = default) =>
-        SendRequestAsync(isNew ? HttpMethod.Post : HttpMethod.Patch,
-            "rest/v1/anchor_date_overrides" + (isNew ? string.Empty : $"?id=eq.{row.Id}"), row, cancellationToken);
+    public async Task<int> SavePrayerFixedTimesAsync(IReadOnlyList<PrayerFixedTimeWrite> rows, DateOnly effectiveFrom,
+        CancellationToken cancellationToken = default)
+    {
+        using JsonDocument document = await PostRpcAsync("admin_save_prayer_fixed_times",
+            new { p_rows = rows, p_effective_from = effectiveFrom }, cancellationToken).ConfigureAwait(false);
+        return document.RootElement.GetInt32();
+    }
 
     public async Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default)
     {
