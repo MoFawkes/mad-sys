@@ -26,6 +26,7 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
     private readonly IWindowService _windows;
     private readonly CancellationTokenSource _lifetime = new();
     private Task _reconnectTask = Task.CompletedTask;
+    private bool _awaitingReconnect;
     [ObservableProperty] private bool _isOnline;
     [ObservableProperty] private bool _isEditable;
     [ObservableProperty] private string? _banner;
@@ -113,8 +114,17 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
     public void Receive(ConnectivityChanged message) => UiDispatch.Run(() =>
     {
         SetConnectivity(message.State);
-        if (message.State == ConnectivityState.Online)
+
+        if (message.State == ConnectivityState.Offline)
+        {
+            return;
+        }
+
+        if (message.State == ConnectivityState.Online && _awaitingReconnect && _reconnectTask.IsCompleted)
+        {
+            _awaitingReconnect = false;
             _reconnectTask = ObserveReconnectAsync(_lifetime.Token);
+        }
     });
 
     private async Task ObserveReconnectAsync(CancellationToken token)
@@ -144,6 +154,7 @@ public partial class AdminViewModel : ObservableObject, IRecipient<SessionChange
 
     private void SetConnectivity(ConnectivityState state)
     {
+        if (state == ConnectivityState.Offline) _awaitingReconnect = true;
         IsOnline = state == ConnectivityState.Online;
         IsEditable = state != ConnectivityState.Offline;
         _offlineBanner = state == ConnectivityState.Offline ? "Editing is unavailable while offline." : null;

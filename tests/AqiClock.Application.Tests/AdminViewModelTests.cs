@@ -598,11 +598,49 @@ public sealed class AdminViewModelTests
         await admin.InitializeAsync();
         gateway.RegenerationFailure = new HttpRequestException("offline");
 
+        messenger.Send(new ConnectivityChanged(ConnectivityState.Offline, null));
+        messenger.Send(new ConnectivityChanged(ConnectivityState.Syncing, null));
         messenger.Send(new ConnectivityChanged(ConnectivityState.Online, DateTimeOffset.UtcNow));
         await admin.ReconnectTask;
 
         Assert.False(admin.IsEditable);
         Assert.Contains("unavailable while offline", admin.Banner, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task OnlineEchoFromRegenerationSyncDoesNotStartAnotherRegeneration()
+    {
+        var timetable = new Timetable(Guid.NewGuid(), "Generated", false, []);
+        var gateway = new Gateway
+        {
+            RegenerationRun = new GeneratorMaintenanceRun(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                DateTimeOffset.UtcNow,
+                1,
+                DateOnly.FromDateTime(DateTime.Today),
+                1,
+                null)
+        };
+        gateway.GeneratedTimetableIds.Add(timetable.Id);
+        var messenger = new WeakReferenceMessenger();
+        var sync = new ConnectivityEchoSync(messenger);
+        var windows = new Windows();
+        var timetables = new Timetables(timetable);
+        var week = new Week();
+        var overrides = new Overrides();
+        var profiles = new Profiles();
+        var editor = new TimetableEditorViewModel(gateway, sync, timetables, week, overrides, windows, messenger);
+        var admin = new AdminViewModel(editor, new(week, timetables, gateway, sync, windows),
+            new(overrides, timetables, gateway, sync, windows),
+            new(gateway, sync, new Session(Guid.NewGuid()), new Announcements(), windows),
+            new(gateway, profiles, sync), new(profiles, gateway, sync, new Session(Guid.NewGuid()), windows),
+            sync, windows, messenger);
+
+        await admin.InitializeAsync();
+
+        Assert.Equal(1, gateway.RegenerationCalls);
+        Assert.True(admin.ReconnectTask.IsCompleted);
     }
 
     [Fact]
@@ -1008,6 +1046,7 @@ public sealed class AdminViewModelTests
     private sealed class Session(Guid? id = null) : ISessionService { public SessionState Current { get; } = new(id ?? Guid.NewGuid(), "admin@example.test", UserRole.Admin, true, false); public Task RestoreAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignInAsync(string email, string password, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; }
     private sealed class Sync : ISyncService { public ConnectivityState State { get; set; } = ConnectivityState.Online; public DateTimeOffset? LastSyncedAt => DateTimeOffset.UtcNow; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.CompletedTask; public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
     private sealed class EchoSync(IMessenger messenger) : ISyncService { public ConnectivityState State => ConnectivityState.Online; public DateTimeOffset? LastSyncedAt => DateTimeOffset.UtcNow; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) { messenger.Send(new DataChanged(table)); return Task.CompletedTask; } public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
+    private sealed class ConnectivityEchoSync(IMessenger messenger) : ISyncService { public ConnectivityState State => ConnectivityState.Online; public DateTimeOffset? LastSyncedAt => DateTimeOffset.UtcNow; public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncAllAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task SyncTableAsync(CacheTable table, CancellationToken cancellationToken = default) { messenger.Send(new ConnectivityChanged(ConnectivityState.Online, DateTimeOffset.UtcNow)); return Task.CompletedTask; } public void SignalTableChanged(CacheTable table) { } public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
     private sealed class Windows(bool confirmResult = true) : IWindowService { public bool AdminClosed { get; private set; } public string? CloseReason { get; private set; } public void ShowMainWindow() { } public void ShowSignInWindow() { } public void ShowPasswordRecoveryWindow(PasswordRecoveryRequest request) { } public void ClosePasswordRecoveryWindow() { } public void ShowSettingsWindow() { } public void ShowAdminWindow() { } public void CloseAdminWindow(string? reason = null) { AdminClosed = true; CloseReason = reason; } public bool Confirm(string message, string title) => confirmResult; public void ShowAnnouncements() { } public void HideMainWindow() { } public void ActivateMainWindow() { } public void CloseSignInWindow() { } public void ShutdownApplication() { } public void ExitApplication() { } }
     private sealed class Gateway : ISupabaseGateway
     {
@@ -1028,6 +1067,8 @@ public sealed class AdminViewModelTests
         public Exception? ShapeFailure { get; set; }
         public Exception? PrayerFailure { get; set; }
         public Exception? RegenerationFailure { get; set; }
+        public GeneratorMaintenanceRun? RegenerationRun { get; set; }
+        public int RegenerationCalls { get; private set; }
         public (Guid TimetableId, TimetableShape Shape, IReadOnlyList<PeriodRow> Periods)? SavedGenerator { get; private set; }
         public Guid? DisabledGenerator { get; private set; }
         public GeneratorServerPreview? LastPreview { get; private set; }
@@ -1049,10 +1090,16 @@ public sealed class AdminViewModelTests
             PrayerFailure is null ? Task.FromResult(PrayerSnapshot) : Task.FromException<PrayerTimesSnapshot>(PrayerFailure);
         public Task<PrayerTimesSnapshot> GetPrayerTimesAsync(DateOnly firstMonth, DateOnly lastMonth, CancellationToken cancellationToken = default) =>
             GetPrayerTimesAsync(firstMonth, cancellationToken);
-        public Task<GeneratorMaintenanceRun> RegenerateGeneratedTimetablesAsync(CancellationToken cancellationToken = default) =>
-            RegenerationFailure is null
-                ? Task.FromException<GeneratorMaintenanceRun>(new NotSupportedException())
-                : Task.FromException<GeneratorMaintenanceRun>(RegenerationFailure);
+        public Task<GeneratorMaintenanceRun> RegenerateGeneratedTimetablesAsync(CancellationToken cancellationToken = default)
+        {
+            RegenerationCalls++;
+            if (RegenerationFailure is not null)
+                return Task.FromException<GeneratorMaintenanceRun>(RegenerationFailure);
+
+            return RegenerationRun is { } run
+                ? Task.FromResult(run)
+                : Task.FromException<GeneratorMaintenanceRun>(new NotSupportedException());
+        }
         public Task<IReadOnlyList<PeriodRow>> SaveGeneratedTimetableAsync(Guid timetableId, TimetableShape shape, CancellationToken cancellationToken = default)
         {
             Shapes[timetableId] = shape;
