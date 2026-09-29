@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased - 0.15.0
+## 0.15.1 - 2026-09-29
+
+### Fixed
+
+- Prevented timetable maintenance sync from treating its own successful online notification as a reconnect, which could repeatedly regenerate and download timetable data until the Supabase egress quota was exhausted.
+
+## 0.15.0 - 2026-09-26
 
 ### Added
 
