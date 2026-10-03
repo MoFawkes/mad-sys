@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.15.2 - 2026-10-03
+
+### Fixed
+
+- Kept timetable Save/Cancel actions visible on smaller screens by scrolling the automatic form and preview separately from the action footer.
+- Allowed Admin and Settings windows to fit work areas smaller than their design minimums, and fitted sign-in, password recovery, role choice, and student selection windows to the available screen area.
+
 ## 0.15.1 - 2026-09-29
 
 ### Fixed

@@ -12,6 +12,23 @@ public sealed record WindowLayout(double Width, double Height, double MinimumWid
 
 public static class WindowLayouts
 {
+    internal static void FitToWorkArea(Window window)
+    {
+        var requested = new WindowPlacement(window.Left, window.Top, window.ActualWidth, window.ActualHeight);
+        Rect work;
+        try { work = MonitorWorkAreas.ForPlacement(requested); }
+        catch (Exception exception) when (exception is OverflowException or Win32Exception or COMException or InvalidOperationException)
+        {
+            work = SystemParameters.WorkArea;
+        }
+        window.MinWidth = Math.Min(window.MinWidth, work.Width);
+        window.MinHeight = Math.Min(window.MinHeight, work.Height);
+        var fitted = WindowPlacements.Clamp(requested, work.Left, work.Top, work.Width, work.Height, window.MinWidth, window.MinHeight);
+        window.WindowStartupLocation = WindowStartupLocation.Manual;
+        window.Left = fitted.Left; window.Top = fitted.Top;
+        window.Width = fitted.Width; window.Height = fitted.Height;
+    }
+
     public static WindowLayout For(DisplayMode mode) => mode switch
     {
         DisplayMode.Normal => new(820, 560, 700, 500, false),
@@ -53,6 +70,10 @@ public sealed partial class WindowPlacementController : IDisposable
         try
         {
             Rect work = workArea ?? MonitorWorkAreas.ForPlacement(requested);
+            // WPF enforces these even when Width/Height are clamped below them.
+            // Small screens at high DPI can have less space than the design minimum.
+            _window.MinWidth = Math.Min(_window.MinWidth, work.Width);
+            _window.MinHeight = Math.Min(_window.MinHeight, work.Height);
             placement = WindowPlacements.Clamp(
                 requested, work.Left, work.Top, work.Width, work.Height,
                 _window.MinWidth, _window.MinHeight);

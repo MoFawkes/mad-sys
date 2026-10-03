@@ -13,10 +13,13 @@ public partial class RoleChoiceWindow : FluentWindow
         InitializeComponent();
         _windows = windows;
         FitToWorkArea(SystemParameters.WorkArea);
+        Loaded += (_, _) => WindowLayouts.FitToWorkArea(this);
     }
 
     internal void FitToWorkArea(Rect workArea)
     {
+        MinWidth = Math.Min(MinWidth, workArea.Width);
+        MinHeight = Math.Min(MinHeight, workArea.Height);
         WindowPlacement fitted = WindowPlacements.Clamp(
             new WindowPlacement(workArea.Left, workArea.Top, Width, Height),
             workArea.Left, workArea.Top, workArea.Width, workArea.Height,

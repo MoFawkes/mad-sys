@@ -19,6 +19,53 @@ namespace AqiClock.Application.Tests;
 
 public sealed class AdminViewModelTests
 {
+    [Theory]
+    [InlineData(1366, 728)]
+    [InlineData(1092, 582)]
+    [InlineData(910, 485)]
+    public void AutomaticTimetableKeepsSaveVisibleOnSmallScreens(double width, double height)
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            AdminWindow? window = null;
+            try
+            {
+                var messenger = new WeakReferenceMessenger();
+                var gateway = new Gateway(); var sync = new Sync(); var windows = new Windows();
+                var timetables = new Timetables(new Timetable(Guid.NewGuid(), "Normal Day", false, []));
+                var week = new Week(); var overrides = new Overrides(); var profiles = new Profiles();
+                var editor = new TimetableEditorViewModel(gateway, sync, timetables, week, overrides, windows, messenger);
+                var admin = new AdminViewModel(editor, new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), new(gateway, sync, new Session(Guid.NewGuid()), new Announcements(), windows), new(gateway, profiles, sync), new(profiles, gateway, sync, new Session(Guid.NewGuid()), windows), sync, windows, messenger);
+                admin.InitializeAsync().GetAwaiter().GetResult();
+                window = new AdminWindow(admin, new Settings(), Microsoft.Extensions.Logging.Abstractions.NullLogger<AqiClock.App.Services.WindowPlacementController>.Instance);
+                WpfUiTestResources.Attach(window);
+                window.Show();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                window.Width = width; window.Height = height;
+                editor.IsAutomatic = true;
+                for (int i = 0; i < 20; i++)
+                    editor.GeneratorPreview.Add(new PeriodEditorItem { Id = Guid.NewGuid(), Name = $"Lesson {i + 1}", Start = TimeSpan.FromHours(9), End = TimeSpan.FromHours(9.5), SortOrder = i });
+                window.UpdateLayout();
+                var save = (FrameworkElement)window.FindName("TimetableSaveButton");
+                var scroller = (ScrollViewer)window.FindName("TimetableEditorScroller");
+                var bounds = save.TransformToAncestor(window).TransformBounds(new Rect(save.RenderSize));
+                Assert.True(save.ActualHeight > 0);
+                Assert.InRange(bounds.Bottom, 0, window.ActualHeight);
+                Assert.InRange(bounds.Right, 0, window.ActualWidth);
+                Assert.True(scroller.ScrollableHeight > 0, "The automatic form should scroll instead of displacing Save.");
+                scroller.ScrollToEnd(); window.UpdateLayout();
+                Assert.Equal(bounds, save.TransformToAncestor(window).TransformBounds(new Rect(save.RenderSize)));
+            }
+            catch (Exception exception) { failure = exception; }
+            finally { window?.Close(); }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "Small-screen layout test timed out.");
+        Assert.Null(failure);
+    }
+
     [Fact]
     public async Task NewTimetableStartsAutomaticAndCreatesMetadataBeforeShape()
     {

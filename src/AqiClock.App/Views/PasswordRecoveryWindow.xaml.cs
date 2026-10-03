@@ -14,6 +14,7 @@ public partial class PasswordRecoveryWindow : FluentWindow
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
+        Loaded += (_, _) => AqiClock.App.Services.WindowLayouts.FitToWorkArea(this);
     }
 
     public void Initialize(PasswordRecoveryRequest request) => _viewModel.Initialize(request);

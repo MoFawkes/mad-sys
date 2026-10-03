@@ -10,7 +10,7 @@ public partial class StudentClassPickerWindow : FluentWindow
     private readonly MainViewModel _main;
     private readonly IWindowService _windows;
     public StudentClassPickerWindow(StudentClassPickerViewModel viewModel, MainViewModel main, IWindowService windows)
-    { InitializeComponent(); DataContext = _viewModel = viewModel; _main = main; _windows = windows; }
+    { InitializeComponent(); DataContext = _viewModel = viewModel; _main = main; _windows = windows; Loaded += (_, _) => AqiClock.App.Services.WindowLayouts.FitToWorkArea(this); }
     private async void OnLoaded(object sender, System.Windows.RoutedEventArgs e) => await _viewModel.LoadAsync();
     public Task RefreshAsync() => _viewModel.LoadAsync();
     private async void OnEnroll(object sender, System.Windows.RoutedEventArgs e) => await _viewModel.EnrollAsync();

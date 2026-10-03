@@ -130,15 +130,17 @@ public sealed class InfrastructureOrchestrationTests
         Assert.InRange(actual.Top, 0, 720 - actual.Height);
     }
 
-    [Fact]
-    public void MissingDialogPlacementUsesCurrentBoundsAndClampsToFit()
+    [Theory]
+    [InlineData(1280, 720)]
+    [InlineData(800, 440)]
+    public void MissingDialogPlacementUsesCurrentBoundsAndClampsToFit(double workWidth, double workHeight)
     {
         Exception? failure = null;
         var thread = new Thread(() =>
         {
             try
             {
-                var window = new Window { WindowStartupLocation = WindowStartupLocation.CenterOwner };
+                var window = new Window { WindowStartupLocation = WindowStartupLocation.CenterOwner, MinWidth = 900, MinHeight = 480 };
                 using var controller = new WindowPlacementController(
                     window,
                     new SettingsStub(),
@@ -148,13 +150,15 @@ public sealed class InfrastructureOrchestrationTests
 
                 controller.RestorePlacement(
                     new WindowPlacement(80, 0, 1120, 780),
-                    new Rect(0, 0, 1280, 720));
+                    new Rect(0, 0, workWidth, workHeight));
 
                 Assert.Equal(WindowStartupLocation.Manual, window.WindowStartupLocation);
-                Assert.Equal(80, window.Left);
+                Assert.Equal(Math.Min(80, workWidth - Math.Min(1120, workWidth)), window.Left);
                 Assert.Equal(0, window.Top);
-                Assert.Equal(1120, window.Width);
-                Assert.Equal(720, window.Height);
+                Assert.Equal(Math.Min(1120, workWidth), window.Width);
+                Assert.Equal(Math.Min(780, workHeight), window.Height);
+                Assert.True(window.MinWidth <= workWidth);
+                Assert.True(window.MinHeight <= workHeight);
             }
             catch (Exception exception) { failure = exception; }
         });

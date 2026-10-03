@@ -352,6 +352,7 @@ rehearsal runs automatically in CI.
 - [ ] Leave Admin open for more than one hour and edit a period for at least two minutes; confirm no 30-second banner flash, tab disable, focus loss, or expired-session outage.
 - [ ] Enrol a desktop student device with a join code, choose classes and AM/PM, restart, and confirm it opens on the clock with the same choices and **Synced** status. Publish a teacher announcement and confirm it arrives without a teacher session on that PC.
 - [ ] At 1366×768 and 100%, 125%, and 150% scaling, open, resize, close, and reopen Admin and Settings. Confirm both remain inside the work area and restore their size.
+- [ ] At each scale, enable **Set lesson times automatically**, populate the preview, and confirm Save/Cancel stay visible while the form scrolls. Check long warning messages, keyboard navigation to the final field, and switching back to manual period editing. Confirm sign-in, password recovery, role choice, and student selection fit the work area too.
 - [ ] At each scale in Light and Dark, confirm the periods-grid up, down, and red delete buttons are fully visible and clickable.
 - [ ] Choose **End student session** from the tray and confirm both the enrolment/session and saved class choices are removed.
 - [ ] Edit a period on desktop machine A and confirm it reaches machine B through Realtime without restarting either app.
