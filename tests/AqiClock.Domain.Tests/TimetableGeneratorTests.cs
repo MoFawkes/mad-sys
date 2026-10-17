@@ -25,6 +25,80 @@ public sealed class TimetableGeneratorTests
             p => At(p, "Lesson 5", "20:30", "20:55"));
     }
 
+    [Theory]
+    [InlineData(18, 13, "18:40", "19:05")]
+    [InlineData(18, 15, "18:40", "19:05")]
+    [InlineData(18, 0, "18:40", "19:05")]
+    public void OpeningPrayerAndNaseehahReserveFullSessionBlock(int hour, int minute, string lessonStart, string lessonEnd)
+    {
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId, new(new(18, 15), 1, 25, null, null),
+            [new(Guid.NewGuid(), "maghrib", "Maghrib", new(hour, minute), 10)]);
+        Assert.Collection(result.Periods,
+            p => At(p, "Maghrib + Naseehah", "18:15", lessonStart),
+            p => At(p, "Lesson 1", lessonStart, lessonEnd));
+        Assert.False(result.Periods[0].IsLesson);
+        Assert.Empty(result.Warnings);
+    }
+
+    [Fact]
+    public void OpeningPmPrayerWithoutDurationRefusesExpansion()
+    {
+        Assert.Throws<InvalidOperationException>(() => TimetableGenerator.Expand(TimetableId,
+            new(new(18, 15), 1, 25, null, null),
+            [new(Guid.NewGuid(), "maghrib", "Maghrib", new(18, 13), null)]));
+    }
+
+    [Fact]
+    public void OpeningPrayerCannotPushSessionAcrossMidnight()
+    {
+        Assert.Throws<InvalidOperationException>(() => TimetableGenerator.Expand(TimetableId,
+            new(new(23, 45), 1, 5, null, null),
+            [new(Guid.NewGuid(), "isha", "Isha", new(23, 40), 10)]));
+    }
+
+    [Fact]
+    public void EveningSessionKeepsLessonBoundariesAndFifteenMinuteIsha()
+    {
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId, new(new(18, 15), 5, 25, null, null),
+            [new(Guid.NewGuid(), "maghrib", "Maghrib", new(18, 11), 10),
+             new(Guid.NewGuid(), "isha", "Isha", new(20, 20), 15)]);
+        Assert.Collection(result.Periods,
+            p => At(p, "Maghrib + Naseehah", "18:15", "18:40"),
+            p => At(p, "Lesson 1", "18:40", "19:05"),
+            p => At(p, "Lesson 2", "19:05", "19:30"),
+            p => At(p, "Lesson 3", "19:30", "19:55"),
+            p => At(p, "Lesson 4", "19:55", "20:20"),
+            p => At(p, "Isha", "20:20", "20:35"),
+            p => At(p, "Lesson 5", "20:35", "21:00"));
+    }
+
+    [Fact]
+    public void CompletedPrayerAndNaseehahDoNotDelaySession()
+    {
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId, new(new(18, 15), 1, 25, null, null),
+            [new(Guid.NewGuid(), "maghrib", "Maghrib", new(17, 50), 10)]);
+        At(Assert.Single(result.Periods), "Lesson 1", "18:15", "18:40");
+    }
+
+    [Fact]
+    public void OpeningPrayerIsIgnoredWhenAdjustmentIsDisabled()
+    {
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId, new(new(18, 15), 1, 25, null, null, false),
+            [new(Guid.NewGuid(), "maghrib", "Maghrib", new(18, 13), 10)]);
+        At(Assert.Single(result.Periods), "Lesson 1", "18:15", "18:40");
+        Assert.Empty(result.Warnings);
+    }
+
+    [Fact]
+    public void MorningOpeningPrayerReservesOnlyRemainingPrayerTime()
+    {
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId, new(new(13, 0), 1, 30, null, null),
+            [new(Guid.NewGuid(), "zuhr", "Zuhr", new(12, 58), 10)]);
+        Assert.Collection(result.Periods,
+            p => At(p, "Zuhr", "13:00", "13:08"),
+            p => At(p, "Lesson 1", "13:08", "13:38"));
+    }
+
     [Fact]
     public void R6AmMondayToThursdayFinishesBeforeZuhr()
     {

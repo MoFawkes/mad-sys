@@ -1,6 +1,6 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-09-26
+Last updated: 2026-10-17
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
@@ -9,6 +9,10 @@ risks, or ownership changes. `TASKS.md` remains the delivery checklist,
 the acceptance script.
 
 ## Live state
+
+**2026-10-17 reconciliation:** GitHub confirms v0.15.2 is Latest on the public Windows channel (published 2026-10-03), following v0.14.1, v0.15.0 and v0.15.1. The linked production migration history includes `20261015194248` and `20261015201634`; these opening-prayer migrations were already deployed and are being recovered into source control unchanged. The new `20261017145748` boundary correction is pending deployment. The September table and release gates below are historical evidence, not the current release queue; publication does not by itself establish the missing device/compatibility acceptance evidence.
+
+Opening-prayer verification: 86 domain tests, 195 application tests (one optional interactive smoke skipped), 10 integration tests, and all 374 Supabase tests passed locally. The SQL suite passed after a clean migration/seed replay; the earlier run against reused local data had one duplicate-override fixture collision. Security advisors reported no issues; performance advisors reported seven existing multiple-permissive-policy warnings on unchanged tables.
 
 | Area | State |
 |---|---|

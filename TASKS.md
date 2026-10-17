@@ -145,7 +145,7 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] Run the proposed two-file v0.15 baseline through clean-reset and rollback rehearsal; this did not cover the subsequently discovered applied `20260826/27` generator migrations.
 - [x] Restore the four generator migrations already applied through `20260827223000`, rewrite the v0.15 simplification as a guarded forward migration, and rerun the true production-baseline/rollback rehearsal.
 - [x] Complete the fourteen-row v0.15 teacher acceptance checklist.
-- [ ] Complete the v0.14.1 compatibility rollout gate before deploying v0.15.
+- [ ] Reconcile the v0.14.1 compatibility acceptance evidence: v0.15.0–v0.15.2 are already published (verified 2026-10-17), but publication alone does not close the historical manual-test rows.
 - [x] v0.15.0: add durable delivery and schedule-snapshot diagnostics export; then
   use the live-term class switch from 25 August to re-run the full delivered-
   notification portion of `MOB-T06` without relying on Android's 24-hour UI.
