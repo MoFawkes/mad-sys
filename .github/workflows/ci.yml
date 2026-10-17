@@ -66,6 +66,10 @@ jobs:
       - name: Restore
         run: dotnet restore AqiClock.sln --configfile NuGet.Config
 
+      - name: Build and test native taskbar component
+        shell: pwsh
+        run: ./scripts/build-taskbar.ps1 -Test
+
       - name: Build
         run: dotnet build AqiClock.sln --configuration Release --no-restore
 

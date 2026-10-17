@@ -66,8 +66,19 @@ jobs:
           $settings.Updates.RepositoryUrl = $env:RELEASE_REPOSITORY
           $settings | ConvertTo-Json -Depth 10 | Set-Content $path -Encoding utf8
 
+      - name: Build native taskbar component
+        shell: pwsh
+        run: ./scripts/build-taskbar.ps1
+
       - name: Publish self-contained Windows app
         run: dotnet publish src/AqiClock.App/AqiClock.App.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/publish
+
+      - name: Verify packaged taskbar component
+        shell: pwsh
+        run: |
+          foreach ($file in @('AqiClock.Taskbar.dll', 'THIRD_PARTY_NOTICES.txt')) {
+            if (-not (Test-Path "artifacts/publish/taskbar/$file")) { throw "Missing taskbar package file: $file" }
+          }
 
       - name: Install pinned Velopack CLI
         run: dotnet tool install --tool-path artifacts/tools vpk --version 1.2.0

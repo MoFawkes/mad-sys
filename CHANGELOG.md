@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- Optional Windows 10 taskbar toolbar showing the current period and live countdown, next-period details on hover, and click-to-open. Enable it under Settings → Display on x64 Windows 10. Windows 11 retains the existing compact mode.
+
 ## 0.15.2 - 2026-10-03
 
 ### Fixed

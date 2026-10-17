@@ -24,6 +24,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     private readonly INotificationScheduler? _scheduler;
     private readonly IDeviceAudienceContext? _audience;
     private readonly IClock? _clock;
+    private readonly ITaskbarDisplayService? _taskbar;
     private readonly Dispatcher _dispatcher;
     private bool _disposed;
     [ObservableProperty] private bool _startWithWindows;
@@ -32,6 +33,9 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     [ObservableProperty] private AppTheme _theme;
     [ObservableProperty] private bool _alwaysOnTop;
     [ObservableProperty] private bool _compactOnLaunch;
+    [ObservableProperty] private bool _taskbarDisplayEnabled;
+    [ObservableProperty] private string _taskbarDisplayStatus = string.Empty;
+    public bool TaskbarDisplayAvailable => _taskbar?.IsAvailable == true;
     [ObservableProperty] private bool _lessonStartNotifications;
     [ObservableProperty] private bool _endWarningNotifications;
     [ObservableProperty] private int _endWarningMinutes;
@@ -48,8 +52,8 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     public IReadOnlyList<AppTheme> Themes { get; } = Enum.GetValues<AppTheme>();
     public string Version { get { _ = _updates.Current; return AppVersion.Current; } }
 
-    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications, IUpdateService updates, IMessenger? messenger = null, INotificationScheduler? scheduler = null, IDeviceAudienceContext? audience = null, IClock? clock = null)
-    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; _updates = updates; _messenger = messenger; _scheduler = scheduler; _audience = audience; _clock = clock; _dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher; UpdateStatus = updates.Current.DisplayText; updates.StateChanged += OnUpdateStateChanged; messenger?.Register(this); if (scheduler is not null) { NotificationHealth = scheduler.HealthSummary; scheduler.HealthChanged += OnNotificationHealthChanged; } Copy(settings.Current); }
+    public SettingsViewModel(ISettingsService settings, ISessionService session, ISyncService sync, IWindowService windows, INotificationPresenter notifications, IUpdateService updates, IMessenger? messenger = null, INotificationScheduler? scheduler = null, IDeviceAudienceContext? audience = null, IClock? clock = null, ITaskbarDisplayService? taskbar = null)
+    { _settings = settings; _session = session; _sync = sync; _windows = windows; _notifications = notifications; _updates = updates; _messenger = messenger; _scheduler = scheduler; _audience = audience; _clock = clock; _taskbar = taskbar; _dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher; UpdateStatus = updates.Current.DisplayText; updates.StateChanged += OnUpdateStateChanged; messenger?.Register(this); if (scheduler is not null) { NotificationHealth = scheduler.HealthSummary; scheduler.HealthChanged += OnNotificationHealthChanged; } if (taskbar is not null) { TaskbarDisplayStatus = taskbar.Status; taskbar.StatusChanged += OnTaskbarStatusChanged; } Copy(settings.Current); }
 
     public void Receive(ConnectivityChanged message)
     {
@@ -58,8 +62,21 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     }
 
     [RelayCommand]
-    private Task SaveAsync(CancellationToken token) => _settings.SaveAsync(new AppSettings
-    { StartWithWindows = StartWithWindows, StartMinimized = StartMinimized, CloseToTray = CloseToTray, Theme = Theme, AlwaysOnTop = AlwaysOnTop, CompactOnLaunch = CompactOnLaunch, LessonStartNotifications = LessonStartNotifications, EndWarningNotifications = EndWarningNotifications, EndWarningMinutes = EndWarningMinutes, AnnouncementNotifications = AnnouncementNotifications, NormalPlacement = _settings.Current.NormalPlacement, CompactPlacement = _settings.Current.CompactPlacement, AdminPlacement = _settings.Current.AdminPlacement, SettingsPlacement = _settings.Current.SettingsPlacement }, token);
+    private async Task SaveAsync(CancellationToken token)
+    {
+        if (_taskbar?.IsAvailable == true && !_taskbar.Configure(TaskbarDisplayEnabled)) return;
+        AppSettings previous = _settings.Current;
+        try
+        {
+            await _settings.SaveAsync(previous with
+            { StartWithWindows = StartWithWindows, StartMinimized = StartMinimized, CloseToTray = CloseToTray, Theme = Theme, AlwaysOnTop = AlwaysOnTop, CompactOnLaunch = CompactOnLaunch, TaskbarDisplayEnabled = TaskbarDisplayEnabled, LessonStartNotifications = LessonStartNotifications, EndWarningNotifications = EndWarningNotifications, EndWarningMinutes = EndWarningMinutes, AnnouncementNotifications = AnnouncementNotifications }, token);
+        }
+        catch
+        {
+            if (_taskbar?.IsAvailable == true) _taskbar.Configure(previous.TaskbarDisplayEnabled);
+            throw;
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanSync))] private Task SyncNowAsync(CancellationToken token) => _sync.SyncAllAsync(token);
     [RelayCommand] private Task SendTestNotificationAsync(CancellationToken token) => _notifications.ShowTestAsync(token);
@@ -72,7 +89,14 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     }
 
     private void Copy(AppSettings value)
-    { StartWithWindows = value.StartWithWindows; StartMinimized = value.StartMinimized; CloseToTray = value.CloseToTray; Theme = value.Theme; AlwaysOnTop = value.AlwaysOnTop; CompactOnLaunch = value.CompactOnLaunch; LessonStartNotifications = value.LessonStartNotifications; EndWarningNotifications = value.EndWarningNotifications; EndWarningMinutes = value.EndWarningMinutes; AnnouncementNotifications = value.AnnouncementNotifications; }
+    { StartWithWindows = value.StartWithWindows; StartMinimized = value.StartMinimized; CloseToTray = value.CloseToTray; Theme = value.Theme; AlwaysOnTop = value.AlwaysOnTop; CompactOnLaunch = value.CompactOnLaunch; TaskbarDisplayEnabled = value.TaskbarDisplayEnabled; LessonStartNotifications = value.LessonStartNotifications; EndWarningNotifications = value.EndWarningNotifications; EndWarningMinutes = value.EndWarningMinutes; AnnouncementNotifications = value.AnnouncementNotifications; }
+
+    private void OnTaskbarStatusChanged(object? sender, EventArgs args)
+    {
+        if (_taskbar is null) return;
+        if (_dispatcher.CheckAccess()) TaskbarDisplayStatus = _taskbar.Status;
+        else _ = _dispatcher.BeginInvoke(() => TaskbarDisplayStatus = _taskbar.Status);
+    }
 
     private void OnUpdateStateChanged(object? sender, UpdateState state)
     {
@@ -91,6 +115,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     {
         if (_disposed) return;
         _updates.StateChanged -= OnUpdateStateChanged;
+        if (_taskbar is not null) _taskbar.StatusChanged -= OnTaskbarStatusChanged;
         if (_scheduler is not null) _scheduler.HealthChanged -= OnNotificationHealthChanged;
         _messenger?.UnregisterAll(this);
         _disposed = true;

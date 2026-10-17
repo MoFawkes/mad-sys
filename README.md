@@ -10,6 +10,7 @@ The desktop presentation uses WPF-UI Fluent controls, light/dark/system themes, 
 
 - Desktop clock with current lesson, countdown, and next lesson
 - Compact always-on-top mode, system tray residence, automatic Windows startup
+- Optional x64 Windows 10 taskbar lesson/countdown toolbar ([build and setup](src/AqiClock.Taskbar/README.md))
 - Multiple timetable types, weekly schedule, and date-specific overrides
 - Native Windows notifications and OS-scheduled mobile lesson notifications
 - Teacher and personal student-phone paths with targeted announcements

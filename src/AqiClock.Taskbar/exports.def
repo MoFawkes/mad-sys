@@ -1,0 +1,4 @@
+LIBRARY AqiClock.Taskbar
+EXPORTS
+    DllGetClassObject PRIVATE
+    DllCanUnloadNow PRIVATE

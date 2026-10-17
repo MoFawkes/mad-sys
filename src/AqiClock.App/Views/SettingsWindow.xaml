@@ -49,6 +49,17 @@
                 <ui:CardControl Header="Use compact mode on launch" Margin="0,0,0,18" IsTabStop="False">
                     <ui:ToggleSwitch IsChecked="{Binding CompactOnLaunch}" />
                 </ui:CardControl>
+                <ui:CardControl Margin="0,0,0,18" IsTabStop="False">
+                    <ui:CardControl.Header>
+                        <StackPanel MaxWidth="350">
+                            <TextBlock Text="Windows 10 taskbar display" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding TaskbarDisplayStatus}" TextWrapping="Wrap"
+                                       FontSize="{DynamicResource CaptionFontSize}" Foreground="{DynamicResource MutedBrush}" />
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <ui:ToggleSwitch IsChecked="{Binding TaskbarDisplayEnabled}" IsEnabled="{Binding TaskbarDisplayAvailable}"
+                                     AutomationProperties.Name="Enable Windows 10 taskbar display" />
+                </ui:CardControl>
 
                 <TextBlock Text="Notifications" FontSize="{DynamicResource SubtitleFontSize}" FontWeight="SemiBold" Margin="0,0,0,8" />
                 <ui:CardControl Header="Lesson starts" Margin="0,0,0,6" IsTabStop="False">

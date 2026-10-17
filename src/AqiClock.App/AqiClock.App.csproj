@@ -21,6 +21,8 @@
     <PackageReference Include="WPF-UI" Version="4.3.0" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="..\..\artifacts\taskbar\AqiClock.Taskbar.dll" Link="taskbar\AqiClock.Taskbar.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="Exists('..\..\artifacts\taskbar\AqiClock.Taskbar.dll')" />
+    <Content Include="..\..\artifacts\taskbar\THIRD_PARTY_NOTICES.txt" Link="taskbar\THIRD_PARTY_NOTICES.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="Exists('..\..\artifacts\taskbar\THIRD_PARTY_NOTICES.txt')" />
     <ApplicationDefinition Remove="App.xaml" />
     <Page Include="App.xaml" />
     <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />

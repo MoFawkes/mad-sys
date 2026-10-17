@@ -2,6 +2,19 @@
 
 This checklist is the ADR-011 acceptance script for Windows surfaces that are not reliably covered by unit tests. Run the full checklist on Windows 10 and Windows 11 before the Phase 8 pilot. Record the app commit, Windows version, tester, date, and result for each run.
 
+## Windows 10 taskbar display acceptance (pending)
+
+Use an x64 Windows 10 1809+ machine and a build containing `taskbar/AqiClock.Taskbar.dll`. Record build/hash, Windows build, DPI, tester, date, and results. Local automated component tests on Windows 11 do not establish taskbar docking acceptance.
+
+- [ ] TB-01: Enable **Settings → Display → Windows 10 taskbar display**, Save, and confirm the toolbar appears. If automatic showing is unavailable, select **Toolbars → AQI Clock** from the taskbar context menu. No elevation or Explorer restart should be needed.
+- [ ] TB-02: With Teams/Zoom maximised and AQI Clock minimised, confirm the period/countdown updates each second, changes at period boundaries, and does not steal focus while typing or presenting. Check the idle/closed-day label too.
+- [ ] TB-03: Hover to see the full current/end/next details; click and keyboard Enter/Space open the existing app. Exit AQI Clock: the old countdown disappears within five seconds, and click relaunches it visibly even with Start minimised enabled.
+- [ ] TB-04: Sign out and confirm old class/lesson details disappear. Sign back in, change selected classes, and verify the toolbar follows the same timetable as the main clock. Disconnect networking and check that cached timing continues.
+- [ ] TB-05: Check 100%, 150%, and 200% DPI; light/dark and high-contrast themes; long period names; bottom/top and vertical taskbars; resize/reposition with an unlocked taskbar. Hover must retain full text when labels truncate.
+- [ ] TB-06: Check auto-hide, sleep/resume, and Explorer restart. No indefinitely frozen countdown, duplicate toolbar, or automatic focus changes. Compare screen-sharing a whole desktop versus a single Teams/Zoom application window.
+- [ ] TB-07: Disable and Save; confirm the toolbar hides/unregisters. Re-enable and restart Windows; confirm the saved preference and the enabled toolbar survive. Update the app, verify the toolbar and click-to-open still work, then uninstall and confirm registration is removed.
+- [ ] TB-08: On Windows 11, confirm the option is disabled with an explanation, existing compact mode works, and other preferences still save even when `taskbarDisplayEnabled` was previously true on Windows 10.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)

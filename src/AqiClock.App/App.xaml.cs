@@ -31,15 +31,16 @@ public partial class App : System.Windows.Application, IDisposable
     private bool _ownsMutex;
     private bool _disposed;
     private bool _startMinimized;
+    private bool _showRequested;
     private bool _dispatcherErrorShown;
 
     [STAThread]
     private static void Main(string[] args)
     {
         VelopackApp.Build()
-            .OnAfterInstallFastCallback(_ => ProtocolRegistration.Register())
-            .OnAfterUpdateFastCallback(_ => ProtocolRegistration.Register())
-            .OnBeforeUninstallFastCallback(_ => ProtocolRegistration.Unregister())
+            .OnAfterInstallFastCallback(_ => { ProtocolRegistration.Register(); TaskbarRegistration.UpdateLaunchPath(); })
+            .OnAfterUpdateFastCallback(_ => { ProtocolRegistration.Register(); TaskbarRegistration.UpdateLaunchPath(); })
+            .OnBeforeUninstallFastCallback(_ => { ProtocolRegistration.Unregister(); TaskbarRegistration.Uninstall(); })
             .Run();
         var app = new App();
         app.InitializeComponent();
@@ -67,6 +68,7 @@ public partial class App : System.Windows.Application, IDisposable
         }
         base.OnStartup(e);
         _startMinimized = e.Args.Any(argument => string.Equals(argument, "--minimized", StringComparison.OrdinalIgnoreCase));
+        _showRequested = e.Args.Any(argument => string.Equals(argument, "--show", StringComparison.OrdinalIgnoreCase));
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         _host = BuildHost();
@@ -96,6 +98,8 @@ public partial class App : System.Windows.Application, IDisposable
         builder.Services.AddSingleton<ISettingsService, SettingsService>(); builder.Services.AddSingleton<IClockService, ClockService>(); builder.Services.AddSingleton<IWindowService, WindowService>(); builder.Services.AddSingleton<ThemeService>();
         builder.Services.AddSingleton<INotificationPresenter, ToastPresenter>(); builder.Services.AddSingleton<INotificationScheduler, NotificationScheduler>(); builder.Services.AddSingleton<TrayService>(); builder.Services.AddSingleton<StartupService>(); builder.Services.AddSingleton<IUpdateService, UpdateService>(); builder.Services.AddSingleton<UpdateRestartPrompt>();
         builder.Services.AddSingleton<ClockViewModel>(); builder.Services.AddSingleton<AnnouncementsViewModel>(); builder.Services.AddSingleton<MainViewModel>(); builder.Services.AddTransient<SignInViewModel>(); builder.Services.AddTransient<SettingsViewModel>();
+        builder.Services.AddSingleton<TaskbarDisplayService>();
+        builder.Services.AddSingleton<ITaskbarDisplayService>(services => services.GetRequiredService<TaskbarDisplayService>());
         builder.Services.AddTransient<PasswordRecoveryViewModel>();
         builder.Services.AddTransient<StudentClassPickerViewModel>();
         builder.Services.AddSingleton<TimetableEditorViewModel>(); builder.Services.AddSingleton<WeekScheduleViewModel>(); builder.Services.AddSingleton<OverridesViewModel>(); builder.Services.AddSingleton<ClassesViewModel>(); builder.Services.AddSingleton<AnnouncementComposeViewModel>(); builder.Services.AddSingleton<AuditViewModel>(); builder.Services.AddSingleton<UsersViewModel>(); builder.Services.AddSingleton<StudentDevicesViewModel>(); builder.Services.AddSingleton<PrayerTimesViewModel>(); builder.Services.AddSingleton<AdminViewModel>();
@@ -136,7 +140,7 @@ public partial class App : System.Windows.Application, IDisposable
             bool studentNeedsSelection = audience.Current.Role == DeviceAudienceRole.StudentDevice && !studentReady;
             if (studentNeedsSelection)
                 TryShowCoreWindow("student class picker", windows.ShowStudentClassPickerWindow, logger);
-            else if (WindowLifecycle.ShouldShowMainWindowAtStartup(studentReady, _startMinimized, settings.Current.StartMinimized))
+            else if (WindowLifecycle.ShouldShowMainWindowAtStartup(studentReady, _startMinimized && !_showRequested, settings.Current.StartMinimized && !_showRequested))
                 TryShowCoreWindow("main window", windows.ShowMainWindow, logger);
             StartupStepRunner.TryRun("background sync", () => _ = ObserveStartupSyncAsync(services.GetRequiredService<ISyncService>().StartAsync(), logger), logger);
         }
@@ -151,6 +155,7 @@ public partial class App : System.Windows.Application, IDisposable
             case StartupServiceStep.UpdateRestartPrompt: services.GetRequiredService<UpdateRestartPrompt>().Start(); break;
             case StartupServiceStep.Updater: services.GetRequiredService<IUpdateService>().Start(); break;
             case StartupServiceStep.Tray: services.GetRequiredService<TrayService>().Start(); break;
+            case StartupServiceStep.TaskbarDisplay: services.GetRequiredService<TaskbarDisplayService>().Start(); break;
             case StartupServiceStep.NotificationScheduler: services.GetRequiredService<INotificationScheduler>().StartAsync().GetAwaiter().GetResult(); break;
             case StartupServiceStep.Clock: services.GetRequiredService<IClockService>().Start(); break;
             case StartupServiceStep.MainViewModel:

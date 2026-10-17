@@ -450,9 +450,10 @@ public sealed class Phase5ViewModelTests
         {
             var options = Options.Create(new AqiClockOptions { DataDirectory = directory });
             using var writer = new SettingsService(options);
-            await writer.SaveAsync(new AppSettings { Theme = AppTheme.Dark, EndWarningMinutes = 12, CompactOnLaunch = true });
+            await writer.SaveAsync(new AppSettings { Theme = AppTheme.Dark, EndWarningMinutes = 12, CompactOnLaunch = true, TaskbarDisplayEnabled = true });
             using var reader = new SettingsService(options); await reader.LoadAsync();
             Assert.Equal(AppTheme.Dark, reader.Current.Theme); Assert.Equal(12, reader.Current.EndWarningMinutes); Assert.True(reader.Current.CompactOnLaunch);
+            Assert.True(reader.Current.TaskbarDisplayEnabled);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
