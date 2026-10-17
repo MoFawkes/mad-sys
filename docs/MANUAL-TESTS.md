@@ -25,6 +25,8 @@ Codex exercised the production native DLL in an offline Windows 10 Enterprise ev
 - No production sign-in, Teams/Zoom presentation, full-app settings flow, DPI/theme matrix, sleep/resume, or installed update/uninstall was tested. Demo registration and cleanup do not establish the app's registration lifecycle.
 - The portable test VM has no host startup item, installed host driver/service, or shared host folder. It was shut down after testing; its launch/stop/removal scripts remain in ignored local artifacts.
 
+Follow-up on the same date: connected the guest to the internet and joined Zoom's official public test meeting in the guest's Edge browser. The user handled network discovery, the browser popup permission, and meeting entry. With Zoom maximized and the synthetic publisher minimized, the toolbar stayed visible and updated. Clicking it restored the publisher; after scheduling a ten-second boundary and minimizing it again, the toolbar changed from Lesson 3 to Isha while Zoom remained in front. This establishes foreground-window behavior, not keyboard-input focus or AV performance. Zoom showed a browser-upgrade recommendation and unavailable AV devices; no host camera/microphone was passed through. Screen sharing was attempted, but Zoom displayed **Disabled Share — Host disabled attendee screen sharing**, so capture behavior remains unverified and requires an account-hosted solo meeting. Teams remains untested.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
