@@ -133,6 +133,13 @@ int wmain(int argc, wchar_t** argv) {
     Check(GetFocus() == focus, "refresh preserves keyboard focus");
     HDC dc = GetDC(child);
     SendMessageW(child, WM_PRINTCLIENT, reinterpret_cast<WPARAM>(dc), PRF_CLIENT);
+    BOOL composited = FALSE;
+    Check(SUCCEEDED(band->CanRenderComposited(&composited)) && composited, "supports Explorer's composited taskbar without compatibility warning");
+    Check(SUCCEEDED(band->SetCompositionState(TRUE)), "enable composited rendering");
+    composited = FALSE;
+    Check(SUCCEEDED(band->GetCompositionState(&composited)) && composited, "composition state roundtrip");
+    SendMessageW(child, WM_PRINTCLIENT, reinterpret_cast<WPARAM>(dc), PRF_CLIENT);
+    Check(SUCCEEDED(band->SetCompositionState(FALSE)), "return to opaque rendering");
     ReleaseDC(child, dc);
     Check(SUCCEEDED(band->CloseDW(0)) && !IsWindow(child), "close destroys child");
     Check(SUCCEEDED(objectSite->SetSite(static_cast<IOleWindow*>(&site))), "reattach after Explorer recreates band");

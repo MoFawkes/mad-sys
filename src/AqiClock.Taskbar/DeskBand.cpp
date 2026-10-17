@@ -137,6 +137,25 @@ class DeskBand final : public IDeskBand2, public IObjectWithSite, public IPersis
         DeleteObject(bitmap);
         DeleteDC(dc);
     }
+    void Render(HDC destination) {
+        if (!destination) return;
+        // A composited taskbar needs defined alpha. GDI's compatible bitmap
+        // leaves alpha undefined, which is why advertising opaque-only support
+        // makes Explorer show its compatibility warning. Keep our own surface
+        // opaque while allowing the rest of the taskbar to retain composition.
+        if (composited && SUCCEEDED(BufferedPaintInit())) {
+            RECT rect;
+            GetClientRect(window, &rect);
+            HDC bufferedDc = nullptr;
+            HPAINTBUFFER buffer = BeginBufferedPaint(destination, &rect, BPBF_TOPDOWNDIB, nullptr, &bufferedDc);
+            if (buffer) {
+                Paint(bufferedDc);
+                BufferedPaintSetAlpha(buffer, nullptr, 255);
+                EndBufferedPaint(buffer, TRUE);
+            } else Paint(destination);
+            BufferedPaintUnInit();
+        } else Paint(destination);
+    }
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
         auto self = reinterpret_cast<DeskBand*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
         if (message == WM_NCCREATE) {
@@ -148,8 +167,8 @@ class DeskBand final : public IDeskBand2, public IObjectWithSite, public IPersis
         // No C++ exception may escape a window procedure hosted by Explorer.
         try { switch (message) {
         case WM_TIMER: self->Refresh(); return 0;
-        case WM_PAINT: { PAINTSTRUCT ps; HDC dc = BeginPaint(hwnd, &ps); self->Paint(dc); EndPaint(hwnd, &ps); return 0; }
-        case WM_PRINTCLIENT: self->Paint(reinterpret_cast<HDC>(wparam)); return 0;
+        case WM_PAINT: { PAINTSTRUCT ps; HDC dc = BeginPaint(hwnd, &ps); self->Render(dc); EndPaint(hwnd, &ps); return 0; }
+        case WM_PRINTCLIENT: self->Render(reinterpret_cast<HDC>(wparam)); return 0;
         case WM_ERASEBKGND: return 1;
         case WM_MOUSEACTIVATE: return MA_NOACTIVATE;
         case WM_LBUTTONUP: self->OpenApp(); return 0;
@@ -206,8 +225,12 @@ public:
         info->dwMask &= ~(DBIM_TITLE | DBIM_BKCOLOR);
         return S_OK;
     }
-    HRESULT STDMETHODCALLTYPE CanRenderComposited(BOOL* value) override { if (!value) return E_POINTER; *value = FALSE; return S_OK; }
-    HRESULT STDMETHODCALLTYPE SetCompositionState(BOOL value) override { composited = value != FALSE; return S_OK; }
+    HRESULT STDMETHODCALLTYPE CanRenderComposited(BOOL* value) override { if (!value) return E_POINTER; *value = TRUE; return S_OK; }
+    HRESULT STDMETHODCALLTYPE SetCompositionState(BOOL value) override {
+        composited = value != FALSE;
+        if (window) InvalidateRect(window, nullptr, TRUE);
+        return S_OK;
+    }
     HRESULT STDMETHODCALLTYPE GetCompositionState(BOOL* value) override { if (!value) return E_POINTER; *value = composited; return S_OK; }
     HRESULT STDMETHODCALLTYPE GetClassID(CLSID* value) override { if (!value) return E_POINTER; *value = BandId; return S_OK; }
     HRESULT STDMETHODCALLTYPE IsDirty() override { return S_FALSE; }

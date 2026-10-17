@@ -15,6 +15,16 @@ Use an x64 Windows 10 1809+ machine and a build containing `taskbar/AqiClock.Tas
 - [ ] TB-07: Disable and Save; confirm the toolbar hides/unregisters. Re-enable and restart Windows; confirm the saved preference and the enabled toolbar survive. Update the app, verify the toolbar and click-to-open still work, then uninstall and confirm registration is removed.
 - [ ] TB-08: On Windows 11, confirm the option is disabled with an explanation, existing compact mode works, and other preferences still save even when `taskbarDisplayEnabled` was previously true on Windows 10.
 
+### Partial VM check — 2026-10-17
+
+Codex exercised the production native DLL in an offline Windows 10 Enterprise evaluation VM (desktop watermark: build 19041.vb_release.191206-1406), using a separate WinForms publisher with synthetic lesson data. Tested DLL SHA-256: `9A2A4594119A900EB38BB07697AE327D08806224424A4B343BB32F1AA7F452B9`. This is component-level Explorer acceptance; the full checklist above remains pending.
+
+- Found and fixed Explorer's compatibility warning: the band now supports composited rendering with defined alpha on its own opaque surface. The corrected DLL showed only Windows' normal toolbar-enablement prompt and docked successfully.
+- Observed a live lesson/countdown, a lesson-to-Isha transition while the publisher was minimized, click-to-restore, full tooltip text, replacement with the synthetic signed-out label, and toolbar removal when finishing the demo.
+- The narrow guest taskbar initially clipped the countdown while the Windows search box occupied most of the available space. Hiding the guest search box exposed both fields. Crowded taskbars and resizing need further acceptance coverage.
+- No production sign-in, Teams/Zoom presentation, full-app settings flow, DPI/theme matrix, sleep/resume, or installed update/uninstall was tested. Demo registration and cleanup do not establish the app's registration lifecycle.
+- The portable test VM has no host startup item, installed host driver/service, or shared host folder. It was shut down after testing; its launch/stop/removal scripts remain in ignored local artifacts.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
