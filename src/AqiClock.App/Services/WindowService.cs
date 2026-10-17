@@ -30,7 +30,7 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
         messenger.Register(this);
     }
 
-    public void ShowMainWindow() { _main ??= _services.GetRequiredService<MainWindow>(); System.Windows.Application.Current.MainWindow = _main; _main.Show(); _main.Activate(); }
+    public void ShowMainWindow() { _main ??= _services.GetRequiredService<MainWindow>(); System.Windows.Application.Current.MainWindow = _main; WindowActivation.ShowAndActivate(_main); }
     public void ShowSignInWindow()
     {
         _returnToRoleChoiceOnSignInClose = false;
@@ -63,7 +63,7 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
             _signIn = _services.GetRequiredService<SignInWindow>();
             _signIn.Closed += OnSignInClosed;
         }
-        System.Windows.Application.Current.MainWindow = _signIn; _signIn.Show(); _signIn.Activate();
+        System.Windows.Application.Current.MainWindow = _signIn; WindowActivation.ShowAndActivate(_signIn);
     }
     public void ShowRoleChoiceWindow()
     {
@@ -129,7 +129,7 @@ public sealed class WindowService : IWindowService, IRecipient<SessionChanged>
             _session.Current, _passwordRecovery?.IsVisible == true, _audience.Current.Role == DeviceAudienceRole.StudentDevice))
         {
             case ActivationTarget.PasswordRecovery:
-                _passwordRecovery!.Activate();
+                WindowActivation.ShowAndActivate(_passwordRecovery!);
                 break;
             case ActivationTarget.SignIn:
                 ShowSignInWindow();
