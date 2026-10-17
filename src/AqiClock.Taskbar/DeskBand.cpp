@@ -74,7 +74,35 @@ class DeskBand final : public IDeskBand2, public IObjectWithSite, public IPersis
     }
     void OpenApp() {
         HANDLE activation = OpenEventW(EVENT_MODIFY_STATE, FALSE, L"Local\\AqiClock.Activate");
-        if (activation) { SetEvent(activation); CloseHandle(activation); return; }
+        if (activation) {
+            // The user clicked Explorer's band, so grant this app permission to
+            // become foreground before signaling its asynchronous activation.
+            // Without this handoff Windows can merely flash the taskbar button.
+            DWORD processId = 0, processBytes = sizeof(processId);
+            wchar_t registeredPath[32768];
+            DWORD pathBytes = sizeof(registeredPath);
+            const wchar_t* key = L"Software\\AQIClock\\TaskbarDisplay";
+            if (RegGetValueW(HKEY_CURRENT_USER, key, L"AppProcessId", RRF_RT_REG_DWORD, nullptr, &processId, &processBytes) == ERROR_SUCCESS &&
+                RegGetValueW(HKEY_CURRENT_USER, key, L"AppPath", RRF_RT_REG_SZ, nullptr, registeredPath, &pathBytes) == ERROR_SUCCESS) {
+                DWORD appSession = 0, shellSession = 0;
+                HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processId);
+                if (process) {
+                    wchar_t runningPath[32768];
+                    DWORD runningLength = ARRAYSIZE(runningPath);
+                    const wchar_t* leaf = wcsrchr(registeredPath, L'\\');
+                    if (leaf && _wcsicmp(leaf + 1, L"AqiClock.App.exe") == 0 &&
+                        QueryFullProcessImageNameW(process, 0, runningPath, &runningLength) &&
+                        ProcessIdToSessionId(processId, &appSession) && ProcessIdToSessionId(GetCurrentProcessId(), &shellSession) && appSession == shellSession) {
+                        std::wstring installedPath(registeredPath, static_cast<size_t>(leaf - registeredPath + 1));
+                        installedPath += L"current\\AqiClock.App.exe";
+                        if (_wcsicmp(runningPath, registeredPath) == 0 || _wcsicmp(runningPath, installedPath.c_str()) == 0)
+                            AllowSetForegroundWindow(processId);
+                    }
+                    CloseHandle(process);
+                }
+            }
+            SetEvent(activation); CloseHandle(activation); return;
+        }
         wchar_t path[32768];
         DWORD bytes = sizeof(path);
         if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\AQIClock\\TaskbarDisplay", L"AppPath",

@@ -52,6 +52,7 @@ internal static class TaskbarRegistration
     {
         using RegistryKey key = hive.CreateSubKey(LaunchKey);
         key.SetValue("AppPath", ProtocolRegistration.ResolveStableExecutable(Path.Combine(AppContext.BaseDirectory, "AqiClock.App.exe")));
+        key.SetValue("AppProcessId", Environment.ProcessId, RegistryValueKind.DWord);
     }
 
     internal static void Unregister()

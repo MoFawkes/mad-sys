@@ -6,7 +6,7 @@ This checklist is the ADR-011 acceptance script for Windows surfaces that are no
 
 Use an x64 Windows 10 1809+ machine and a build containing `taskbar/AqiClock.Taskbar.dll`. Record build/hash, Windows build, DPI, tester, date, and results. Local automated component tests on Windows 11 do not establish taskbar docking acceptance.
 
-- [ ] TB-01: Enable **Settings → Display → Windows 10 taskbar display**, Save, and confirm the toolbar appears. If automatic showing is unavailable, select **Toolbars → AQI Clock** from the taskbar context menu. No elevation or Explorer restart should be needed.
+- [x] TB-01: Enable **Settings → Display → Windows 10 taskbar display**, Save, and confirm the toolbar appears. If automatic showing is unavailable, select **Toolbars → AQI Clock** from the taskbar context menu. No elevation or Explorer restart should be needed. See the installed-app follow-up below.
 - [ ] TB-02: With Teams/Zoom maximised and AQI Clock minimised, confirm the period/countdown updates each second, changes at period boundaries, and does not steal focus while typing or presenting. Check the idle/closed-day label too.
 - [ ] TB-03: Hover to see the full current/end/next details; click and keyboard Enter/Space open the existing app. Exit AQI Clock: the old countdown disappears within five seconds, and click relaunches it visibly even with Start minimised enabled.
 - [ ] TB-04: Sign out and confirm old class/lesson details disappear. Sign back in, change selected classes, and verify the toolbar follows the same timetable as the main clock. Disconnect networking and check that cached timing continues.
@@ -36,6 +36,16 @@ The user handled network discovery, popup permissions, account sign-in, and capt
 Native DLL from commit `58fedbc`, SHA-256 `8B1DDD840639B3B97B10679D5E16B877FBA9A4A6CF925A635272FD5F82D24A58`, was checked in the same Windows 10 guest after a fresh sign-in. The inactive label and the synthetic Lesson 3/countdown appeared at the right edge of the band, immediately before the notification area, without an opaque background rectangle. Both live fields fitted the narrow guest taskbar, and the countdown kept advancing with the publisher minimized and Explorer in front. The taskbar was locked after checking the layout. Windows still owns the band's outer placement; this change right-aligns its content within its allocated area.
 
 Native rendering tests cover transparent background pixels, right anchoring in a wider client area, and the opaque fallback when composition is disabled. The native tests and WPF build passed, and all four CI checks passed for `58fedbc`. This styling follow-up did not repeat Zoom sharing or establish the remaining DPI/theme and installed-app acceptance cases above.
+
+### Installed-app follow-up — 2026-10-17 (in progress)
+
+Locally built, unpublished per-user Velopack 1.2.0 packages used the real `AqiClock.App` identity and successive test versions. Package `0.0.1-taskbartest.1` installed in the disposable Windows 10 guest without elevation and opened the audience chooser. The owner chose Teacher and signed in. The real clock synced and showed **No lessons today**, with the next lesson on Monday at 09:10.
+
+Enabling the taskbar option in the installed app's Settings and saving succeeded. Settings reported **Taskbar toolbar enabled**, and Explorer showed the same idle status. A guest-only read-only checker confirmed `taskbarDisplayEnabled: true`, a launcher under the stable per-user `AqiClock.App` install path, and the immutable native DLL hash `8B1DDD840639B3B97B10679D5E16B877FBA9A4A6CF925A635272FD5F82D24A58`. Setup recognized the existing `.1` package and applied an upgrade to `.3`; the signed-in session and taskbar preference survived.
+
+Real-app activation exposed a gap in the earlier synthetic publisher check: activating a minimized window could only flash its taskbar button. Added `SW_RESTORE` before activation, with WPF regression checks for previously normal and maximized windows. The application suite passed 209 tests, with one optional backend smoke skipped. The native click handler also now grants foreground permission only to the recorded app PID after checking its executable path and Windows session. Native component tests passed. Acceptance of these combined fixes with the new native DLL remains pending.
+
+Post-upgrade testing also encountered unresponsive guest input while the clock kept ticking; Explorer ignored clicks too. QEMU had selected its PS/2 mouse instead of the absolute tablet. Re-selecting/resetting the tablet did not make input reliable, so testing paused for a guest restart using an xHCI USB controller. A brief synchronization/heartbeat pause was also observed and recovered; its cause has not been established. Do not count the remaining checklist rows as passed or treat the release as ready.
 
 ## Test record
 
