@@ -22,6 +22,7 @@ class DeskBand final : public IDeskBand2, public IObjectWithSite, public IPersis
     HWND window = nullptr;
     HWND tooltipWindow = nullptr;
     HFONT font = nullptr;
+    HFONT countdownFont = nullptr;
     DWORD bandId = 0;
     bool vertical = false;
     bool composited = false;
@@ -32,10 +33,13 @@ class DeskBand final : public IDeskBand2, public IObjectWithSite, public IPersis
     int Scale(int value) const { return MulDiv(value, window ? GetDpiForWindow(window) : 96, 96); }
     void UpdateFont() {
         if (font) DeleteObject(font);
+        if (countdownFont) DeleteObject(countdownFont);
         NONCLIENTMETRICSW metrics = {};
         metrics.cbSize = sizeof(metrics);
         SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0, window ? GetDpiForWindow(window) : 96);
         font = CreateFontIndirectW(&metrics.lfMessageFont);
+        metrics.lfMessageFont.lfWeight = FW_SEMIBOLD;
+        countdownFont = CreateFontIndirectW(&metrics.lfMessageFont);
     }
     void NotifySizeChanged() {
         IOleCommandTarget* commands = nullptr;
@@ -85,16 +89,11 @@ class DeskBand final : public IDeskBand2, public IObjectWithSite, public IPersis
         if (inputSite) inputSite->OnFocusChangeIS(static_cast<IDeskBand2*>(this), focused);
         InvalidateRect(window, nullptr, FALSE);
     }
-    void Paint(HDC destination) {
-        if (!destination) return;
+    bool Paint(HDC dc, HPAINTBUFFER buffer, bool allowTransparency) {
+        if (!dc) return false;
         RECT rect;
         GetClientRect(window, &rect);
-        if (rect.right <= 0 || rect.bottom <= 0) return;
-        HDC dc = CreateCompatibleDC(destination);
-        if (!dc) return;
-        HBITMAP bitmap = CreateCompatibleBitmap(destination, rect.right, rect.bottom);
-        if (!bitmap) { DeleteDC(dc); return; }
-        HGDIOBJ previousBitmap = SelectObject(dc, bitmap);
+        if (rect.right <= 0 || rect.bottom <= 0) return true;
         HIGHCONTRASTW contrast = {};
         contrast.cbSize = sizeof(contrast);
         SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(contrast), &contrast, 0);
@@ -104,57 +103,85 @@ class DeskBand final : public IDeskBand2, public IObjectWithSite, public IPersis
         bool highContrast = (contrast.dwFlags & HCF_HIGHCONTRASTON) != 0;
         COLORREF background = highContrast ? GetSysColor(COLOR_BTNFACE) : light ? RGB(240,240,240) : RGB(32,32,32);
         COLORREF foreground = highContrast ? GetSysColor(COLOR_BTNTEXT) : light ? RGB(24,24,24) : RGB(250,250,250);
-        HBRUSH brush = CreateSolidBrush(background);
-        FillRect(dc, &rect, brush);
-        DeleteObject(brush);
-        if (!highContrast) DrawThemeParentBackground(window, dc, &rect);
+        HTHEME theme = allowTransparency && composited && !highContrast && buffer ? OpenThemeData(window, L"BUTTON") : nullptr;
+        if (!theme) {
+            HBRUSH brush = CreateSolidBrush(background);
+            FillRect(dc, &rect, brush);
+            DeleteObject(brush);
+            if (!highContrast) DrawThemeParentBackground(window, dc, &rect);
+        }
+        bool rendered = true;
+        auto drawText = [&](const wchar_t* value, int length, RECT area, UINT flags, bool emphasis) {
+            SelectObject(dc, emphasis && countdownFont ? countdownFont : font ? font : GetStockObject(DEFAULT_GUI_FONT));
+            if (area.right <= area.left || area.bottom <= area.top) return;
+            if (theme) {
+                DTTOPTS options = {};
+                options.dwSize = sizeof(options);
+                options.dwFlags = DTT_COMPOSITED | DTT_TEXTCOLOR;
+                options.crText = foreground;
+                if (FAILED(DrawThemeTextEx(theme, dc, 0, 0, value, length, flags, &area, &options))) rendered = false;
+            } else DrawTextW(dc, value, length, &area, flags);
+        };
         SetBkMode(dc, TRANSPARENT);
         SetTextColor(dc, foreground);
         HGDIOBJ oldFont = SelectObject(dc, font ? font : GetStockObject(DEFAULT_GUI_FONT));
         InflateRect(&rect, -Scale(8), 0);
+        // Explorer can stretch the last toolbar across unused taskbar space.
+        // Keep the clock together beside the tray instead of spreading its
+        // label and countdown across that reserved area.
+        if (!vertical) rect.left = std::max(rect.left, rect.right - Scale(194));
         const auto divider = text.rfind(L" | ");
         if (divider != std::wstring::npos && vertical) {
             RECT top = rect, bottom = rect;
             top.bottom = rect.bottom / 2;
             bottom.top = top.bottom;
-            DrawTextW(dc, text.c_str(), static_cast<int>(divider), &top, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-            DrawTextW(dc, text.c_str() + divider + 3, -1, &bottom, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+            drawText(text.c_str(), static_cast<int>(divider), top, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX, false);
+            drawText(text.c_str() + divider + 3, -1, bottom, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX, true);
         } else if (divider != std::wstring::npos) {
             const wchar_t* remaining = text.c_str() + divider + 3;
             SIZE extent = {};
+            SelectObject(dc, countdownFont ? countdownFont : font ? font : GetStockObject(DEFAULT_GUI_FONT));
             GetTextExtentPoint32W(dc, remaining, static_cast<int>(wcslen(remaining)), &extent);
             RECT countdown = rect;
             countdown.left = std::max(rect.left, rect.right - extent.cx);
-            DrawTextW(dc, remaining, -1, &countdown, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_END_ELLIPSIS | DT_NOPREFIX);
-            rect.right = std::max(rect.left, countdown.left - Scale(12));
-            DrawTextW(dc, text.c_str(), static_cast<int>(divider), &rect, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-        } else DrawTextW(dc, text.c_str(), -1, &rect, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+            drawText(remaining, -1, countdown, DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_END_ELLIPSIS | DT_NOPREFIX, true);
+            rect.right = std::max(rect.left, countdown.left - Scale(10));
+            drawText(text.c_str(), static_cast<int>(divider), rect, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX, false);
+        } else drawText(text.c_str(), -1, rect, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX | (vertical ? 0 : DT_RIGHT), false);
         SelectObject(dc, oldFont);
-        if (GetFocus() == window) { GetClientRect(window, &rect); InflateRect(&rect,-2,-2); DrawFocusRect(dc,&rect); }
-        GetClientRect(window, &rect);
-        BitBlt(destination, 0, 0, rect.right, rect.bottom, dc, 0, 0, SRCCOPY);
-        SelectObject(dc, previousBitmap);
-        DeleteObject(bitmap);
-        DeleteDC(dc);
+        if (GetFocus() == window) {
+            GetClientRect(window, &rect); InflateRect(&rect,-2,-2);
+            HBRUSH brush = CreateSolidBrush(foreground);
+            FrameRect(dc, &rect, brush); DeleteObject(brush);
+            if (theme) {
+                RECT edges[] = {{rect.left,rect.top,rect.right,rect.top+1}, {rect.left,rect.bottom-1,rect.right,rect.bottom},
+                    {rect.left,rect.top,rect.left+1,rect.bottom}, {rect.right-1,rect.top,rect.right,rect.bottom}};
+                for (const RECT& edge : edges) BufferedPaintSetAlpha(buffer, &edge, 255);
+            }
+        }
+        if (theme) CloseThemeData(theme);
+        else if (buffer) BufferedPaintSetAlpha(buffer, nullptr, 255);
+        return rendered;
     }
     void Render(HDC destination) {
         if (!destination) return;
-        // A composited taskbar needs defined alpha. GDI's compatible bitmap
-        // leaves alpha undefined, which is why advertising opaque-only support
-        // makes Explorer show its compatibility warning. Keep our own surface
-        // opaque while allowing the rest of the taskbar to retain composition.
-        if (composited && SUCCEEDED(BufferedPaintInit())) {
+        // Clear ARGB to transparent, then draw premultiplied themed glyphs.
+        // Explorer supplies its own taskbar tint/transparency behind the band.
+        if (SUCCEEDED(BufferedPaintInit())) {
             RECT rect;
             GetClientRect(window, &rect);
             HDC bufferedDc = nullptr;
             HPAINTBUFFER buffer = BeginBufferedPaint(destination, &rect, BPBF_TOPDOWNDIB, nullptr, &bufferedDc);
             if (buffer) {
-                Paint(bufferedDc);
-                BufferedPaintSetAlpha(buffer, nullptr, 255);
+                BufferedPaintClear(buffer, nullptr);
+                if (!Paint(bufferedDc, buffer, true)) {
+                    BufferedPaintClear(buffer, nullptr);
+                    Paint(bufferedDc, buffer, false);
+                }
                 EndBufferedPaint(buffer, TRUE);
-            } else Paint(destination);
+            } else Paint(destination, nullptr, false);
             BufferedPaintUnInit();
-        } else Paint(destination);
+        } else Paint(destination, nullptr, false);
     }
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
         auto self = reinterpret_cast<DeskBand*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
@@ -186,6 +213,7 @@ class DeskBand final : public IDeskBand2, public IObjectWithSite, public IPersis
         if (tooltipWindow) { DestroyWindow(tooltipWindow); tooltipWindow = nullptr; }
         if (window) DestroyWindow(window);
         if (font) { DeleteObject(font); font = nullptr; }
+        if (countdownFont) { DeleteObject(countdownFont); countdownFont = nullptr; }
     }
 public:
     DeskBand() : mappingName(SnapshotName()) { InterlockedIncrement(&objects); }
@@ -217,11 +245,11 @@ public:
         if (!info) return E_POINTER;
         bandId = id;
         vertical = (mode & DBIF_VIEWMODE_VERTICAL) != 0;
-        if (info->dwMask & DBIM_MINSIZE) info->ptMinSize = {Scale(vertical ? 40 : 170), Scale(vertical ? 48 : 24)};
+        if (info->dwMask & DBIM_MINSIZE) info->ptMinSize = {Scale(vertical ? 40 : 120), Scale(vertical ? 48 : 24)};
         if (info->dwMask & DBIM_MAXSIZE) info->ptMaxSize = {-1, -1};
         if (info->dwMask & DBIM_INTEGRAL) info->ptIntegral = {1, 1};
-        if (info->dwMask & DBIM_ACTUAL) info->ptActual = {Scale(vertical ? 80 : 240), Scale(vertical ? 48 : 30)};
-        if (info->dwMask & DBIM_MODEFLAGS) info->dwModeFlags = DBIMF_NORMAL | DBIMF_VARIABLEHEIGHT;
+        if (info->dwMask & DBIM_ACTUAL) info->ptActual = {Scale(vertical ? 80 : 210), Scale(vertical ? 48 : 30)};
+        if (info->dwMask & DBIM_MODEFLAGS) info->dwModeFlags = DBIMF_NORMAL | DBIMF_VARIABLEHEIGHT | DBIMF_NOMARGINS;
         info->dwMask &= ~(DBIM_TITLE | DBIM_BKCOLOR);
         return S_OK;
     }
@@ -256,7 +284,7 @@ public:
         type.lpszClassName = WindowClass;
         if (!RegisterClassW(&type) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return HRESULT_FROM_WIN32(GetLastError());
         if (!CreateWindowExW(0, WindowClass, text.c_str(), WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_TABSTOP,
-            0, 0, 240, 30, parent, nullptr, module, this)) return HRESULT_FROM_WIN32(GetLastError());
+            0, 0, Scale(210), Scale(30), parent, nullptr, module, this)) return HRESULT_FROM_WIN32(GetLastError());
         site = value; site->AddRef();
         site->QueryInterface(IID_PPV_ARGS(&inputSite));
         UpdateFont();

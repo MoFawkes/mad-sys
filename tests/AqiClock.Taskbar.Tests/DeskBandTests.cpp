@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <shobjidl.h>
+#include <uxtheme.h>
 #include <cstdio>
 #include <cstdlib>
 #include "../../src/AqiClock.Taskbar/Snapshot.h"
@@ -64,8 +65,9 @@ int wmain(int argc, wchar_t** argv) {
     Check(SUCCEEDED(band->GetWindow(&child)) && IsWindow(child), "deskband exposes child window");
     DESKBANDINFO info = {};
     info.dwMask = DBIM_MINSIZE | DBIM_MAXSIZE | DBIM_ACTUAL | DBIM_MODEFLAGS | DBIM_TITLE | DBIM_BKCOLOR;
-    Check(SUCCEEDED(band->GetBandInfo(1, DBIF_VIEWMODE_NORMAL, &info)) && info.ptMinSize.x >= 170 && !(info.dwMask & DBIM_TITLE), "horizontal sizing without duplicate title");
+    Check(SUCCEEDED(band->GetBandInfo(1, DBIF_VIEWMODE_NORMAL, &info)) && info.ptMinSize.x >= 120 && info.ptMinSize.x < info.ptActual.x && !(info.dwMask & DBIM_TITLE), "compact resizable horizontal sizing without duplicate title");
     Check(SUCCEEDED(band->GetBandInfo(1, DBIF_VIEWMODE_VERTICAL, &info)) && info.ptMinSize.y >= 48, "vertical taskbar sizing");
+    Check(SUCCEEDED(band->GetBandInfo(1, DBIF_VIEWMODE_NORMAL, &info)), "return to horizontal rendering");
     SetWindowPos(child, nullptr, 0, 0, 240, 30, SWP_NOZORDER | SWP_NOACTIVATE);
     Check(SUCCEEDED(band->ShowDW(TRUE)), "show toolbar without activation");
     HWND focus = GetFocus();
@@ -139,7 +141,46 @@ int wmain(int argc, wchar_t** argv) {
     composited = FALSE;
     Check(SUCCEEDED(band->GetCompositionState(&composited)) && composited, "composition state roundtrip");
     SendMessageW(child, WM_PRINTCLIENT, reinterpret_cast<WPARAM>(dc), PRF_CLIENT);
+    // Inspect actual output pixels: a solid rectangle must not regress the
+    // taskbar's tint, and transparent glyph rendering must remain visible.
+    constexpr int captureWidth = 440;
+    constexpr int captureHeight = 30;
+    SetWindowPos(child, nullptr, 0, 0, captureWidth, captureHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+    BITMAPINFO bitmapInfo = {};
+    bitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bitmapInfo.bmiHeader.biWidth = captureWidth;
+    bitmapInfo.bmiHeader.biHeight = -captureHeight;
+    bitmapInfo.bmiHeader.biPlanes = 1;
+    bitmapInfo.bmiHeader.biBitCount = 32;
+    bitmapInfo.bmiHeader.biCompression = BI_RGB;
+    void* pixels = nullptr;
+    HBITMAP bitmap = CreateDIBSection(dc, &bitmapInfo, DIB_RGB_COLORS, &pixels, nullptr, 0);
+    HDC capture = CreateCompatibleDC(dc);
+    Check(bitmap && pixels && capture, "create ARGB rendering capture");
+    HGDIOBJ previousBitmap = SelectObject(capture, bitmap);
+    std::memset(pixels, 0, captureWidth * captureHeight * 4);
+    SendMessageW(child, WM_PRINTCLIENT, reinterpret_cast<WPARAM>(capture), PRF_CLIENT);
+    GdiFlush();
+    HIGHCONTRASTW contrast = {};
+    contrast.cbSize = sizeof(contrast);
+    SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(contrast), &contrast, 0);
+    if (IsThemeActive() && !(contrast.dwFlags & HCF_HIGHCONTRASTON)) {
+        const auto output = static_cast<const DWORD*>(pixels);
+        Check((output[0] >> 24) == 0, "composited background preserves transparent corners");
+        bool visibleGlyphs = false;
+        for (int pixel = 0; pixel < captureWidth * captureHeight; ++pixel) visibleGlyphs |= (output[pixel] >> 24) != 0;
+        Check(visibleGlyphs, "composited text contains visible alpha");
+        const int unusedWidth = captureWidth - MulDiv(210, GetDpiForWindow(child), 96);
+        for (int y = 0; y < captureHeight; ++y) for (int x = 0; x < unusedWidth; ++x)
+            Check((output[y * captureWidth + x] >> 24) == 0, "wide toolbar keeps clock at its right edge");
+    } else std::puts("Themed transparency case unavailable; opaque fallback still exercised.");
     Check(SUCCEEDED(band->SetCompositionState(FALSE)), "return to opaque rendering");
+    std::memset(pixels, 0, captureWidth * captureHeight * 4);
+    SendMessageW(child, WM_PRINTCLIENT, reinterpret_cast<WPARAM>(capture), PRF_CLIENT);
+    GdiFlush();
+    Check((static_cast<const DWORD*>(pixels)[0] >> 24) == 255, "non-composited background remains opaque");
+    SelectObject(capture, previousBitmap);
+    DeleteObject(bitmap); DeleteDC(capture);
     ReleaseDC(child, dc);
     Check(SUCCEEDED(band->CloseDW(0)) && !IsWindow(child), "close destroys child");
     Check(SUCCEEDED(objectSite->SetSite(static_cast<IOleWindow*>(&site))), "reattach after Explorer recreates band");

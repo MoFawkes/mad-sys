@@ -55,6 +55,9 @@
                             <TextBlock Text="Windows 10 taskbar display" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding TaskbarDisplayStatus}" TextWrapping="Wrap"
                                        FontSize="{DynamicResource CaptionFontSize}" Foreground="{DynamicResource MutedBrush}" />
+                            <TextBlock Text="To place it on the right, unlock the Windows taskbar, drag the toolbar handle beside the system tray, then lock it again. Windows remembers its position."
+                                       TextWrapping="Wrap" Margin="0,4,0,0" Visibility="{Binding TaskbarDisplayAvailable, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                       FontSize="{DynamicResource CaptionFontSize}" Foreground="{DynamicResource MutedBrush}" />
                         </StackPanel>
                     </ui:CardControl.Header>
                     <ui:ToggleSwitch IsChecked="{Binding TaskbarDisplayEnabled}" IsEnabled="{Binding TaskbarDisplayAvailable}"
