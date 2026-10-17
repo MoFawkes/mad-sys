@@ -31,6 +31,12 @@ In that hosted meeting, the user selected both **Entire Screen** and the **File 
 
 The user handled network discovery, popup permissions, account sign-in, and capture permissions. Zoom showed a browser-upgrade recommendation and unavailable AV devices; no host camera/microphone was passed through. Teams and the native Zoom desktop client remain untested, as do the full-app settings/sign-in flow and the remaining OS-integration checklist.
 
+### Taskbar styling follow-up — 2026-10-17
+
+Native DLL from commit `58fedbc`, SHA-256 `8B1DDD840639B3B97B10679D5E16B877FBA9A4A6CF925A635272FD5F82D24A58`, was checked in the same Windows 10 guest after a fresh sign-in. The inactive label and the synthetic Lesson 3/countdown appeared at the right edge of the band, immediately before the notification area, without an opaque background rectangle. Both live fields fitted the narrow guest taskbar, and the countdown kept advancing with the publisher minimized and Explorer in front. The taskbar was locked after checking the layout. Windows still owns the band's outer placement; this change right-aligns its content within its allocated area.
+
+Native rendering tests cover transparent background pixels, right anchoring in a wider client area, and the opaque fallback when composition is disabled. The native tests and WPF build passed, and all four CI checks passed for `58fedbc`. This styling follow-up did not repeat Zoom sharing or establish the remaining DPI/theme and installed-app acceptance cases above.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
