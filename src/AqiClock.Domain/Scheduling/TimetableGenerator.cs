@@ -38,7 +38,10 @@ public static class TimetableGenerator
         List<GeneratorBlock> blocks = ToBlocks(timetableId, shape, sessionKind);
         List<GeneratedPeriod> authored = LayOut(timetableId, shape.DayStart, blocks);
         ResolvedAnchor[] candidates = (shape.AdjustsForPrayer ? anchors : [])
-            .Where(anchor => anchor.Start >= shape.DayStart)
+            .Where(anchor => anchor.Start >= shape.DayStart ||
+                ((sessionKind == GeneratorSessionKind.Pm
+                    ? PrayerMinutes + NaseehahMinutes : anchor.DurationMinutes) is { } duration &&
+                 anchor.Start.ToTimeSpan() + TimeSpan.FromMinutes(duration) > shape.DayStart.ToTimeSpan()))
             .OrderBy(anchor => anchor.Start)
             .ThenBy(anchor => anchor.Id)
             .ToArray();
@@ -103,9 +106,17 @@ public static class TimetableGenerator
                 ?? throw new InvalidOperationException($"Anchor '{anchor.Name}' has no duration for this date.");
             bool hostsNaseehah = anchor == naseehahAnchor;
             if (hostsNaseehah) duration = prayerMinutes + naseehahMinutes;
-            InsertAnchor(timetableId, periods,
-                hostsNaseehah ? anchor with { Name = anchor.Name + " + Naseehah" } : anchor, duration);
+            // A PM class reserves its full opening Naseehah/prayer block, even when
+            // jamaat began just before the class session. Other prayers keep their end.
+            int elapsed = hostsNaseehah ? 0
+                : Math.Max(0, (int)(authored[0].Start.ToTimeSpan() - anchor.Start.ToTimeSpan()).TotalMinutes);
             applied.Add(anchor);
+            if (elapsed >= duration) continue;
+            ResolvedAnchor visible = anchor with {
+                Start = anchor.Start < authored[0].Start ? authored[0].Start : anchor.Start,
+                Name = hostsNaseehah ? anchor.Name + " + Naseehah" : anchor.Name
+            };
+            InsertAnchor(timetableId, periods, visible, duration - elapsed);
         }
         return (periods, applied);
     }

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Fixed
+
+- Reserve the full 25-minute opening prayer/Naseehah block when it overlaps an evening session start, while keeping only the remaining minutes of other opening prayers.
+- Keep desktop and server expansion consistent for missing prayer durations and reject opening blocks that would push lessons across midnight.
+
 ## 0.15.2 - 2026-10-03
 
 ### Fixed

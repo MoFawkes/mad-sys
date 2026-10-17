@@ -12,6 +12,34 @@ public sealed class GeneratorMaintenanceTests(SupabaseFixture fixture)
         Dictionary<string, Guid> anchors = await AnchorIdsAsync();
         ExpansionCase[] cases =
         [
+            new("opening morning prayer", new(2090, 1, 18),
+                new(new(13, 0), 1, 30, null, null, true),
+                [new(anchors["zuhr"], "zuhr", "Zuhr", new(12, 58), 10)]),
+            new("opening prayer adjustment disabled", new(2090, 1, 19),
+                new(new(18, 15), 1, 25, null, null, false),
+                [new(anchors["maghrib"], "maghrib", "Maghrib", new(18, 13), 10)]),
+            new("opening prayer missing duration", new(2090, 1, 20),
+                new(new(18, 15), 1, 25, null, null, true),
+                [new(anchors["maghrib"], "maghrib", "Maghrib", new(18, 13), null)], "22023"),
+            new("opening prayer crosses midnight", new(2090, 1, 21),
+                new(new(23, 45), 1, 5, null, null, true),
+                [new(anchors["isha"], "isha", "Isha", new(23, 40), 10)], "22008"),
+            new("opening Maghrib before class", new(2090, 1, 13),
+                new(new(18, 15), 1, 25, null, null, true),
+                [new(anchors["maghrib"], "maghrib", "Maghrib", new(18, 13), 10)]),
+            new("opening Maghrib at class start", new(2090, 1, 14),
+                new(new(18, 15), 1, 25, null, null, true),
+                [new(anchors["maghrib"], "maghrib", "Maghrib", new(18, 15), 10)]),
+            new("opening Naseehah after prayer has ended", new(2090, 1, 15),
+                new(new(18, 15), 1, 25, null, null, true),
+                [new(anchors["maghrib"], "maghrib", "Maghrib", new(18, 0), 10)]),
+            new("completed opening block", new(2090, 1, 16),
+                new(new(18, 15), 1, 25, null, null, true),
+                [new(anchors["maghrib"], "maghrib", "Maghrib", new(17, 50), 10)]),
+            new("six fifteen session with fifteen minute Isha", new(2090, 1, 17),
+                new(new(18, 15), 5, 25, null, null, true),
+                [new(anchors["maghrib"], "maghrib", "Maghrib", new(18, 11), 10),
+                 new(anchors["isha"], "isha", "Isha", new(20, 20), 15)]),
             new("morning break", new(2090, 1, 9),
                 new(new(9, 10), 8, 30, 4, 25, true), []),
             new("evening prayers and derived Naseehah", new(2090, 1, 10),
@@ -301,7 +329,19 @@ public sealed class GeneratorMaintenanceTests(SupabaseFixture fixture)
                     await fixture.SqlAsync(
                         "insert into public.anchor_date_overrides(id,org_id,anchor_id,date,start_time,duration_minutes) values($1,$2,$3,$4,$5,$6)",
                         overrideId, SupabaseFixture.OrgAId, anchorId, expansionCase.Date,
-                        resolved.Start, resolved.DurationMinutes ?? 10);
+                        resolved.Start, resolved.DurationMinutes is { } minutes ? minutes : DBNull.Value);
+            }
+
+            if (expansionCase.ExpectedSqlState is { } sqlState)
+            {
+                Assert.Throws<InvalidOperationException>(() =>
+                    TimetableGenerator.Expand(timetableId, expansionCase.Shape, expansionCase.Anchors));
+                Npgsql.PostgresException error = await Assert.ThrowsAsync<Npgsql.PostgresException>(() =>
+                    fixture.SqlScalarAsync<int>(
+                        "select cardinality(private.expand_timetable_shape($1,$2,$3,$4,$5,$6,$7,$8,$9))",
+                        ShapeArguments(timetableId, expansionCase)));
+                Assert.Equal(sqlState, error.SqlState);
+                return;
             }
 
             GeneratorResult expected = TimetableGenerator.Expand(timetableId, expansionCase.Shape, expansionCase.Anchors);
@@ -372,5 +412,6 @@ public sealed class GeneratorMaintenanceTests(SupabaseFixture fixture)
         timetableId.ToString());
 
     private sealed record ExpansionCase(
-        string Name, DateOnly Date, TimetableShape Shape, IReadOnlyList<ResolvedAnchor> Anchors);
+        string Name, DateOnly Date, TimetableShape Shape, IReadOnlyList<ResolvedAnchor> Anchors,
+        string? ExpectedSqlState = null);
 }
