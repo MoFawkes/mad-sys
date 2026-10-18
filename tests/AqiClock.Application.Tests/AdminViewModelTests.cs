@@ -19,6 +19,72 @@ namespace AqiClock.Application.Tests;
 
 public sealed class AdminViewModelTests
 {
+    [Fact]
+    public async Task HolidayRangeSavesInclusiveDatesAndReportsSuccess()
+    {
+        var gateway = new Gateway();
+        var vm = new OverridesViewModel(new Overrides(), new Timetables(), gateway, new Sync(), new Windows())
+        {
+            FirstClosedDate = new(2026, 10, 19), LastClosedDate = new(2026, 10, 25), ClosureNote = "Half term",
+        };
+
+        await vm.CloseDateRangeCommand.ExecuteAsync(null);
+
+        Assert.Equal((new DateOnly(2026, 10, 19), new DateOnly(2026, 10, 25), "Half term"), gateway.ClosedRange);
+        Assert.Contains("7 day(s)", vm.RangeStatus);
+        Assert.Null(vm.Error);
+    }
+
+    [Theory]
+    [InlineData(null, 25)]
+    [InlineData(19, null)]
+    [InlineData(25, 19)]
+    public async Task InvalidHolidayRangeDoesNotWrite(int? start, int? end)
+    {
+        var gateway = new Gateway();
+        var vm = new OverridesViewModel(new Overrides(), new Timetables(), gateway, new Sync(), new Windows())
+        {
+            FirstClosedDate = start is { } first ? new DateTime(2026, 10, first) : null,
+            LastClosedDate = end is { } last ? new DateTime(2026, 10, last) : null,
+        };
+
+        await vm.CloseDateRangeCommand.ExecuteAsync(null);
+
+        Assert.Null(gateway.ClosedRange);
+        Assert.NotNull(vm.Error);
+        Assert.Null(vm.RangeStatus);
+    }
+
+    [Fact]
+    public async Task HolidayRangeReplacementRequiresConfirmationEvenWhenCacheIsEmpty()
+    {
+        var gateway = new Gateway
+        {
+            OverrideRows = [new DateOverrideRow(Guid.NewGuid(), Guid.NewGuid(), new(2026, 10, 20), Guid.NewGuid(), "Special day")],
+        };
+        var vm = new OverridesViewModel(new Overrides(), new Timetables(), gateway, new Sync(), new Windows(confirmResult: false))
+        {
+            FirstClosedDate = new(2026, 10, 19), LastClosedDate = new(2026, 10, 25),
+        };
+
+        await vm.CloseDateRangeCommand.ExecuteAsync(null);
+
+        Assert.Null(gateway.ClosedRange);
+        Assert.Null(vm.RangeStatus);
+    }
+
+    [Fact]
+    public async Task FailedHolidayRangeDoesNotReportSuccess()
+    {
+        var gateway = new Gateway { WriteFailure = new HttpRequestException("Offline") };
+        var vm = new OverridesViewModel(new Overrides(), new Timetables(), gateway, new Sync(), new Windows());
+
+        await vm.CloseDateRangeCommand.ExecuteAsync(null);
+
+        Assert.NotNull(vm.Error);
+        Assert.Null(vm.RangeStatus);
+    }
+
     [Theory]
     [InlineData(1366, 728)]
     [InlineData(1092, 582)]
@@ -1103,6 +1169,14 @@ public sealed class AdminViewModelTests
         public Exception? DeleteFailure { get; set; }
         public object? LastUpdatedRow { get; private set; }
         public object? LastInsertedRow { get; private set; }
+        public IReadOnlyList<object> OverrideRows { get; init; } = [];
+        public (DateOnly First, DateOnly Last, string? Note)? ClosedRange { get; private set; }
+        public Task<int> CloseDateRangeAsync(DateOnly firstDate, DateOnly lastDate, string? note, CancellationToken cancellationToken = default)
+        {
+            if (WriteFailure is not null) return Task.FromException<int>(WriteFailure);
+            ClosedRange = (firstDate, lastDate, note);
+            return Task.FromResult(lastDate.DayNumber - firstDate.DayNumber + 1);
+        }
         public int UpdateCalls { get; private set; }
         public int DeleteCalls { get; private set; }
         public int ProfileUpdateCalls { get; private set; }
@@ -1182,7 +1256,7 @@ public sealed class AdminViewModelTests
         public Task<int> SavePrayerFixedTimesAsync(IReadOnlyList<PrayerFixedTimeWrite> rows, DateOnly effectiveFrom, CancellationToken cancellationToken = default) => Task.FromResult(rows.Count);
         public Task SaveWeekScheduleRowAsync(int weekday, Guid? audienceClassId, Guid? timetableId, CancellationToken cancellationToken = default) { SavedWeekday = weekday; SavedAudienceClassId = audienceClassId; SavedWeekTimetableId = timetableId; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); }
         public Task DeleteWeekScheduleRowAsync(int weekday, Guid audienceClassId, CancellationToken cancellationToken = default) { DeletedWeekday = weekday; DeletedAudienceClassId = audienceClassId; return DeleteFailure is null ? Task.CompletedTask : Task.FromException(DeleteFailure); }
-        public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(Guid.NewGuid()); public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) { LastInsertedRow = row; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); } public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) { UpdateCalls++; LastUpdatedRow = row; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); } public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) { DeleteCalls++; return DeleteFailure is null ? Task.CompletedTask : Task.FromException(DeleteFailure); } public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default) { ProfileUpdateCalls++; return ProfileFailure is null ? Task.CompletedTask : Task.FromException(ProfileFailure); } public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AuditEntry>>([]); public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<AuthenticatedSession> SignInAsync(string email, string password, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SendPasswordResetAsync(string email, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<AuthenticatedSession> RefreshSessionAsync(StoredSession session, CancellationToken cancellationToken = default) => throw new NotSupportedException(); public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<Guid> GetCurrentOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(Guid.NewGuid()); public Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default) => Task.FromResult(new CacheSnapshot(table, OverrideRows, DateTimeOffset.UtcNow)); public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) { LastInsertedRow = row; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); } public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) { UpdateCalls++; LastUpdatedRow = row; return WriteFailure is null ? Task.CompletedTask : Task.FromException(WriteFailure); } public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) { DeleteCalls++; return DeleteFailure is null ? Task.CompletedTask : Task.FromException(DeleteFailure); } public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default) { ProfileUpdateCalls++; return ProfileFailure is null ? Task.CompletedTask : Task.FromException(ProfileFailure); } public Task UpdateWeekScheduleAsync(int weekday, Guid? timetableId, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task<IReadOnlyList<AuditEntry>> GetAuditEntriesAsync(int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AuditEntry>>([]); public Task<IRealtimeSubscription> SubscribeAsync(Func<TableChangeSignal, CancellationToken, Task> onChange, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class CaptureListener(List<string> errors) : TraceListener

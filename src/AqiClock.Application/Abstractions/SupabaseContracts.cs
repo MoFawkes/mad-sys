@@ -30,6 +30,8 @@ public interface ISupabaseGateway
     Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default);
     Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default);
     Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default);
+    Task<int> CloseDateRangeAsync(DateOnly firstDate, DateOnly lastDate, string? note, CancellationToken cancellationToken = default) =>
+        Task.FromException<int>(new NotSupportedException());
     Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default);
     Task SaveTimetableAsync(TimetableRow timetable, IReadOnlyList<PeriodRow> periods, CancellationToken cancellationToken = default);
     Task SaveWeekScheduleRowAsync(int weekday, Guid? audienceClassId, Guid? timetableId, CancellationToken cancellationToken = default);

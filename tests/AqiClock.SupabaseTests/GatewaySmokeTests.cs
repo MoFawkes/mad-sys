@@ -12,6 +12,46 @@ namespace AqiClock.SupabaseTests;
 public sealed class GatewaySmokeTests(SupabaseFixture fixture)
 {
     [SupabaseFact]
+    public async Task HolidayRangePersistsClosedDatesPreservesIdsAndRejectsStaffWrites()
+    {
+        DateOnly first = new(2096, 10, 15), last = first.AddDays(6);
+        Guid existingId = Guid.NewGuid(), outsideId = Guid.NewGuid(), otherOrgId = Guid.NewGuid();
+        using SupabaseGateway admin = CreateGateway();
+        await admin.SignInAsync(SupabaseFixture.Email("admin1"), SupabaseFixture.Password);
+        try
+        {
+            var existing = new DateOverrideRow(existingId, SupabaseFixture.OrgAId, first, SupabaseFixture.SeedTimetableId, "Special timetable");
+            await admin.InsertAsync(CacheTable.DateOverrides, existing);
+            await admin.InsertAsync(CacheTable.DateOverrides, existing with { Id = outsideId, Date = last.AddDays(1) });
+            await fixture.SqlAsync("insert into public.date_overrides(id,org_id,date,note) values($1,$2,$3,'Other organisation')", otherOrgId, fixture.OrgBId, first);
+
+            await admin.UpdateAsync(CacheTable.DateOverrides, existingId, existing with { TimetableId = null });
+            Assert.Null((await admin.PullAsync(CacheTable.DateOverrides)).Rows.Cast<DateOverrideRow>().Single(row => row.Id == existingId).TimetableId);
+            await admin.UpdateAsync(CacheTable.DateOverrides, existingId, existing);
+
+            Assert.Equal(7, await admin.CloseDateRangeAsync(first, last, "Half term"));
+            DateOverrideRow[] rows = (await admin.PullAsync(CacheTable.DateOverrides)).Rows.Cast<DateOverrideRow>().ToArray();
+            DateOverrideRow[] closed = rows.Where(row => row.Date >= first && row.Date <= last).OrderBy(row => row.Date).ToArray();
+            Assert.Equal(Enumerable.Range(0, 7).Select(first.AddDays), closed.Select(row => row.Date));
+            Assert.All(closed, row => { Assert.Null(row.TimetableId); Assert.Equal("Half term", row.Note); });
+            Assert.Equal(existingId, closed[0].Id);
+            Assert.Equal(SupabaseFixture.SeedTimetableId, rows.Single(row => row.Id == outsideId).TimetableId);
+            Assert.Equal("Other organisation", await fixture.SqlScalarAsync<string>("select note from public.date_overrides where id=$1", otherOrgId));
+
+            using SupabaseGateway staff = CreateGateway();
+            await staff.SignInAsync(SupabaseFixture.Email("staff1"), SupabaseFixture.Password);
+            await Assert.ThrowsAsync<ServerDeniedException>(() => staff.CloseDateRangeAsync(last.AddDays(1), last.AddDays(7), "Denied"));
+            DateOverrideRow[] afterDenied = (await admin.PullAsync(CacheTable.DateOverrides)).Rows.Cast<DateOverrideRow>().Where(row => row.Date > last && row.Date <= last.AddDays(7)).ToArray();
+            Assert.Equal(outsideId, Assert.Single(afterDenied).Id);
+            Assert.Equal("Special timetable", afterDenied[0].Note);
+        }
+        finally
+        {
+            await fixture.SqlAsync("delete from public.date_overrides where (org_id=$1 and date between $2 and $3) or id=$4", SupabaseFixture.OrgAId, first, last.AddDays(7), otherOrgId);
+        }
+    }
+
+    [SupabaseFact]
     public async Task OrganizationDateUsesItsTimezoneRatherThanThePcTimezone()
     {
         try

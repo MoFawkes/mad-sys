@@ -348,6 +348,52 @@ public partial class OverrideEditorItem : ObservableObject { public Guid Id { ge
 public partial class OverridesViewModel(IDateOverrideRepository repository, ITimetableRepository timetables, ISupabaseGateway gateway, ISyncService sync, IWindowService windows) : ObservableObject
 {
     private DateOnly? _confirmedReplaceDate;
+    [ObservableProperty] private DateTime? _firstClosedDate = DateTime.Today;
+    [ObservableProperty] private DateTime? _lastClosedDate = DateTime.Today;
+    [ObservableProperty] private string? _closureNote = "Holiday";
+    [ObservableProperty] private string? _rangeStatus;
+
+    [RelayCommand]
+    private async Task CloseDateRangeAsync(CancellationToken token)
+    {
+        Error = null;
+        RangeStatus = null;
+        if (FirstClosedDate is not { } first || LastClosedDate is not { } last)
+        {
+            Error = "Choose both the first and last closed dates.";
+            return;
+        }
+        DateOnly start = DateOnly.FromDateTime(first), end = DateOnly.FromDateTime(last);
+        int count = end.DayNumber - start.DayNumber + 1;
+        if (count is < 1 or > 366)
+        {
+            Error = "Choose an end date on or after the start date, covering no more than 366 days.";
+            return;
+        }
+        bool saved = false;
+        try
+        {
+            // Check server data rather than a potentially stale local cache before replacement.
+            CacheSnapshot current = await gateway.PullAsync(CacheTable.DateOverrides, token);
+            int existing = current.Rows.OfType<DateOverrideRow>().Count(row => row.Date >= start && row.Date <= end);
+            if (existing > 0 && !windows.Confirm(
+                $"Close every date from {start:d MMM yyyy} through {end:d MMM yyyy}, including both dates? This replaces {existing} existing date override(s) in that range, including their timetables and notes.", "Close date range"))
+                return;
+            await gateway.CloseDateRangeAsync(start, end, ClosureNote, token);
+            saved = true;
+            await sync.SyncTableAsync(CacheTable.DateOverrides, token);
+            await LoadAsync(token);
+            RangeStatus = $"Closed {count} day(s), {start:d MMM yyyy} through {end:d MMM yyyy}. Lesson alerts resume on the next scheduled school day.";
+        }
+        catch (ServerDeniedException) { Error = "Your role changed."; windows.CloseAdminWindow(); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { Error = "The operation was cancelled. Sync and check the date overrides before retrying."; }
+        catch (Exception ex) when (ex is ServerWriteException or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or InvalidOperationException)
+        {
+            Error = saved
+                ? "The dates were saved, but refreshing this computer failed. Sync again to load the closures."
+                : "The date range could not be confirmed. Sync and check the date overrides before retrying.";
+        }
+    }
     public ObservableCollection<OverrideEditorItem> Items { get; } = []; public ObservableCollection<Timetable> Timetables { get; } = []; [ObservableProperty] private bool _showPast; [ObservableProperty] private string? _error;
     public async Task LoadAsync(CancellationToken token = default) { Items.Clear(); foreach (DateOverride x in (await repository.GetAllAsync(token)).Where(x => ShowPast || x.Date >= DateOnly.FromDateTime(DateTime.Today)).OrderBy(x => x.Date)) Items.Add(new() { Id = x.Id, Date = x.Date.ToDateTime(TimeOnly.MinValue), TimetableId = x.TimetableId, Note = x.Note }); Timetables.Clear(); foreach (Timetable t in (await timetables.GetAllAsync(token)).Where(x => !x.IsArchived)) Timetables.Add(t); }
     [RelayCommand] private void Add() => Items.Add(new() { Id = Guid.NewGuid() });

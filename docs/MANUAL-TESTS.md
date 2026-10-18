@@ -1,5 +1,16 @@
 # AQI Clock manual OS-integration checklist
 
+## v0.15.3 holiday date ranges
+
+Date overrides now has inclusive first/last closed dates, an optional note and **Save closed dates**. A single bulk upsert writes every selected date using the existing unique constraint, without a database migration. Existing rows retain their IDs; the editor checks current server data and asks before replacing their assignments and notes. Null timetables are explicitly included when saving Closed. The regular week schedule is unchanged; announcements remain independent of lesson closures.
+
+Automated coverage includes 19–25 October 2026 staying silent, normal lesson delivery on 26 October, removal of already-planned alerts after a closure sync, inclusive range payloads, replacement cancellation, API denial and incomplete confirmations. The live local-Supabase release gate additionally checks save/repull, existing row IDs, outside-range and other-organization preservation, and refusal of teacher-role writes. Installed-client UI acceptance remains separate:
+
+- [ ] Save a range, reload and confirm every date (including both endpoints) is Closed.
+- [ ] Replace an existing special timetable only after accepting the confirmation; cancel a second replacement and confirm nothing changes.
+- [ ] Sync the receiving Windows client and confirm the clock skips the break and lesson alerts stop; verify normal lessons resume afterward.
+- [ ] Check layout and keyboard access to the range controls on a small screen.
+
 This checklist is the ADR-011 acceptance script for Windows surfaces that are not reliably covered by unit tests. Run the full checklist on Windows 10 and Windows 11 before the Phase 8 pilot. Record the app commit, Windows version, tester, date, and result for each run.
 
 ## Test record
