@@ -382,6 +382,11 @@ public partial class OverridesViewModel(IDateOverrideRepository repository, ITim
             await gateway.CloseDateRangeAsync(start, end, ClosureNote, token);
             saved = true;
             await sync.SyncTableAsync(CacheTable.DateOverrides, token);
+            if (sync.State == ConnectivityState.Offline)
+            {
+                Error = "The dates were saved, but this computer is offline. Sync again to apply the closures here.";
+                return;
+            }
             await LoadAsync(token);
             RangeStatus = $"Closed {count} day(s), {start:d MMM yyyy} through {end:d MMM yyyy}. Lesson alerts resume on the next scheduled school day.";
         }

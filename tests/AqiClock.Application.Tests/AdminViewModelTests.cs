@@ -85,6 +85,21 @@ public sealed class AdminViewModelTests
         Assert.Null(vm.RangeStatus);
     }
 
+    [Fact]
+    public async Task SavedHolidayRangeWarnsWhenLocalSyncStaysOffline()
+    {
+        var gateway = new Gateway();
+        var sync = new Sync { State = ConnectivityState.Offline };
+        var vm = new OverridesViewModel(new Overrides(), new Timetables(), gateway, sync, new Windows());
+
+        await vm.CloseDateRangeCommand.ExecuteAsync(null);
+
+        Assert.NotNull(gateway.ClosedRange);
+        Assert.Contains("saved", vm.Error);
+        Assert.Contains("offline", vm.Error);
+        Assert.Null(vm.RangeStatus);
+    }
+
     [Theory]
     [InlineData(1366, 728)]
     [InlineData(1092, 582)]
