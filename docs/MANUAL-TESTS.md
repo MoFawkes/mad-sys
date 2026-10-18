@@ -47,6 +47,14 @@ Real-app activation exposed a gap in the earlier synthetic publisher check: acti
 
 Post-upgrade testing also encountered unresponsive guest input while the clock kept ticking; Explorer ignored clicks too. QEMU had selected its PS/2 mouse instead of the absolute tablet. Re-selecting/resetting the tablet did not make input reliable, so testing paused for a guest restart using an xHCI USB controller. A brief synchronization/heartbeat pause was also observed and recovered; its cause has not been established. Do not count the remaining checklist rows as passed or treat the release as ready.
 
+### Installed activation and session-scope follow-up — 2026-10-18
+
+The final checks from 17 October used installed test package `.4` and native DLL SHA-256 `833F5BD96E5CCD2C9FC157ED8261799D7649B32832C928BD88FB617BFC097CB2`. After the guest was restarted with an xHCI controller, the owner confirmed that clicks worked normally. The real app then passed foreground activation, explicit minimize/widget restore, tray Exit with stale-status clearing, and visible relaunch through the stable installed launcher despite **Start minimized** being enabled. Restarting guest Explorer restored the live toolbar.
+
+Disabling the option and saving removed the band. A guest checker confirmed that its COM server, launcher path, and app PID entries were absent and the preference was false. Re-enabling saved successfully but required the documented **Toolbars → AQI Clock** fallback; selecting it restored the live toolbar. With the guest's network link disconnected, the clock continued ticking, showed the offline status, and retained cached Monday next-lesson details. This was an idle-day check, not a live scheduled-lesson countdown acceptance run.
+
+On 18 October, the owner requested that desktop sign-out affect only this computer. The gateway now explicitly posts `auth/v1/logout?scope=local`. A local Auth regression created one disposable account and two independent sessions: it failed with the previous global-default request and passed with the fix, proving that the signed-out session cannot refresh while the other can. The account was removed afterward and a local SQL query confirmed no sign-out-test identities remained. This test uses its own temporary identity rather than the broader database-fixture reset. VM verification of the updated sign-out UI and uninstall cleanup is still pending; the remaining checklist rows stay open.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
