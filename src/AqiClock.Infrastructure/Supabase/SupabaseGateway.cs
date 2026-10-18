@@ -142,7 +142,7 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
         if (_accessToken is null) return;
-        using var request = CreateRequest(HttpMethod.Post, "auth/v1/logout");
+        using var request = CreateRequest(HttpMethod.Post, "auth/v1/logout?scope=local");
         using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         _accessToken = null;
