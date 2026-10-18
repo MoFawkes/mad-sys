@@ -15,7 +15,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
-using Velopack;
 using AqiClock.Application.Configuration;
 
 namespace AqiClock.App;
@@ -33,19 +32,6 @@ public partial class App : System.Windows.Application, IDisposable
     private bool _startMinimized;
     private bool _showRequested;
     private bool _dispatcherErrorShown;
-
-    [STAThread]
-    private static void Main(string[] args)
-    {
-        VelopackApp.Build()
-            .OnAfterInstallFastCallback(_ => { ProtocolRegistration.Register(); TaskbarRegistration.UpdateLaunchPath(); })
-            .OnAfterUpdateFastCallback(_ => { ProtocolRegistration.Register(); TaskbarRegistration.UpdateLaunchPath(); })
-            .OnBeforeUninstallFastCallback(_ => { ProtocolRegistration.Unregister(); TaskbarRegistration.Uninstall(); })
-            .Run();
-        var app = new App();
-        app.InitializeComponent();
-        app.Run();
-    }
 
     protected override void OnStartup(StartupEventArgs e)
     {

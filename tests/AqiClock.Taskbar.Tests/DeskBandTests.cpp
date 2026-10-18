@@ -72,6 +72,35 @@ int wmain(int argc, wchar_t** argv) {
     Check(SUCCEEDED(band->ShowDW(TRUE)), "show toolbar without activation");
     HWND focus = GetFocus();
 
+    // Own the activation event only when no live app is using it. Keyboard
+    // tests must never activate an unrelated app or launch the installed copy.
+    HANDLE activation = CreateEventW(nullptr, TRUE, FALSE, L"Local\\AqiClock.Activate");
+    Check(activation != nullptr, "create keyboard activation target");
+    if (GetLastError() != ERROR_ALREADY_EXISTS) {
+        IInputObject* input = nullptr;
+        Check(SUCCEEDED(band->QueryInterface(IID_PPV_ARGS(&input))), "keyboard input interface");
+        MSG key = {};
+        key.hwnd = child; key.message = WM_KEYDOWN; key.wParam = VK_TAB;
+        Check(input->TranslateAcceleratorIO(&key) == S_FALSE && WaitForSingleObject(activation, 0) == WAIT_TIMEOUT,
+            "unhandled keys remain available to Explorer");
+        for (WPARAM command : {static_cast<WPARAM>(VK_RETURN), static_cast<WPARAM>(VK_SPACE)}) {
+            key.wParam = command;
+            ResetEvent(activation);
+            Check(input->TranslateAcceleratorIO(&key) == S_OK && WaitForSingleObject(activation, 0) == WAIT_OBJECT_0,
+                "Explorer keyboard accelerator activates existing app");
+            ResetEvent(activation);
+            SendMessageW(child, WM_KEYDOWN, command, 0);
+            Check(WaitForSingleObject(activation, 0) == WAIT_OBJECT_0, "focused toolbar keyboard activates existing app");
+        }
+        ResetEvent(activation);
+        key.message = WM_KEYUP;
+        Check(input->TranslateAcceleratorIO(&key) == S_FALSE && WaitForSingleObject(activation, 0) == WAIT_TIMEOUT,
+            "key release does not reactivate app");
+        Check(input->TranslateAcceleratorIO(nullptr) == S_FALSE, "empty keyboard message is ignored");
+        input->Release();
+    } else std::puts("Live app owns activation event; keyboard cases skipped without signaling it.");
+    CloseHandle(activation);
+
     // A unique per-process mapping exercises the parser without touching any running app.
     std::wstring testMapping = SnapshotName() + L".test." + std::to_wstring(GetCurrentProcessId());
     HANDLE mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(ClockSnapshot), testMapping.c_str());
