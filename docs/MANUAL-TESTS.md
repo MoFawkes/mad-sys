@@ -65,6 +65,14 @@ Using the installed app's tray **Sign out** returned to the audience chooser and
 
 The normal installed uninstaller then reported **Uninstall Complete** and the toolbar disappeared. Refreshing the guest checker confirmed that AppPath, AppProcessId and the taskbar COM server registration were absent, with no matching uninstall registration, running app or installed app DLL reported. The separate settings file remained. This establishes uninstall/registration cleanup for this package; the other unchecked OS acceptance cases remain open.
 
+### Installer hook diagnosis and keyboard regressions — 2026-10-18
+
+Read-only extraction of the powered-off recovery disk established the specific setup failure. `velopack.log` records two build `.5` install-hook invocations (`--veloapp-install`) killed after their 30-second limit, at 16:35:37 and 16:37:48. No corresponding SDK initialization entry appears in the app-specific log before either timeout. The later normal launch initialized successfully, and the uninstall hook completed successfully in 5.7 seconds. The setup warning was therefore a hook timeout, not an unspecified extraction or uninstaller failure.
+
+Commit `548f1e4` moves the entry point from the WPF `App` type into a separate bootstrap and prevents inlining of the subsequent WPF launch. Velopack's fast-exit hook path now precedes resolving the UI startup method. The application suite passed 209 tests (one optional backend smoke skipped), self-contained publishing and both test-package builds succeeded, and the packaging tool verified the bootstrap entry point. A clean-install `.6` / subsequent-update `.7` guest retest is still required before marking the timeout resolved.
+
+Native regression tests now exercise Enter and Space through both `IInputObject.TranslateAcceleratorIO` and the toolbar's focused-window message path, using an activation event owned by the test when no live app owns it. Unrelated keys, key release and null messages do not trigger activation. The native suite passed. This establishes component keyboard behavior; actual Explorer keyboard navigation remains part of TB-03 acceptance.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
