@@ -55,6 +55,16 @@ Disabling the option and saving removed the band. A guest checker confirmed that
 
 On 18 October, the owner requested that desktop sign-out affect only this computer. The gateway now explicitly posts `auth/v1/logout?scope=local`. A local Auth regression created one disposable account and two independent sessions: it failed with the previous global-default request and passed with the fix, proving that the signed-out session cannot refresh while the other can. The account was removed afterward and a local SQL query confirmed no sign-out-test identities remained. This test uses its own temporary identity rather than the broader database-fixture reset. VM verification of the updated sign-out UI and uninstall cleanup is still pending; the remaining checklist rows stay open.
 
+### Build 5 sign-out and uninstall — 2026-10-18
+
+Today's accelerated guest boot stalled at **Preparing Automatic Repair**. Software emulation booted successfully using a temporary qcow2 overlay, preserving the existing VM disk. The owner requested two virtual CPUs after the one-CPU guest proved very slow; the restarted two-CPU guest retained 4 GB RAM, below-normal priority, and confinement to two host logical processors. All subsequent UI testing stayed on the owner's right monitor. Guest sign-in was handled by the owner. This environment does not establish real-hardware performance or explain the accelerated boot failure.
+
+Setup recognized `.4` and offered `.5`, but displayed **Install Partially Succeeded** during the upgrade. The app subsequently ran and published **No lessons today**. The guest checker confirmed the installed app DLL SHA-256 `1DD43BD16E27A1521A0A445113EB3EF7747B24FF699DF505CA2CD95A730B07E1`, matching the `.5` build manifest, and native DLL SHA-256 `833F5BD96E5CCD2C9FC157ED8261799D7649B32832C928BD88FB617BFC097CB2`. The specific failed setup step was not established; do not mark this upgrade warning resolved or count the run as clean upgrade acceptance.
+
+Using the installed app's tray **Sign out** returned to the audience chooser and replaced the old native status with **AQI Clock – Sign in**. No further account sign-in was needed. Together with the independent two-session Auth regression above, this verifies the local sign-out change and its signed-out display behavior; it does not complete the class-change or active-lesson rows.
+
+The normal installed uninstaller then reported **Uninstall Complete** and the toolbar disappeared. Refreshing the guest checker confirmed that AppPath, AppProcessId and the taskbar COM server registration were absent, with no matching uninstall registration, running app or installed app DLL reported. The separate settings file remained. This establishes uninstall/registration cleanup for this package; the other unchecked OS acceptance cases remain open.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
