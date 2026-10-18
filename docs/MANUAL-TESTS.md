@@ -73,6 +73,14 @@ Commit `548f1e4` moves the entry point from the WPF `App` type into a separate b
 
 Native regression tests now exercise Enter and Space through both `IInputObject.TranslateAcceleratorIO` and the toolbar's focused-window message path, using an activation event owned by the test when no live app owns it. Unrelated keys, key release and null messages do not trigger activation. The native suite passed. This establishes component keyboard behavior; actual Explorer keyboard navigation remains part of TB-03 acceptance.
 
+### Bootstrap installer acceptance — 2026-10-18
+
+On the same two-CPU software-emulated Windows 10 guest, a guest-only runner invoked the normal installers with silent mode and separate setup logs. Fresh install `.6` and setup-based replacement with `.7` both exited zero, installed the expected manifest version, and produced logs without errors or hook timeouts. The install hooks completed in 1,664 ms and 8,883 ms respectively. Total installer durations were 86.3 and 79.1 seconds. These checks resolve the previously observed install-hook timeout for this tested environment and package.
+
+A separate guest runner applied `.8` through the installed `Update.exe apply --silent --norestart --package ...`, rather than rerunning Setup. It exited zero, installed the expected manifest version, and produced a clean log. The obsolete and updated hooks completed in 5,370 ms and 4,461 ms. All four CI jobs passed for the bootstrap change. No package was published.
+
+Normal app launch was requested after the staged update, but was not verified before the owner requested a break. The remaining unchecked OS/conferencing acceptance cases remain open. The run was paused at the owner's request; no further interactive tests were attempted.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
