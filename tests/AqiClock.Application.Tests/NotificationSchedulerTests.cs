@@ -1,4 +1,5 @@
 using AqiClock.Application.Abstractions;
+using AqiClock.Application.Messages;
 using AqiClock.Application.Services;
 using AqiClock.Domain.Entities;
 using AqiClock.Domain.Scheduling;
@@ -11,6 +12,53 @@ namespace AqiClock.Application.Tests;
 public sealed class NotificationSchedulerTests
 {
     private static readonly DateTime Monday = new(2026, 7, 20, 8, 30, 0, DateTimeKind.Local);
+
+    [Fact]
+    public async Task HolidayWeekIsSilentAcrossMidnightAndFollowingMondayResumes()
+    {
+        DateTime holidayMonday = new(2026, 10, 19, 8, 30, 0, DateTimeKind.Local);
+        SchedulerFixture fixture = CreateFixture(holidayMonday.AddMinutes(-1));
+        fixture.SetPeriod(holidayMonday.TimeOfDay, TimeSpan.FromMinutes(45));
+        Guid timetableId = fixture.Timetables.Items.Single().Id;
+        fixture.Week = new FakeWeek(new WeekSchedule(Enum.GetValues<DayOfWeek>()
+            .ToDictionary(day => day, _ => (Guid?)timetableId)));
+        fixture.Overrides.Items = Enumerable.Range(0, 7)
+            .Select(offset => new DateOverride(Guid.NewGuid(), DateOnly.FromDateTime(holidayMonday.AddDays(offset)), null, "Holiday"))
+            .ToArray();
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync();
+
+        for (int day = 0; day < 7; day++)
+        {
+            await scheduler.ProcessAsync(holidayMonday.AddDays(day));
+            await scheduler.ProcessAsync(holidayMonday.AddDays(day).AddMinutes(40));
+        }
+
+        Assert.Equal(0, fixture.Presenter.Starts);
+        Assert.Equal(0, fixture.Presenter.EndWarnings);
+        await scheduler.ProcessAsync(holidayMonday.AddDays(7));
+        Assert.Equal(1, fixture.Presenter.Starts);
+    }
+
+    [Fact]
+    public async Task SyncedClosureRemovesAlreadyPlannedLessonAlerts()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday.AddMinutes(-1));
+        fixture.SetPeriod(Monday.TimeOfDay, TimeSpan.FromMinutes(45));
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync();
+        fixture.Overrides.Items = [new DateOverride(Guid.NewGuid(), DateOnly.FromDateTime(Monday), null, "Holiday")];
+        var rebuilt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        scheduler.HealthChanged += (_, _) => rebuilt.TrySetResult();
+
+        fixture.Messenger.Send(new DataChanged(CacheTable.DateOverrides));
+        await rebuilt.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        await scheduler.ProcessAsync(Monday);
+        await scheduler.ProcessAsync(Monday.AddMinutes(40));
+
+        Assert.Equal(0, fixture.Presenter.Starts);
+        Assert.Equal(0, fixture.Presenter.EndWarnings);
+    }
 
     [Theory]
     [InlineData(120, 1, false)]
@@ -260,6 +308,7 @@ public sealed class NotificationSchedulerTests
         private readonly Guid _periodId = Guid.NewGuid();
         public FakeTimetables Timetables { get; } = new();
         public FakeAnnouncements Announcements { get; } = new();
+        public FakeOverrides Overrides { get; } = new();
         public FakeLog Log { get; } = new();
         public FakePresenter Presenter { get; } = new();
         public FakeSettings Settings { get; } = new();
@@ -267,7 +316,7 @@ public sealed class NotificationSchedulerTests
         public WeakReferenceMessenger Messenger { get; } = new();
         public DeviceAudienceContext Audience { get; }
         public FakeClock Clock { get; }
-        public IWeekScheduleRepository Week { get; }
+        public IWeekScheduleRepository Week { get; set; }
 
         public SchedulerFixture(DateTime now)
         {
@@ -284,7 +333,7 @@ public sealed class NotificationSchedulerTests
 
         public void SetPeriods(params Period[] periods) => Timetables.Items = [new Timetable(_timetableId, "Normal", false, periods)];
 
-        public NotificationScheduler Create() => new(Timetables, Week, new FakeOverrides(), Announcements, Classes, Audience, Log, Presenter, Settings, Clock, Messenger, NullLogger<NotificationScheduler>.Instance);
+        public NotificationScheduler Create() => new(Timetables, Week, Overrides, Announcements, Classes, Audience, Log, Presenter, Settings, Clock, Messenger, NullLogger<NotificationScheduler>.Instance);
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)
@@ -295,7 +344,7 @@ public sealed class NotificationSchedulerTests
 
     private sealed class FakeTimetables : ITimetableRepository { public int Reads { get; private set; } public IReadOnlyList<Timetable> Items { get; set; } = []; public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) { Reads++; return Task.FromResult(Items); } }
     private sealed class FakeWeek(WeekSchedule value) : IWeekScheduleRepository { public Task<WeekSchedule> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(value); }
-    private sealed class FakeOverrides : IDateOverrideRepository { public Task<IReadOnlyList<DateOverride>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<DateOverride>>([]); }
+    private sealed class FakeOverrides : IDateOverrideRepository { public IReadOnlyList<DateOverride> Items { get; set; } = []; public Task<IReadOnlyList<DateOverride>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items); }
     private sealed class FakeClasses : IClassRepository
     {
         public IReadOnlySet<Guid> ClassIds { get; set; } = new HashSet<Guid>();

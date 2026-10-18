@@ -322,6 +322,35 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
 
     public Task UpdateAsync(CacheTable table, Guid id, object row, CancellationToken cancellationToken = default) => SendWriteAsync(HttpMethod.Patch, table, id, row, cancellationToken);
 
+    public async Task<int> CloseDateRangeAsync(DateOnly firstDate, DateOnly lastDate, string? note, CancellationToken cancellationToken = default)
+    {
+        int count = lastDate.DayNumber - firstDate.DayNumber + 1;
+        if (count is < 1 or > 366) throw new ArgumentOutOfRangeException(nameof(lastDate), "Choose between 1 and 366 dates.");
+        Guid orgId = await GetCurrentOrganizationIdAsync(cancellationToken).ConfigureAwait(false);
+        var rows = new JsonArray();
+        for (int offset = 0; offset < count; offset++)
+        {
+            // Omit id so existing rows keep their identity and new rows use the database default.
+            rows.Add(new JsonObject
+            {
+                ["org_id"] = orgId,
+                ["date"] = firstDate.AddDays(offset).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                ["timetable_id"] = null,
+                ["note"] = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
+            });
+        }
+        using HttpRequestMessage request = CreateRequest(HttpMethod.Post, "rest/v1/date_overrides?on_conflict=org_id,date");
+        request.Headers.Add("Prefer", "resolution=merge-duplicates,return=representation");
+        request.Content = JsonContent.Create(rows, options: JsonOptions);
+        using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        CheckClockSkew(response);
+        await EnsureWriteSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+        using JsonDocument result = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        if (result.RootElement.ValueKind != JsonValueKind.Array || result.RootElement.GetArrayLength() != count)
+            throw new ServerWriteException("The server did not confirm all selected dates. Sync and check the date overrides before retrying.", null);
+        return count;
+    }
+
     public Task DeleteAsync(CacheTable table, Guid id, CancellationToken cancellationToken = default) => SendWriteAsync(HttpMethod.Delete, table, id, null, cancellationToken);
 
     public Task UpdateProfileAsync(Guid id, string? role, bool? isActive, CancellationToken cancellationToken = default)
