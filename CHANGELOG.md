@@ -8,6 +8,16 @@ All notable changes to this project will be documented in this file.
 
 - Optional Windows 10 taskbar toolbar showing the current period and live countdown, next-period details on hover, and click-to-open. Enable it under Settings → Display on x64 Windows 10. Windows 11 retains the existing compact mode.
 
+## 0.15.3 - 2026-10-18
+
+### Added
+
+- Close a holiday or break in one action using inclusive first/last dates and an optional note in Date overrides. Existing overrides require confirmation before replacement; the regular week schedule is unchanged.
+
+### Fixed
+
+- Saving an existing date override as Closed now clears its previous timetable, so lesson alerts stop on that date after syncing.
+
 ## 0.15.2 - 2026-10-03
 
 ### Fixed

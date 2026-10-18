@@ -233,6 +233,18 @@
             </TabItem>
             <TabItem Header="Date overrides">
                 <DockPanel DataContext="{Binding Overrides}" Margin="10">
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+                        <TextBlock Text="Close for a holiday or break" FontSize="18" FontWeight="SemiBold" />
+                        <TextBlock Text="Every date in the range will be closed, including the first and last dates. Lesson alerts stop on closed dates; announcements remain enabled. The regular week schedule stays unchanged."
+                                   TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,8" />
+                        <WrapPanel>
+                            <StackPanel Margin="0,0,12,8"><TextBlock Text="First closed date" /><DatePicker SelectedDate="{Binding FirstClosedDate}" Width="170" /></StackPanel>
+                            <StackPanel Margin="0,0,12,8"><TextBlock Text="Last closed date" /><DatePicker SelectedDate="{Binding LastClosedDate}" Width="170" /></StackPanel>
+                            <StackPanel Margin="0,0,12,8"><TextBlock Text="Note (optional)" /><TextBox Text="{Binding ClosureNote, UpdateSourceTrigger=PropertyChanged}" Width="200" /></StackPanel>
+                            <ui:Button Content="Save closed dates" Command="{Binding CloseDateRangeCommand}" Appearance="Primary" VerticalAlignment="Bottom" Margin="0,0,0,8" />
+                        </WrapPanel>
+                        <TextBlock Text="{Binding RangeStatus}" TextWrapping="Wrap" />
+                    </StackPanel>
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"><ui:Button Content="Add override" Command="{Binding AddCommand}" Appearance="Primary" /><CheckBox Content="Show past" IsChecked="{Binding ShowPast}" Margin="16,0" /></StackPanel>
                     <TextBlock DockPanel.Dock="Top" Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}" />
                     <DataGrid ItemsSource="{Binding Items}" AutoGenerateColumns="False" CanUserAddRows="False">
