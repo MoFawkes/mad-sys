@@ -81,6 +81,34 @@ A separate guest runner applied `.8` through the installed `Update.exe apply --s
 
 Normal app launch was requested after the staged update, but was not verified before the owner requested a break. The remaining unchecked OS/conferencing acceptance cases remain open. The run was paused at the owner's request; no further interactive tests were attempted.
 
+### Post-update normal launch follow-up — 2026-10-18
+
+Resumed the existing build `.8` recovery overlay with two virtual CPUs, 4 GB RAM and software emulation; no installer or updater was rerun. The owner signed into Windows, and the VM window remained on DISPLAY2. Opening the installed desktop shortcut eventually created AQI Clock's taskbar button. Explorer's previews showed the audience chooser and sign-in window, and selecting the chooser displayed the fully rendered **Choose the audience using this computer** screen with Teacher and Student choices. This establishes normal installed UI startup after the staged update, with the app still signed out from the earlier cleanup check.
+
+Guest input and UI startup were markedly delayed, and window capture needed reconnection after maximizing QEMU. This run does not establish startup performance, authenticated clock/taskbar behavior, or Explorer keyboard acceptance. App authentication was handed to the owner; all remaining unchecked acceptance rows remain open.
+
+The owner subsequently signed in as an administrator. The normal clock rendered **No lessons today**, **Next: Monday, Lesson 1 at 09:10**, and a successful sync status. Settings retained the enabled taskbar preference, but Explorer's Toolbars list showed AQI Clock unchecked after this boot. Selecting **Toolbars → AQI Clock** restored the native band with the matching idle label, which remained visible after minimizing the app. This verifies authenticated idle-day behavior after the staged update using the documented visibility fallback; automatic toolbar restoration across this boot did not pass.
+
+Automated Escape/Tab input did not produce a visible guest response during the keyboard attempt. The owner then performed the Explorer keyboard check manually and explicitly confirmed that **both Enter and Space on the focused AQI Clock toolbar restored the minimized app**. This is owner-observed OS keyboard acceptance, supplementing the existing native regression tests. TB-03 remains unchecked because its full tooltip/lifecycle combination has not been repeated on this package.
+
+Computer Use subsequently reported a physical-Escape stop, so further UI testing stopped. The guest shut down through the normal ACPI power-down request; the QEMU process was verified absent afterward. No DPI/theme or other remaining manual acceptance was credited.
+
+At the owner's request to do the lightest remaining work before pausing for the next day, native component regressions passed again, including COM lifecycle, docking host, rendering, focus and snapshot validation. Nineteen managed taskbar/settings/activation checks also passed. This was a low-resource regression check without booting the VM; it does not complete any of the remaining manual OS/conferencing cases. The taskbar PR remains draft and is excluded from the separate holiday-override release.
+
+## Windows holiday override follow-up — 2026-10-18
+
+The owner relayed a teacher's report that Windows alerts were not being suppressed for the coming holiday week, 19–25 October 2026. The supplied preview was insufficient to verify the teacher's exact saved entries; no production data was read or changed. At the time of the report, the override editor accepted one date per row, with a null timetable meaning **Closed**. A note containing a date range does not close that range.
+
+Source investigation found a separate reproducible save defect: changing an existing timetable override to **Closed** omitted `timetable_id` from the gateway's PATCH body because null fields were suppressed. The old timetable therefore would not be cleared. A gateway request regression failed for the closed case before the fix and passed afterward; the write DTO now explicitly serializes its null timetable. This is a confirmed defect, not yet a confirmed explanation of the teacher's particular configuration.
+
+New Windows scheduler regressions verify zero lesson-start/end-warning alerts on all seven holiday dates, normal lesson-start delivery on 26 October, and removal of already-planned alerts after a synced closure. The application, domain and integration suites passed 211, 77 and 12 tests respectively; one optional backend smoke was skipped. The gateway regression captures the real HTTP serialization against a test handler, not a live Supabase server. Hosted save/repull and installed-client UI acceptance of this fix remain pending; the fix has not been released.
+
+- [ ] On an installed build containing the fix, change an existing dated timetable assignment to Closed and Save; reload and confirm it remains closed.
+- [ ] In Date overrides, select **First closed date: 19 October** and **Last closed date: 25 October**, enter an optional note, and select **Save closed dates**. Confirm seven closed rows are saved, both endpoints are included, and reloading preserves them. Sync a Windows client and confirm the next lesson skips the holiday week and no lesson-start/end-warning alerts appear on closed dates.
+- [ ] Confirm the recurring week schedule remains unchanged and normal lessons resume on 26 October. Announcement notifications are independent of lesson closures.
+
+Date-range implementation: the Windows Date overrides screen now offers inclusive first/last dates, an optional note, and **Save closed dates**. It checks current server overrides and asks before replacing existing assignments or notes. A single PostgREST bulk upsert creates/updates the daily rows atomically against the existing `(org_id,date)` unique constraint, without a schema migration; omitted IDs preserve existing row identities. The write explicitly sends null timetables, uses the signed-in organization, and requires the response to confirm every selected date. Successful save refreshes the local cache. Invalid/empty/reversed ranges, cancellation of replacement, API denial, an incomplete confirmation and offline errors are covered by tests; installed UI and hosted API acceptance remain pending. No release has been published.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
