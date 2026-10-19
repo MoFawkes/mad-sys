@@ -120,6 +120,20 @@ New Windows scheduler regressions verify zero lesson-start/end-warning alerts on
 
 Date-range implementation: the Windows Date overrides screen now offers inclusive first/last dates, an optional note, and **Save closed dates**. It checks current server overrides and asks before replacing existing assignments or notes. A single PostgREST bulk upsert creates/updates the daily rows atomically against the existing `(org_id,date)` unique constraint, without a schema migration; omitted IDs preserve existing row identities. The write explicitly sends null timetables, uses the signed-in organization, and requires the response to confirm every selected date. Successful save refreshes the local cache. Invalid/empty/reversed ranges, cancellation of replacement, API denial, an incomplete confirmation and offline errors are covered by tests; installed UI and hosted API acceptance remain pending. No release has been published.
 
+### Boot, placement and auto-hide follow-up — 2026-10-19
+
+Resumed the existing build `.8` recovery guest with the same two-CPU/4 GB software-emulation limits, on DISPLAY2 only. The owner handled Windows sign-in. Explorer restored the enabled AQI Clock band automatically after this boot, initially showing **open app** before the publisher was running. App/Explorer startup was markedly delayed; after the installed app rendered and synced, both the main clock and band showed **No lessons today**, with the next lesson on Monday at 09:10. No installer or updater was run during this check. This establishes restoration for this boot, not a reliability claim across every boot/update.
+
+With AQI Clock minimized, Windows taskbar Settings moved the unlocked taskbar from bottom to left, then top and back to bottom. The band remained present and did not restore the app or produce duplicates. Its idle label truncated on the narrow left taskbar and was readable at the top/bottom. Full vertical hover details remain unverified; drag-based repositioning was not reliable through the emulated input path.
+
+Desktop auto-hide on the top taskbar hid the band with the taskbar and revealed it again at the top edge, retaining the idle status while AQI Clock stayed minimized. Auto-hide was then returned to Off and placement to Bottom. This is an idle-day placement/auto-hide check, not an active countdown, sleep/resume, full DPI/theme matrix or conferencing pass; TB-05/TB-06 remain unchecked.
+
+With apps kept in Light mode, switching Windows mode from Dark to Light changed the band to readable dark text on the light transparent taskbar. Returning Windows mode to Dark restored readable white text without an opaque rectangle. The original Custom color configuration (Windows Dark/apps Light), bottom placement and locked taskbar were restored. This covers the idle label only; high contrast and active countdown colors remain pending.
+
+Display Settings reported a 1024 × 768 guest resolution and initially 100% scale. Its scale menu offered only 100% and 125%. At 125%, the idle band enlarged and remained readable with AQI Clock minimized. Settings briefly became unresponsive and disappeared; reopening Display Settings confirmed 125% and the band was still present without duplicates. This limited observation does not establish the required 150%/200% coverage or attribute the Settings failure to AQI Clock.
+
+Selecting 100% again restored the original desktop/taskbar sizing and readable idle band; Settings disappeared during this transition too. No guest resolution or production timetable data was changed. Higher DPI and active-label rendering need a more suitable follow-up environment.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
