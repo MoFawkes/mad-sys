@@ -162,6 +162,18 @@ Follow-up diagnosis reproduced a clock-precision defect independently of the VM:
 
 Guest Date & time subsequently displayed **19 October 2026, 22:36**, confirming real-date restoration, although **Sync now** reported failure. The initial `v0.15.4-beta.1` draft build was cancelled after the defect was reproduced; it must not be distributed. A corrected draft will use a new prerelease tag.
 
+### Corrected beta.2 installation — 2026-10-19
+
+Release run `39328971317` passed all four CI gates and packaging for `e9d844e`. Its `v0.15.4-beta.2` release remains an unpublished prerelease draft. Downloaded Setup and full-package SHA-256 values matched GitHub asset metadata; the packaged native DLL imports `GetSystemTimePreciseAsFileTime`.
+
+After the owner explicitly approved installation, normal Setup recognized `.8`, offered `0.15.4-beta.2`, and completed without the earlier partial-install warning. The guest checker reported the running installed app, retained taskbar/start-minimized preferences, native DLL SHA-256 `F744ACD2E814F7D886DFB0084343D6B139714AADB53F6E16F43D906BDD5E5877`, and managed app DLL SHA-256 `14C37882949AFD95F16F2608A39E0CD242A5C9C9C665D8EF5F8C1B401A8D2CE4`. Both DLL hashes match the CI package.
+
+Restarting guest Explorer restored a single band showing **No lessons today**, but the shell subsequently became unresponsive: pinned/running taskbar icons did not finish appearing, the system clock remained at 22:59 for several minutes, and Windows displayed an application-not-responding dialog. Other windows could still minimize/close. The clock eventually advanced to 23:03, but neither toolbar activation nor desktop-shortcut activation produced a visible AQI window during observation. This is not a corrected-build activation/countdown pass; the cause of the shell stall is unresolved. No additional date jump or production-data change was attempted.
+
+The owner's Zoom test-page attempt remained blank in Edge and no meeting, typing or sharing check was completed. Edge was closed. Corrected active-lesson/conferencing acceptance and hardware sleep/resume remain outstanding, so the pilot and PR stay draft; stable v0.15.3 remains unchanged.
+
+The VM subsequently shut down normally through ACPI; its QEMU process was verified absent. Read-only extraction of the powered-off disk confirms package version `0.15.4-beta.2`, a successful install hook in 21,673 ms, and **Installation completed successfully!** at 22:55:53. Setup retried one access-denied rename while replacing the running old app, then completed; no timeout/error appears in this installation's log section. The updater initialized beta.2 and correctly declined the older stable v0.15.3. The application log continues recording closed-day plans during the shell stall; it does not identify the cause or establish UI responsiveness. Local evidence remains in ignored `artifacts/win10-taskbar-test/setup-log-evidence` and `beta2-offline-evidence`.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
