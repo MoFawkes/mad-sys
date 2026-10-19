@@ -158,6 +158,10 @@ Following the time jump, the app briefly showed Not Responding with its old cloc
 
 Automatic guest time was re-enabled and its network link restored; real-date restoration must be verified before further online acceptance. The release workflow now leaves prerelease packages as unpublished drafts so packaging can proceed while the focused gate is still open. Sleep/resume and Teams/Zoom typing/sharing acceptance remain pending.
 
+Follow-up diagnosis reproduced a clock-precision defect independently of the VM: comparing `DateTime.UtcNow` publisher timestamps with `GetSystemTimeAsFileTime` rejected 99,995 of 100,000 fresh samples as future-dated (minimum apparent age −15,075 FILETIME ticks). A native regression publishing precise timestamps failed before the fix. The reader now uses `GetSystemTimePreciseAsFileTime`, matching the managed publisher; all native checks pass, including 1,000 fresh precise-timestamp reads plus explicit future-date and stale-publisher rejection. The packet format and five-second expiry are unchanged. This fixes a proven cause of intermittent fallback; it does not establish that every VM stall had that cause. Installed Explorer retesting of the corrected DLL is required.
+
+Guest Date & time subsequently displayed **19 October 2026, 22:36**, confirming real-date restoration, although **Sync now** reported failure. The initial `v0.15.4-beta.1` draft build was cancelled after the defect was reproduced; it must not be distributed. A corrected draft will use a new prerelease tag.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)

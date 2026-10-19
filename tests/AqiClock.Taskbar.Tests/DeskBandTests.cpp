@@ -117,6 +117,17 @@ int wmain(int argc, wchar_t** argv) {
     wcscpy_s(view->tooltip, L"Next: Isha at 20:20");
     ClockSnapshot read = {};
     Check(ReadSnapshot(testMapping, read) && wcscmp(read.text, view->text) == 0, "snapshot protocol roundtrip");
+    // DateTime.UtcNow in the managed publisher uses the precise system clock.
+    // A coarse reader can lag behind it and reject a fresh packet as future-dated.
+    for (int sample = 0; sample < 1000; ++sample) {
+        GetSystemTimePreciseAsFileTime(&utc);
+        value.LowPart = utc.dwLowDateTime; value.HighPart = utc.dwHighDateTime;
+        view->updatedUtc = static_cast<LONGLONG>(value.QuadPart);
+        Check(ReadSnapshot(testMapping, read), "fresh precise-clock publisher timestamps are accepted");
+    }
+    view->updatedUtc += 1LL * 10000000;
+    Check(!ReadSnapshot(testMapping, read), "future-dated snapshots remain rejected");
+    view->updatedUtc -= 1LL * 10000000;
     view->sequence = 3;
     Check(!ReadSnapshot(testMapping, read), "partial writes rejected");
     view->sequence = 4; view->updatedUtc -= 6LL * 10000000;

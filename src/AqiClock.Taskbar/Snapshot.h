@@ -46,7 +46,9 @@ inline bool ReadSnapshot(const std::wstring& name, ClockSnapshot& result) {
         MemoryBarrier();
         const LONG after = *reinterpret_cast<const volatile LONG*>(&view->sequence);
         FILETIME now;
-        GetSystemTimeAsFileTime(&now);
+        // Match DateTime.UtcNow's clock precision in the managed publisher.
+        // The coarse API can lag behind a fresh timestamp and make age negative.
+        GetSystemTimePreciseAsFileTime(&now);
         ULARGE_INTEGER utc;
         utc.LowPart = now.dwLowDateTime;
         utc.HighPart = now.dwHighDateTime;
