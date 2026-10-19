@@ -15,6 +15,12 @@ This checklist is the ADR-011 acceptance script for Windows surfaces that are no
 
 ## Windows 10 taskbar display acceptance (pending)
 
+### Prerelease pilot gate
+
+Before publishing the taskbar pilot, run a focused check with the real app: an active cached lesson and period boundary while conferencing stays in front, typing focus through updates, and sleep/resume. To avoid modifying institute data during the holiday week, disconnect the disposable guest's network after sync and advance only its clock into a cached teaching day. Restore automatic time and verify the real date before reconnecting. A suspended emulator alone does not establish Windows sleep/resume acceptance.
+
+Publish a SemVer prerelease tag only after recording the focused results. The release workflow maps prerelease tags to Velopack's `--pre`; the existing app uses `GithubSource(..., prerelease: false)`, so stable clients do not receive this pilot automatically. Verify the published release is marked prerelease and v0.15.3 remains the latest stable release. Install manually only for the owner and one consenting teacher; higher DPI, high contrast and Windows 11 checks remain explicit pilot follow-ups.
+
 Use an x64 Windows 10 1809+ machine and a build containing `taskbar/AqiClock.Taskbar.dll`. Record build/hash, Windows build, DPI, tester, date, and results. Local automated component tests on Windows 11 do not establish taskbar docking acceptance.
 
 - [x] TB-01: Enable **Settings → Display → Windows 10 taskbar display**, Save, and confirm the toolbar appears. If automatic showing is unavailable, select **Toolbars → AQI Clock** from the taskbar context menu. No elevation or Explorer restart should be needed. See the installed-app follow-up below.
@@ -133,6 +139,16 @@ With apps kept in Light mode, switching Windows mode from Dark to Light changed 
 Display Settings reported a 1024 × 768 guest resolution and initially 100% scale. Its scale menu offered only 100% and 125%. At 125%, the idle band enlarged and remained readable with AQI Clock minimized. Settings briefly became unresponsive and disappeared; reopening Display Settings confirmed 125% and the band was still present without duplicates. This limited observation does not establish the required 150%/200% coverage or attribute the Settings failure to AQI Clock.
 
 Selecting 100% again restored the original desktop/taskbar sizing and readable idle band; Settings disappeared during this transition too. No guest resolution or production timetable data was changed. Higher DPI and active-label rendering need a more suitable follow-up environment.
+
+### Focused pilot preparation — 2026-10-19
+
+The owner authorized a focused active-lesson/conferencing/sleep check followed by a limited prerelease pilot. Build `.8` was booted again with the existing two-CPU/4 GB software-emulation limits. The owner handled Windows authentication. Explorer restored the band, and after delayed normal app startup its label changed from **open app** to **No lessons today**. Windows Start's power menu offered **Shut down** and **Restart**, with no Sleep option; sleep/resume acceptance therefore requires another machine and is not credited from emulator suspension.
+
+The guest network link was disconnected through QEMU before attempting a cached-lesson clock test. Automated Escape/click input subsequently produced no visible response with Start open; a manual owner input check was requested before further UI actions. No clock/date change, active-lesson transition or conferencing-focus result has been established by this attempt.
+
+The owner replied **done** after the manual input request. The next state capture reported that the physical Escape key had stopped Computer Use, requiring all further UI work in this turn to cease. The resulting app state could not be inspected and is not credited as a focus/activation pass. The pilot remains unpublished pending the focused check; Sleep is unavailable in this VM and must be checked on pilot hardware.
+
+Release workflow preparation now adds Velopack `--pre` for SemVer prerelease tags; stable tag handling remains unchanged. Tag-resolution checks passed for `v0.15.4-beta.1` and `v0.15.4`, the installed Velopack CLI documents the flag, and its pinned SDK documents that `GithubSource` with prerelease false considers stable releases only. All four CI checks passed for commit `7ced7e1`. This prepares isolation of the pilot without publishing it or completing interactive acceptance.
 
 ## Test record
 
