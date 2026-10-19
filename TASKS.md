@@ -158,6 +158,8 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [ ] Rich audit viewer (filters, diffs, export).
 - [ ] Announcement targeting/scheduling/acknowledgement.
 - [ ] Week view, printing, ICS export.
+- [x] Add an optional x64 Windows 10 taskbar lesson/countdown toolbar with native isolation, per-user registration, and Settings control.
+- [ ] Complete Windows 10 taskbar acceptance TB-01–TB-08 before releasing the toolbar; native host tests on Windows 11 do not verify real taskbar docking.
 - [ ] Synced preferences; localisation (Arabic/RTL); kiosk display mode.
 - [ ] Multi-organisation UI.
 - [ ] Align desktop student notification matching for untagged school-wide periods with mobile ADR-020 semantics, or document the intentional difference.

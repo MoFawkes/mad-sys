@@ -13,6 +13,167 @@ Automated coverage includes 19–25 October 2026 staying silent, normal lesson d
 
 This checklist is the ADR-011 acceptance script for Windows surfaces that are not reliably covered by unit tests. Run the full checklist on Windows 10 and Windows 11 before the Phase 8 pilot. Record the app commit, Windows version, tester, date, and result for each run.
 
+## Windows 10 taskbar display acceptance (pending)
+
+### Prerelease pilot gate
+
+Before publishing the taskbar pilot, run a focused check with the real app: an active cached lesson and period boundary while conferencing stays in front, typing focus through updates, and sleep/resume. To avoid modifying institute data during the holiday week, disconnect the disposable guest's network after sync and advance only its clock into a cached teaching day. Restore automatic time and verify the real date before reconnecting. A suspended emulator alone does not establish Windows sleep/resume acceptance.
+
+Publish the prerelease pilot only after recording the focused results. Prerelease tags build an unpublished draft with Velopack's `--pre`; stable tags retain automatic publication. The existing app uses `GithubSource(..., prerelease: false)`, so stable clients do not receive this pilot automatically. Verify the published release is marked prerelease and v0.15.3 remains the latest stable release. Install manually only for the owner and one consenting teacher; higher DPI, high contrast and Windows 11 checks remain explicit pilot follow-ups.
+
+Use an x64 Windows 10 1809+ machine and a build containing `taskbar/AqiClock.Taskbar.dll`. Record build/hash, Windows build, DPI, tester, date, and results. Local automated component tests on Windows 11 do not establish taskbar docking acceptance.
+
+- [x] TB-01: Enable **Settings → Display → Windows 10 taskbar display**, Save, and confirm the toolbar appears. If automatic showing is unavailable, select **Toolbars → AQI Clock** from the taskbar context menu. No elevation or Explorer restart should be needed. See the installed-app follow-up below.
+- [ ] TB-02: With Teams/Zoom maximised and AQI Clock minimised, confirm the period/countdown updates each second, changes at period boundaries, and does not steal focus while typing or presenting. Check the idle/closed-day label too.
+- [ ] TB-03: Hover to see the full current/end/next details; click and keyboard Enter/Space open the existing app. Exit AQI Clock: the old countdown disappears within five seconds, and click relaunches it visibly even with Start minimised enabled.
+- [ ] TB-04: Sign out and confirm old class/lesson details disappear. Sign back in, change selected classes, and verify the toolbar follows the same timetable as the main clock. Disconnect networking and check that cached timing continues.
+- [ ] TB-05: Check 100%, 150%, and 200% DPI; light/dark and high-contrast themes; long period names; bottom/top and vertical taskbars; resize/reposition with an unlocked taskbar. Hover must retain full text when labels truncate.
+- [ ] TB-06: Check auto-hide, sleep/resume, and Explorer restart. No indefinitely frozen countdown, duplicate toolbar, or automatic focus changes. Compare screen-sharing a whole desktop versus a single Teams/Zoom application window.
+- [ ] TB-07: Disable and Save; confirm the toolbar hides/unregisters. Re-enable and restart Windows; confirm the saved preference and the enabled toolbar survive. Update the app, verify the toolbar and click-to-open still work, then uninstall and confirm registration is removed.
+- [ ] TB-08: On Windows 11, confirm the option is disabled with an explanation, existing compact mode works, and other preferences still save even when `taskbarDisplayEnabled` was previously true on Windows 10.
+
+### Partial VM check — 2026-10-17
+
+Codex exercised the production native DLL in an offline Windows 10 Enterprise evaluation VM (desktop watermark: build 19041.vb_release.191206-1406), using a separate WinForms publisher with synthetic lesson data. Tested DLL SHA-256: `9A2A4594119A900EB38BB07697AE327D08806224424A4B343BB32F1AA7F452B9`. This is component-level Explorer acceptance; the full checklist above remains pending.
+
+- Found and fixed Explorer's compatibility warning: the band now supports composited rendering with defined alpha on its own opaque surface. The corrected DLL showed only Windows' normal toolbar-enablement prompt and docked successfully.
+- Observed a live lesson/countdown, a lesson-to-Isha transition while the publisher was minimized, click-to-restore, full tooltip text, replacement with the synthetic signed-out label, and toolbar removal when finishing the demo.
+- The narrow guest taskbar initially clipped the countdown while the Windows search box occupied most of the available space. Hiding the guest search box exposed both fields. Crowded taskbars and resizing need further acceptance coverage.
+- No production sign-in, Teams/Zoom presentation, full-app settings flow, DPI/theme matrix, sleep/resume, or installed update/uninstall was tested. Demo registration and cleanup do not establish the app's registration lifecycle.
+- The portable test VM has no host startup item, installed host driver/service, or shared host folder. It was shut down after testing; its launch/stop/removal scripts remain in ignored local artifacts.
+
+Networked follow-up on the same date: joined Zoom's official public test meeting in the guest's Edge browser. With Zoom maximized and the synthetic publisher minimized, the toolbar stayed visible and updated. Clicking it restored the publisher; after scheduling a ten-second boundary and minimizing it again, the toolbar changed from Lesson 3 to Isha while Zoom remained in front. The public test host disabled attendee sharing, so the user subsequently started an account-hosted solo meeting, with one participant.
+
+In that hosted meeting, the user selected both **Entire Screen** and the **File Explorer window** in the browser's capture permission picker. Zoom and the browser showed active sharing for each mode; the browser explicitly distinguished sharing a screen from sharing a window. The toolbar kept updating through period changes during both shares, and Zoom stayed in front during the whole-screen period change. The screen picker preview included the taskbar; the selected window's bounds excluded it. No second participant or receiving device verified the transmitted frames, so this establishes sender-side capture and foreground behavior, not end-to-end viewer acceptance, keyboard-input focus, or AV performance. Both shares were stopped and the solo meeting ended before guest shutdown.
+
+The user handled network discovery, popup permissions, account sign-in, and capture permissions. Zoom showed a browser-upgrade recommendation and unavailable AV devices; no host camera/microphone was passed through. Teams and the native Zoom desktop client remain untested, as do the full-app settings/sign-in flow and the remaining OS-integration checklist.
+
+### Taskbar styling follow-up — 2026-10-17
+
+Native DLL from commit `58fedbc`, SHA-256 `8B1DDD840639B3B97B10679D5E16B877FBA9A4A6CF925A635272FD5F82D24A58`, was checked in the same Windows 10 guest after a fresh sign-in. The inactive label and the synthetic Lesson 3/countdown appeared at the right edge of the band, immediately before the notification area, without an opaque background rectangle. Both live fields fitted the narrow guest taskbar, and the countdown kept advancing with the publisher minimized and Explorer in front. The taskbar was locked after checking the layout. Windows still owns the band's outer placement; this change right-aligns its content within its allocated area.
+
+Native rendering tests cover transparent background pixels, right anchoring in a wider client area, and the opaque fallback when composition is disabled. The native tests and WPF build passed, and all four CI checks passed for `58fedbc`. This styling follow-up did not repeat Zoom sharing or establish the remaining DPI/theme and installed-app acceptance cases above.
+
+### Installed-app follow-up — 2026-10-17 (in progress)
+
+Locally built, unpublished per-user Velopack 1.2.0 packages used the real `AqiClock.App` identity and successive test versions. Package `0.0.1-taskbartest.1` installed in the disposable Windows 10 guest without elevation and opened the audience chooser. The owner chose Teacher and signed in. The real clock synced and showed **No lessons today**, with the next lesson on Monday at 09:10.
+
+Enabling the taskbar option in the installed app's Settings and saving succeeded. Settings reported **Taskbar toolbar enabled**, and Explorer showed the same idle status. A guest-only read-only checker confirmed `taskbarDisplayEnabled: true`, a launcher under the stable per-user `AqiClock.App` install path, and the immutable native DLL hash `8B1DDD840639B3B97B10679D5E16B877FBA9A4A6CF925A635272FD5F82D24A58`. Setup recognized the existing `.1` package and applied an upgrade to `.3`; the signed-in session and taskbar preference survived.
+
+Real-app activation exposed a gap in the earlier synthetic publisher check: activating a minimized window could only flash its taskbar button. Added `SW_RESTORE` before activation, with WPF regression checks for previously normal and maximized windows. The application suite passed 209 tests, with one optional backend smoke skipped. The native click handler also now grants foreground permission only to the recorded app PID after checking its executable path and Windows session. Native component tests passed. Acceptance of these combined fixes with the new native DLL remains pending.
+
+Post-upgrade testing also encountered unresponsive guest input while the clock kept ticking; Explorer ignored clicks too. QEMU had selected its PS/2 mouse instead of the absolute tablet. Re-selecting/resetting the tablet did not make input reliable, so testing paused for a guest restart using an xHCI USB controller. A brief synchronization/heartbeat pause was also observed and recovered; its cause has not been established. Do not count the remaining checklist rows as passed or treat the release as ready.
+
+### Installed activation and session-scope follow-up — 2026-10-18
+
+The final checks from 17 October used installed test package `.4` and native DLL SHA-256 `833F5BD96E5CCD2C9FC157ED8261799D7649B32832C928BD88FB617BFC097CB2`. After the guest was restarted with an xHCI controller, the owner confirmed that clicks worked normally. The real app then passed foreground activation, explicit minimize/widget restore, tray Exit with stale-status clearing, and visible relaunch through the stable installed launcher despite **Start minimized** being enabled. Restarting guest Explorer restored the live toolbar.
+
+Disabling the option and saving removed the band. A guest checker confirmed that its COM server, launcher path, and app PID entries were absent and the preference was false. Re-enabling saved successfully but required the documented **Toolbars → AQI Clock** fallback; selecting it restored the live toolbar. With the guest's network link disconnected, the clock continued ticking, showed the offline status, and retained cached Monday next-lesson details. This was an idle-day check, not a live scheduled-lesson countdown acceptance run.
+
+On 18 October, the owner requested that desktop sign-out affect only this computer. The gateway now explicitly posts `auth/v1/logout?scope=local`. A local Auth regression created one disposable account and two independent sessions: it failed with the previous global-default request and passed with the fix, proving that the signed-out session cannot refresh while the other can. The account was removed afterward and a local SQL query confirmed no sign-out-test identities remained. This test uses its own temporary identity rather than the broader database-fixture reset. VM verification of the updated sign-out UI and uninstall cleanup is still pending; the remaining checklist rows stay open.
+
+### Build 5 sign-out and uninstall — 2026-10-18
+
+Today's accelerated guest boot stalled at **Preparing Automatic Repair**. Software emulation booted successfully using a temporary qcow2 overlay, preserving the existing VM disk. The owner requested two virtual CPUs after the one-CPU guest proved very slow; the restarted two-CPU guest retained 4 GB RAM, below-normal priority, and confinement to two host logical processors. All subsequent UI testing stayed on the owner's right monitor. Guest sign-in was handled by the owner. This environment does not establish real-hardware performance or explain the accelerated boot failure.
+
+Setup recognized `.4` and offered `.5`, but displayed **Install Partially Succeeded** during the upgrade. The app subsequently ran and published **No lessons today**. The guest checker confirmed the installed app DLL SHA-256 `1DD43BD16E27A1521A0A445113EB3EF7747B24FF699DF505CA2CD95A730B07E1`, matching the `.5` build manifest, and native DLL SHA-256 `833F5BD96E5CCD2C9FC157ED8261799D7649B32832C928BD88FB617BFC097CB2`. The specific failed setup step was not established; do not mark this upgrade warning resolved or count the run as clean upgrade acceptance.
+
+Using the installed app's tray **Sign out** returned to the audience chooser and replaced the old native status with **AQI Clock – Sign in**. No further account sign-in was needed. Together with the independent two-session Auth regression above, this verifies the local sign-out change and its signed-out display behavior; it does not complete the class-change or active-lesson rows.
+
+The normal installed uninstaller then reported **Uninstall Complete** and the toolbar disappeared. Refreshing the guest checker confirmed that AppPath, AppProcessId and the taskbar COM server registration were absent, with no matching uninstall registration, running app or installed app DLL reported. The separate settings file remained. This establishes uninstall/registration cleanup for this package; the other unchecked OS acceptance cases remain open.
+
+### Installer hook diagnosis and keyboard regressions — 2026-10-18
+
+Read-only extraction of the powered-off recovery disk established the specific setup failure. `velopack.log` records two build `.5` install-hook invocations (`--veloapp-install`) killed after their 30-second limit, at 16:35:37 and 16:37:48. No corresponding SDK initialization entry appears in the app-specific log before either timeout. The later normal launch initialized successfully, and the uninstall hook completed successfully in 5.7 seconds. The setup warning was therefore a hook timeout, not an unspecified extraction or uninstaller failure.
+
+Commit `548f1e4` moves the entry point from the WPF `App` type into a separate bootstrap and prevents inlining of the subsequent WPF launch. Velopack's fast-exit hook path now precedes resolving the UI startup method. The application suite passed 209 tests (one optional backend smoke skipped), self-contained publishing and both test-package builds succeeded, and the packaging tool verified the bootstrap entry point. A clean-install `.6` / subsequent-update `.7` guest retest is still required before marking the timeout resolved.
+
+Native regression tests now exercise Enter and Space through both `IInputObject.TranslateAcceleratorIO` and the toolbar's focused-window message path, using an activation event owned by the test when no live app owns it. Unrelated keys, key release and null messages do not trigger activation. The native suite passed. This establishes component keyboard behavior; actual Explorer keyboard navigation remains part of TB-03 acceptance.
+
+### Bootstrap installer acceptance — 2026-10-18
+
+On the same two-CPU software-emulated Windows 10 guest, a guest-only runner invoked the normal installers with silent mode and separate setup logs. Fresh install `.6` and setup-based replacement with `.7` both exited zero, installed the expected manifest version, and produced logs without errors or hook timeouts. The install hooks completed in 1,664 ms and 8,883 ms respectively. Total installer durations were 86.3 and 79.1 seconds. These checks resolve the previously observed install-hook timeout for this tested environment and package.
+
+A separate guest runner applied `.8` through the installed `Update.exe apply --silent --norestart --package ...`, rather than rerunning Setup. It exited zero, installed the expected manifest version, and produced a clean log. The obsolete and updated hooks completed in 5,370 ms and 4,461 ms. All four CI jobs passed for the bootstrap change. No package was published.
+
+Normal app launch was requested after the staged update, but was not verified before the owner requested a break. The remaining unchecked OS/conferencing acceptance cases remain open. The run was paused at the owner's request; no further interactive tests were attempted.
+
+### Post-update normal launch follow-up — 2026-10-18
+
+Resumed the existing build `.8` recovery overlay with two virtual CPUs, 4 GB RAM and software emulation; no installer or updater was rerun. The owner signed into Windows, and the VM window remained on DISPLAY2. Opening the installed desktop shortcut eventually created AQI Clock's taskbar button. Explorer's previews showed the audience chooser and sign-in window, and selecting the chooser displayed the fully rendered **Choose the audience using this computer** screen with Teacher and Student choices. This establishes normal installed UI startup after the staged update, with the app still signed out from the earlier cleanup check.
+
+Guest input and UI startup were markedly delayed, and window capture needed reconnection after maximizing QEMU. This run does not establish startup performance, authenticated clock/taskbar behavior, or Explorer keyboard acceptance. App authentication was handed to the owner; all remaining unchecked acceptance rows remain open.
+
+The owner subsequently signed in as an administrator. The normal clock rendered **No lessons today**, **Next: Monday, Lesson 1 at 09:10**, and a successful sync status. Settings retained the enabled taskbar preference, but Explorer's Toolbars list showed AQI Clock unchecked after this boot. Selecting **Toolbars → AQI Clock** restored the native band with the matching idle label, which remained visible after minimizing the app. This verifies authenticated idle-day behavior after the staged update using the documented visibility fallback; automatic toolbar restoration across this boot did not pass.
+
+Automated Escape/Tab input did not produce a visible guest response during the keyboard attempt. The owner then performed the Explorer keyboard check manually and explicitly confirmed that **both Enter and Space on the focused AQI Clock toolbar restored the minimized app**. This is owner-observed OS keyboard acceptance, supplementing the existing native regression tests. TB-03 remains unchecked because its full tooltip/lifecycle combination has not been repeated on this package.
+
+Computer Use subsequently reported a physical-Escape stop, so further UI testing stopped. The guest shut down through the normal ACPI power-down request; the QEMU process was verified absent afterward. No DPI/theme or other remaining manual acceptance was credited.
+
+At the owner's request to do the lightest remaining work before pausing for the next day, native component regressions passed again, including COM lifecycle, docking host, rendering, focus and snapshot validation. Nineteen managed taskbar/settings/activation checks also passed. This was a low-resource regression check without booting the VM; it does not complete any of the remaining manual OS/conferencing cases. The taskbar PR remains draft and is excluded from the separate holiday-override release.
+
+## Windows holiday override follow-up — 2026-10-18
+
+The owner relayed a teacher's report that Windows alerts were not being suppressed for the coming holiday week, 19–25 October 2026. The supplied preview was insufficient to verify the teacher's exact saved entries; no production data was read or changed. At the time of the report, the override editor accepted one date per row, with a null timetable meaning **Closed**. A note containing a date range does not close that range.
+
+Source investigation found a separate reproducible save defect: changing an existing timetable override to **Closed** omitted `timetable_id` from the gateway's PATCH body because null fields were suppressed. The old timetable therefore would not be cleared. A gateway request regression failed for the closed case before the fix and passed afterward; the write DTO now explicitly serializes its null timetable. This is a confirmed defect, not yet a confirmed explanation of the teacher's particular configuration.
+
+New Windows scheduler regressions verify zero lesson-start/end-warning alerts on all seven holiday dates, normal lesson-start delivery on 26 October, and removal of already-planned alerts after a synced closure. The application, domain and integration suites passed 211, 77 and 12 tests respectively; one optional backend smoke was skipped. The gateway regression captures the real HTTP serialization against a test handler, not a live Supabase server. Hosted save/repull and installed-client UI acceptance of this fix remain pending; the fix has not been released.
+
+- [ ] On an installed build containing the fix, change an existing dated timetable assignment to Closed and Save; reload and confirm it remains closed.
+- [ ] In Date overrides, select **First closed date: 19 October** and **Last closed date: 25 October**, enter an optional note, and select **Save closed dates**. Confirm seven closed rows are saved, both endpoints are included, and reloading preserves them. Sync a Windows client and confirm the next lesson skips the holiday week and no lesson-start/end-warning alerts appear on closed dates.
+- [ ] Confirm the recurring week schedule remains unchanged and normal lessons resume on 26 October. Announcement notifications are independent of lesson closures.
+
+Date-range implementation: the Windows Date overrides screen now offers inclusive first/last dates, an optional note, and **Save closed dates**. It checks current server overrides and asks before replacing existing assignments or notes. A single PostgREST bulk upsert creates/updates the daily rows atomically against the existing `(org_id,date)` unique constraint, without a schema migration; omitted IDs preserve existing row identities. The write explicitly sends null timetables, uses the signed-in organization, and requires the response to confirm every selected date. Successful save refreshes the local cache. Invalid/empty/reversed ranges, cancellation of replacement, API denial, an incomplete confirmation and offline errors are covered by tests; installed UI and hosted API acceptance remain pending. No release has been published.
+
+### Boot, placement and auto-hide follow-up — 2026-10-19
+
+Resumed the existing build `.8` recovery guest with the same two-CPU/4 GB software-emulation limits, on DISPLAY2 only. The owner handled Windows sign-in. Explorer restored the enabled AQI Clock band automatically after this boot, initially showing **open app** before the publisher was running. App/Explorer startup was markedly delayed; after the installed app rendered and synced, both the main clock and band showed **No lessons today**, with the next lesson on Monday at 09:10. No installer or updater was run during this check. This establishes restoration for this boot, not a reliability claim across every boot/update.
+
+With AQI Clock minimized, Windows taskbar Settings moved the unlocked taskbar from bottom to left, then top and back to bottom. The band remained present and did not restore the app or produce duplicates. Its idle label truncated on the narrow left taskbar and was readable at the top/bottom. Full vertical hover details remain unverified; drag-based repositioning was not reliable through the emulated input path.
+
+Desktop auto-hide on the top taskbar hid the band with the taskbar and revealed it again at the top edge, retaining the idle status while AQI Clock stayed minimized. Auto-hide was then returned to Off and placement to Bottom. This is an idle-day placement/auto-hide check, not an active countdown, sleep/resume, full DPI/theme matrix or conferencing pass; TB-05/TB-06 remain unchecked.
+
+With apps kept in Light mode, switching Windows mode from Dark to Light changed the band to readable dark text on the light transparent taskbar. Returning Windows mode to Dark restored readable white text without an opaque rectangle. The original Custom color configuration (Windows Dark/apps Light), bottom placement and locked taskbar were restored. This covers the idle label only; high contrast and active countdown colors remain pending.
+
+Display Settings reported a 1024 × 768 guest resolution and initially 100% scale. Its scale menu offered only 100% and 125%. At 125%, the idle band enlarged and remained readable with AQI Clock minimized. Settings briefly became unresponsive and disappeared; reopening Display Settings confirmed 125% and the band was still present without duplicates. This limited observation does not establish the required 150%/200% coverage or attribute the Settings failure to AQI Clock.
+
+Selecting 100% again restored the original desktop/taskbar sizing and readable idle band; Settings disappeared during this transition too. No guest resolution or production timetable data was changed. Higher DPI and active-label rendering need a more suitable follow-up environment.
+
+### Focused pilot preparation — 2026-10-19
+
+The owner authorized a focused active-lesson/conferencing/sleep check followed by a limited prerelease pilot. Build `.8` was booted again with the existing two-CPU/4 GB software-emulation limits. The owner handled Windows authentication. Explorer restored the band, and after delayed normal app startup its label changed from **open app** to **No lessons today**. Windows Start's power menu offered **Shut down** and **Restart**, with no Sleep option; sleep/resume acceptance therefore requires another machine and is not credited from emulator suspension.
+
+The guest network link was disconnected through QEMU before attempting a cached-lesson clock test. Automated Escape/click input subsequently produced no visible response with Start open; a manual owner input check was requested before further UI actions. No clock/date change, active-lesson transition or conferencing-focus result has been established by this attempt.
+
+The owner replied **done** after the manual input request. The next state capture reported that the physical Escape key had stopped Computer Use, requiring all further UI work in this turn to cease. The resulting app state could not be inspected and is not credited as a focus/activation pass. The pilot remains unpublished pending the focused check; Sleep is unavailable in this VM and must be checked on pilot hardware.
+
+Release workflow preparation now adds Velopack `--pre` for SemVer prerelease tags; stable tag handling remains unchanged. Tag-resolution checks passed for `v0.15.4-beta.1` and `v0.15.4`, the installed Velopack CLI documents the flag, and its pinned SDK documents that `GithubSource` with prerelease false considers stable releases only. All four CI checks passed for commit `7ced7e1`. This prepares isolation of the pilot without publishing it or completing interactive acceptance.
+
+### Real cached lesson boundary — 2026-10-19
+
+Resumed the same build `.8` guest after the owner signed in. Startup was again heavily delayed; the owner confirmed that normal launch eventually opened the clock. The captured main window showed a successful sync, **No lessons today**, and the next Monday lesson at 09:10. After disconnecting the guest network, the app showed Offline and retained its cached timetable. Only the guest clock was changed to 26 October 2026 at 09:38; no institute timetable or date override was edited.
+
+Following the time jump, the app briefly showed Not Responding with its old clock image and the native band expired to **open app**. It recovered to Lesson 1, ending 09:40, and both clock and band counted down. With AQI Clock minimized and Windows Date & time Settings in front, the band was observed at 00:58 then 00:23. At 09:40 the real app delivered a **Lesson starting / Lesson 2 · ends 10:10** toast; Settings stayed in front and the clock did not restore itself. The band briefly showed its inactive fallback, then recovered to Lesson 2 with 29:32 remaining. A subsequent observation again showed the fallback, so this is partial boundary/focus evidence with intermittent snapshot expiry, not a smooth-countdown or full conferencing pass. The emulated environment's contribution has not been isolated.
+
+Automatic guest time was re-enabled and its network link restored; real-date restoration must be verified before further online acceptance. The release workflow now leaves prerelease packages as unpublished drafts so packaging can proceed while the focused gate is still open. Sleep/resume and Teams/Zoom typing/sharing acceptance remain pending.
+
+Follow-up diagnosis reproduced a clock-precision defect independently of the VM: comparing `DateTime.UtcNow` publisher timestamps with `GetSystemTimeAsFileTime` rejected 99,995 of 100,000 fresh samples as future-dated (minimum apparent age −15,075 FILETIME ticks). A native regression publishing precise timestamps failed before the fix. The reader now uses `GetSystemTimePreciseAsFileTime`, matching the managed publisher; all native checks pass, including 1,000 fresh precise-timestamp reads plus explicit future-date and stale-publisher rejection. The packet format and five-second expiry are unchanged. This fixes a proven cause of intermittent fallback; it does not establish that every VM stall had that cause. Installed Explorer retesting of the corrected DLL is required.
+
+Guest Date & time subsequently displayed **19 October 2026, 22:36**, confirming real-date restoration, although **Sync now** reported failure. The initial `v0.15.4-beta.1` draft build was cancelled after the defect was reproduced; it must not be distributed. A corrected draft will use a new prerelease tag.
+
+### Corrected beta.2 installation — 2026-10-19
+
+Release run `39328971317` passed all four CI gates and packaging for `e9d844e`. Its `v0.15.4-beta.2` release remains an unpublished prerelease draft. Downloaded Setup and full-package SHA-256 values matched GitHub asset metadata; the packaged native DLL imports `GetSystemTimePreciseAsFileTime`.
+
+After the owner explicitly approved installation, normal Setup recognized `.8`, offered `0.15.4-beta.2`, and completed without the earlier partial-install warning. The guest checker reported the running installed app, retained taskbar/start-minimized preferences, native DLL SHA-256 `F744ACD2E814F7D886DFB0084343D6B139714AADB53F6E16F43D906BDD5E5877`, and managed app DLL SHA-256 `14C37882949AFD95F16F2608A39E0CD242A5C9C9C665D8EF5F8C1B401A8D2CE4`. Both DLL hashes match the CI package.
+
+Restarting guest Explorer restored a single band showing **No lessons today**, but the shell subsequently became unresponsive: pinned/running taskbar icons did not finish appearing, the system clock remained at 22:59 for several minutes, and Windows displayed an application-not-responding dialog. Other windows could still minimize/close. The clock eventually advanced to 23:03, but neither toolbar activation nor desktop-shortcut activation produced a visible AQI window during observation. This is not a corrected-build activation/countdown pass; the cause of the shell stall is unresolved. No additional date jump or production-data change was attempted.
+
+The owner's Zoom test-page attempt remained blank in Edge and no meeting, typing or sharing check was completed. Edge was closed. Corrected active-lesson/conferencing acceptance and hardware sleep/resume remain outstanding, so the pilot and PR stay draft; stable v0.15.3 remains unchanged.
+
+The VM subsequently shut down normally through ACPI; its QEMU process was verified absent. Read-only extraction of the powered-off disk confirms package version `0.15.4-beta.2`, a successful install hook in 21,673 ms, and **Installation completed successfully!** at 22:55:53. Setup retried one access-denied rename while replacing the running old app, then completed; no timeout/error appears in this installation's log section. The updater initialized beta.2 and correctly declined the older stable v0.15.3. The application log continues recording closed-day plans during the shell stall; it does not identify the cause or establish UI responsiveness. Local evidence remains in ignored `artifacts/win10-taskbar-test/setup-log-evidence` and `beta2-offline-evidence`.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)

@@ -13,6 +13,7 @@ public sealed record AppSettings
     public AppTheme Theme { get; init; } = AppTheme.System;
     public bool AlwaysOnTop { get; init; }
     public bool CompactOnLaunch { get; init; }
+    public bool TaskbarDisplayEnabled { get; init; }
     public bool LessonStartNotifications { get; init; } = true;
     public bool EndWarningNotifications { get; init; } = true;
     public int EndWarningMinutes { get; init; } = 5;
