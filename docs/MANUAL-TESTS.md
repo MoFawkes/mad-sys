@@ -19,7 +19,7 @@ This checklist is the ADR-011 acceptance script for Windows surfaces that are no
 
 Before publishing the taskbar pilot, run a focused check with the real app: an active cached lesson and period boundary while conferencing stays in front, typing focus through updates, and sleep/resume. To avoid modifying institute data during the holiday week, disconnect the disposable guest's network after sync and advance only its clock into a cached teaching day. Restore automatic time and verify the real date before reconnecting. A suspended emulator alone does not establish Windows sleep/resume acceptance.
 
-Publish a SemVer prerelease tag only after recording the focused results. The release workflow maps prerelease tags to Velopack's `--pre`; the existing app uses `GithubSource(..., prerelease: false)`, so stable clients do not receive this pilot automatically. Verify the published release is marked prerelease and v0.15.3 remains the latest stable release. Install manually only for the owner and one consenting teacher; higher DPI, high contrast and Windows 11 checks remain explicit pilot follow-ups.
+Publish the prerelease pilot only after recording the focused results. Prerelease tags build an unpublished draft with Velopack's `--pre`; stable tags retain automatic publication. The existing app uses `GithubSource(..., prerelease: false)`, so stable clients do not receive this pilot automatically. Verify the published release is marked prerelease and v0.15.3 remains the latest stable release. Install manually only for the owner and one consenting teacher; higher DPI, high contrast and Windows 11 checks remain explicit pilot follow-ups.
 
 Use an x64 Windows 10 1809+ machine and a build containing `taskbar/AqiClock.Taskbar.dll`. Record build/hash, Windows build, DPI, tester, date, and results. Local automated component tests on Windows 11 do not establish taskbar docking acceptance.
 
@@ -149,6 +149,14 @@ The guest network link was disconnected through QEMU before attempting a cached-
 The owner replied **done** after the manual input request. The next state capture reported that the physical Escape key had stopped Computer Use, requiring all further UI work in this turn to cease. The resulting app state could not be inspected and is not credited as a focus/activation pass. The pilot remains unpublished pending the focused check; Sleep is unavailable in this VM and must be checked on pilot hardware.
 
 Release workflow preparation now adds Velopack `--pre` for SemVer prerelease tags; stable tag handling remains unchanged. Tag-resolution checks passed for `v0.15.4-beta.1` and `v0.15.4`, the installed Velopack CLI documents the flag, and its pinned SDK documents that `GithubSource` with prerelease false considers stable releases only. All four CI checks passed for commit `7ced7e1`. This prepares isolation of the pilot without publishing it or completing interactive acceptance.
+
+### Real cached lesson boundary — 2026-10-19
+
+Resumed the same build `.8` guest after the owner signed in. Startup was again heavily delayed; the owner confirmed that normal launch eventually opened the clock. The captured main window showed a successful sync, **No lessons today**, and the next Monday lesson at 09:10. After disconnecting the guest network, the app showed Offline and retained its cached timetable. Only the guest clock was changed to 26 October 2026 at 09:38; no institute timetable or date override was edited.
+
+Following the time jump, the app briefly showed Not Responding with its old clock image and the native band expired to **open app**. It recovered to Lesson 1, ending 09:40, and both clock and band counted down. With AQI Clock minimized and Windows Date & time Settings in front, the band was observed at 00:58 then 00:23. At 09:40 the real app delivered a **Lesson starting / Lesson 2 · ends 10:10** toast; Settings stayed in front and the clock did not restore itself. The band briefly showed its inactive fallback, then recovered to Lesson 2 with 29:32 remaining. A subsequent observation again showed the fallback, so this is partial boundary/focus evidence with intermittent snapshot expiry, not a smooth-countdown or full conferencing pass. The emulated environment's contribution has not been isolated.
+
+Automatic guest time was re-enabled and its network link restored; real-date restoration must be verified before further online acceptance. The release workflow now leaves prerelease packages as unpublished drafts so packaging can proceed while the focused gate is still open. Sleep/resume and Teams/Zoom typing/sharing acceptance remain pending.
 
 ## Test record
 

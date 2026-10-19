@@ -114,9 +114,10 @@ jobs:
         run: |
           $arguments = @(
             'upload', 'github', '--repoUrl', $env:RELEASE_REPOSITORY, '--token', $env:RELEASES_TOKEN,
-            '--channel', 'stable', '--outputDir', 'artifacts/releases', '--publish',
+            '--channel', 'stable', '--outputDir', 'artifacts/releases',
             '--releaseName', 'AQI Clock ${{ steps.version.outputs.value }}', '--tag', '${{ steps.version.outputs.tag }}'
           )
           if ('${{ steps.version.outputs.prerelease }}' -eq 'true') { $arguments += '--pre' }
+          else { $arguments += '--publish' }
           & artifacts/tools/vpk @arguments
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
