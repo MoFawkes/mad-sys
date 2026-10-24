@@ -15,6 +15,8 @@ This checklist is the ADR-011 acceptance script for Windows surfaces that are no
 
 ## Windows 10 taskbar display acceptance (pending)
 
+The owner changed the rollout target on 24 October to a **general stable release on Sunday 25 October 2026**. The earlier pilot gate below remains historical preparation, not authorization to defer wider acceptance for stable publication. Current readiness and outstanding stable-release checks are tracked in [RELEASE-READINESS-0.15.4.md](RELEASE-READINESS-0.15.4.md).
+
 ### Prerelease pilot gate
 
 Before publishing the taskbar pilot, run a focused check with the real app: an active cached lesson and period boundary while conferencing stays in front, typing focus through updates, and sleep/resume. To avoid modifying institute data during the holiday week, disconnect the disposable guest's network after sync and advance only its clock into a cached teaching day. Restore automatic time and verify the real date before reconnecting. A suspended emulator alone does not establish Windows sleep/resume acceptance.
