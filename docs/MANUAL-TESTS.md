@@ -194,6 +194,18 @@ Normal ACPI shutdown completed without force. Offline verification confirmed the
 
 This demonstrates that this guest can reproduce the Explorer hang without loading the AQI native toolbar; the band is not required for this observed failure. It does not prove that AQI cannot have a separate defect, identify the underlying guest/emulation cause, or pass corrected activation/countdown/conferencing acceptance. Further release acceptance needs a responsive Windows 10 environment. Both test VMs are off; the prerelease and PR remain draft and stable v0.15.3 is unchanged.
 
+### Increased CPU allowance and corrected activation — 2026-10-24
+
+The owner authorized increased VM resources. A separate copy-on-write child of the unchanged beta.2 recovery disk was first booted with four vCPUs, 6 GB guest RAM, BelowNormal priority and affinity to four host logical processors. Although roughly 8 GB host RAM was free before launch, QEMU's working set reached approximately 7.15 GB and host available RAM fell below 1 GB. This attempt was shut down normally without claiming acceptance. The profile was reduced to 4 GB guest RAM while retaining four vCPUs/four host logical processors; the CPU model, software emulation and network remained unchanged. The revised run left roughly 2.5–2.9 GB host RAM available during observation.
+
+The owner handled Windows sign-in. Testing stayed on DISPLAY2. Start eventually rendered fully, and File Explorer and the existing lifecycle checker opened. The owner confirmed **Clicks work, but AQI does not open** during initial AQI startup. The checker subsequently confirmed a running installed AQI process, retained start-minimized/taskbar preferences, native SHA-256 `F744ACD2E814F7D886DFB0084343D6B139714AADB53F6E16F43D906BDD5E5877`, and managed SHA-256 `14C37882949AFD95F16F2608A39E0CD242A5C9C9C665D8EF5F8C1B401A8D2CE4`, matching corrected beta.2.
+
+After startup settled, clicking the live taskbar band brought the corrected AQI main window to the foreground. It rendered **No lessons today**, **Next: Monday, Lesson 1 at 09:10**, and **Synced: just now**. Explicitly minimizing the app through its title-bar button hid it; clicking the band again restored the main clock by the three-second observation. The main clock advanced during this check. This establishes corrected installed activation and one minimize/restore cycle in this run, without establishing responsiveness guarantees or a repeatable performance improvement attributable solely to the CPU change. During earlier startup, the band briefly alternated between its live idle label and **open app**; no causal explanation or smooth active-countdown pass is inferred.
+
+No guest date, production data, security setting or service was changed. Corrected active lesson/countdown transitions, conferencing and hardware sleep/resume remain open, as do the wider-rollout cases. No full checklist row was newly checked from this limited result. The prerelease remains unpublished and the PR remains draft.
+
+The revised run shut down normally through ACPI; QEMU was verified absent. Offline evidence in ignored `artifacts/win10-taskbar-test/higher-resources-evidence-20261024` retains the checker output, application events and the new AQI log (normal hosting start and closed-day plans, with no error entries in that log). The recovery disk SHA-256 still matched the pre-isolation value. The current optional `Start-HigherResources.ps1` profile is four vCPUs, **4 GB** RAM and four host logical processors, not the abandoned 6 GB configuration. No repeatable startup or performance guarantee is claimed.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
