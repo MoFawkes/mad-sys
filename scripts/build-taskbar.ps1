@@ -28,6 +28,8 @@ $notices -join "`n`n" | Set-Content (Join-Path $out 'THIRD_PARTY_NOTICES.txt') -
 if ($Test) {
     & $zig c++ @common -municode (Join-Path $root 'tests/AqiClock.Taskbar.Tests/DeskBandTests.cpp') -o (Join-Path $out 'DeskBandTests.exe') -lole32 -luuid -luser32 -ladvapi32 -luxtheme -lgdi32
     if ($LASTEXITCODE -ne 0) { throw 'Taskbar test host build failed.' }
+    # Match Explorer's common-controls v6 context so the test exercises real tooltip registration.
+    Copy-Item -LiteralPath (Join-Path $root 'tests/AqiClock.Taskbar.Tests/DeskBandTests.exe.manifest') -Destination (Join-Path $out 'DeskBandTests.exe.manifest') -Force
     & (Join-Path $out 'DeskBandTests.exe') (Join-Path $out 'AqiClock.Taskbar.dll')
     if ($LASTEXITCODE -ne 0) { throw 'Taskbar component tests failed.' }
 }

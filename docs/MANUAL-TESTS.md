@@ -276,6 +276,12 @@ The scale menu at 1920×1080 offered 100%, 125%, 150% and 175%, with no 200% ent
 
 Normal ACPI shutdown completed after the launcher's initial 20-second wait; no force-stop was used. QEMU was verified absent before offline inspection. Ignored `artifacts/win10-taskbar-test/dpi-evidence-20261025` retains the log, saved taskbar=true preference, zero latest-startup-step failures and 299 application events. The single Explorer mention was already present in the previous evidence set; this bounded check does not establish absence of defects.
 
+### 25 October 2026 — native long-tooltip regression coverage
+
+Extended the isolated native COM test host to query the band's actual tooltip control after publishing a long lesson label, resizing the child to 80 and 440 pixels, and changing only its tooltip details. Full tooltip text survived both sizes; a tooltip-only update replaced the previous details, and neither resize nor refresh changed the test host's keyboard focus. These checks passed against both the current build and the unchanged packaged beta.2 DLL (`F744ACD2E814F7D886DFB0084343D6B139714AADB53F6E16F43D906BDD5E5877`). A separate intentionally regressed DLL that ignored tooltip-only changes failed the new assertion as expected.
+
+The test executable now opts into common-controls v6, matching Explorer's tooltip environment. Without that activation context, the original test host had zero registered tooltip tools; this was a test-fixture gap, not a reproduced guest failure. No production DLL code changed. This verifies native tooltip data retention and update behavior in a standalone host, not visual ellipsis, real Explorer resizing, DPI, conferencing typing focus or a complete TB-03/TB-05 pass. The VM remained off.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)

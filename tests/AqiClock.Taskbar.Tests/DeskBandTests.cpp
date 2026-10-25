@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <shobjidl.h>
+#include <commctrl.h>
 #include <uxtheme.h>
 #include <cstdio>
 #include <cstdlib>
@@ -155,10 +156,55 @@ int wmain(int argc, wchar_t** argv) {
         GetWindowTextW(child, displayed, 256);
         Check(wcscmp(displayed, published->text) == 0, "toolbar renders published lesson and countdown");
         Check(GetFocus() == focus, "live update preserves keyboard focus");
+        // Resizing the visible label must not shorten the separately stored tooltip.
+        HWND tooltip = nullptr;
+        struct TooltipSearch { HWND child; HWND* result; } search = {child, &tooltip};
+        EnumThreadWindows(GetCurrentThreadId(), [](HWND candidate, LPARAM context) -> BOOL {
+            auto search = reinterpret_cast<TooltipSearch*>(context);
+            wchar_t className[64];
+            GetClassNameW(candidate, className, ARRAYSIZE(className));
+            TOOLINFOW tool = {};
+            tool.cbSize = sizeof(tool); tool.hwnd = search->child;
+            tool.uId = reinterpret_cast<UINT_PTR>(search->child);
+            if (wcscmp(className, TOOLTIPS_CLASSW) == 0 &&
+                SendMessageW(candidate, TTM_GETTOOLINFOW, 0, reinterpret_cast<LPARAM>(&tool))) {
+                *search->result = candidate;
+                return FALSE;
+            }
+            return TRUE;
+        }, reinterpret_cast<LPARAM>(&search));
+        Check(tooltip != nullptr, "find this band's owned tooltip");
         published->sequence = 3; MemoryBarrier();
+        wcscpy_s(published->text, L"A very long lesson name that cannot fit in a narrow taskbar | 12:34 left");
+        wcscpy_s(published->tooltip, L"A very long lesson name that cannot fit in a narrow taskbar · 12:34 left · Ends at 19:05 · Next: another long lesson at 19:05");
+        MemoryBarrier(); published->sequence = 4;
+        SendMessageW(child, WM_TIMER, 1, 0);
+        for (int width : {80, 440}) {
+            SetWindowPos(child, nullptr, 0, 0, width, 30, SWP_NOZORDER | SWP_NOACTIVATE);
+            wchar_t fullTooltip[768] = {};
+            TOOLINFOW tool = {};
+            tool.cbSize = sizeof(tool); tool.hwnd = child;
+            tool.uId = reinterpret_cast<UINT_PTR>(child); tool.lpszText = fullTooltip;
+            SendMessageW(tooltip, TTM_GETTEXTW, ARRAYSIZE(fullTooltip), reinterpret_cast<LPARAM>(&tool));
+            Check(wcscmp(fullTooltip, published->tooltip) == 0, "full lesson tooltip survives narrow and wide layouts");
+            Check(GetFocus() == focus, "label resize preserves keyboard focus");
+        }
+        // A tooltip-only change must also replace the previous period's details.
+        published->sequence = 5; MemoryBarrier();
+        wcscpy_s(published->tooltip, L"Changed end time · Ends at 19:10 · Next: Lesson 4 at 19:10");
+        MemoryBarrier(); published->sequence = 6;
+        SendMessageW(child, WM_TIMER, 1, 0);
+        wchar_t changedTooltip[768] = {};
+        TOOLINFOW changedTool = {};
+        changedTool.cbSize = sizeof(changedTool); changedTool.hwnd = child;
+        changedTool.uId = reinterpret_cast<UINT_PTR>(child); changedTool.lpszText = changedTooltip;
+        SendMessageW(tooltip, TTM_GETTEXTW, ARRAYSIZE(changedTooltip), reinterpret_cast<LPARAM>(&changedTool));
+        Check(wcscmp(changedTooltip, published->tooltip) == 0, "tooltip-only update replaces previous details");
+        Check(GetFocus() == focus, "tooltip-only update preserves keyboard focus");
+        published->sequence = 7; MemoryBarrier();
         wcscpy_s(published->text, L"AQI Clock | Sign in");
         wcscpy_s(published->tooltip, L"Click to sign in to AQI Clock.");
-        MemoryBarrier(); published->sequence = 4;
+        MemoryBarrier(); published->sequence = 8;
         SendMessageW(child, WM_TIMER, 1, 0);
         GetWindowTextW(child, displayed, 256);
         Check(wcscmp(displayed, published->text) == 0, "sign-out replaces old lesson");
