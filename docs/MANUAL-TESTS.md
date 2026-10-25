@@ -220,6 +220,22 @@ Conferencing was attempted in Edge using saved Zoom/Teams URL shortcuts on `conf
 
 On 25 October QEMU was verified absent; the VM was off and `running.json` contained a stale PID. The final shutdown method of this follow-up was not observed in the retained chat. No full acceptance row is newly checked. The general stable release remains gated by [RELEASE-READINESS-0.15.4.md](RELEASE-READINESS-0.15.4.md). The teacher hardware checklist is prepared separately; no consent, teacher result or contact is recorded.
 
+### Stable-readiness retry and idle high contrast — 2026-10-25
+
+Documentation commit `de6da26` passed all four CI checks in run `40208901916`. This is source-head validation; the installed guest remains corrected beta.2, not a newly packaged stable build.
+
+The first four-vCPU/4 GB boot stalled at the Windows logo before guest login. Host QEMU showed Not Responding, its CPU time stayed at 58.73 seconds across observations, and QMP media/shutdown requests timed out. The owner explicitly authorized force-stop and one retry; only the verified QEMU process was force-stopped. The retry used the same disk/profile, progressed normally through Windows preparation, and the owner signed in and moved the window to DISPLAY2. This first failure is a QEMU boot observation, not an AQI acceptance result or a proven cause of prior Explorer hangs.
+
+The signed-in guest initially displayed a time one hour behind the host. Date & time showed automatic time On, automatic timezone Off, London selected and automatic DST On. **Sync now** succeeded with last-success timestamp **25 October 2026, 16:05:51**; the guest then displayed **16:06**, matching the host, and the main AQI clock showed the correct Sunday date/time, **No lessons today**, **Next: Monday, Lesson 1 at 09:10**, and **Synced just now**. No manual date jump or production data change was made in this retry.
+
+Explorer restored one toolbar showing **open app**, but inspection of AQI Settings found **Windows 10 taskbar display Off**. The cause of this preference discrepancy is unresolved; no earlier toggle change was made during this retry. Enabling it and Save produced **Taskbar toolbar enabled** and the live **No lessons today** band. This establishes manual recovery, not reliable saved-preference/boot restoration. TB-07 remains unchecked.
+
+With AQI explicitly minimized, the guest's **High Contrast Black** theme showed the idle band as readable white text on black. Clicking the band restored the existing main clock; it was explicitly minimized again. This passes idle high-contrast toolbar readability and click activation for this run, not active countdowns, all high-contrast themes, full app accessibility or the complete TB-05 matrix. High contrast was turned back **Off**, the original light-app/dark-taskbar appearance returned, and scale remained **100%**. The inspected scale menu offered only **100%** and **125%**; 150%/200% were not tested.
+
+The saved Teams URL was allowed to load longer, including a reload after real-time synchronization. It reached `/v2/` and then displayed **Oops, app failed to load!**. The saved Zoom test URL remained blank/**Untitled** after the longer observation. These are results in this guest, not claims that either service is inherently unavailable. No meeting, conferencing-input focus, AV permission, sharing, or receiving-frame test completed. The browser was closed after testing. No full TB checklist row is newly checked; hardware sleep/resume and Windows 11 installed UI remain untested.
+
+The retry shut down normally through ACPI; QEMU was verified absent before read-only disk inspection. Evidence in ignored `artifacts/win10-taskbar-test/readiness-evidence-20261025` confirms `taskbarDisplayEnabled=true` after Save, retains today's application log, and contains 152 application events dated 25 October with none mentioning Explorer. The application log contains two warning/error lines, with no taskbar-display failure line identified by the bounded collector. These observations do not explain the earlier Off preference or establish absence of defects.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
