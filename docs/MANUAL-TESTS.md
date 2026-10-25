@@ -268,6 +268,14 @@ The real picker rejected Start with no class selected and displayed **Select at 
 
 These class-selection/cache/clock/formatter component cases pass. The picker opens its checkbox list unchecked when explicitly reopened; persistence above refers to the restored audience and clock, not preselected checkboxes. The fixture's first weekday seed was corrected from .NET Sunday=0 to the cache/server Monday=0 convention before active-lesson observations. Local observation files are retained in ignored `artifacts/win11-beta2-ui/profile-classes`. No native toolbar was enabled on Windows 11, so this does not complete the full installed Windows 10 class-change, native publication, authentication or TB-04 acceptance. The harness was closed afterward.
 
+### 25 October 2026 — guest 150% idle DPI follow-up
+
+On the same corrected beta.2 four-vCPU/4 GB software-emulated Windows 10 guest, Display Settings initially confirmed 1024×768 at 100%. Changing the guest resolution to 1920×1080 exposed 150% scaling. The first confirmation timed out while the layout changed; the retry was kept and Settings confirmed **1920×1080, 150% (Recommended)**. The idle **No lessons today** band remained readable without clipping. Clicking it restored AQI's real main clock, showing Sunday 25 October, no lessons and the next Monday lesson; the hover tooltip also showed **Next: Monday, Lesson 1 at 09:10**. AQI was explicitly minimized afterward. Guest response was slow, with activation taking multiple observations; this is not a latency pass.
+
+The scale menu at 1920×1080 offered 100%, 125%, 150% and 175%, with no 200% entry. No custom scaling or sign-out was attempted. Only idle readability, tooltip and click activation at 150% pass here; active/long/truncated labels, 200%, and the complete TB-05 matrix remain unchecked. Display Settings was restored and visibly verified at **1024×768, 100% (Recommended), Landscape**, with the original appearance and idle band present. No host display or production data changed.
+
+Normal ACPI shutdown completed after the launcher's initial 20-second wait; no force-stop was used. QEMU was verified absent before offline inspection. Ignored `artifacts/win10-taskbar-test/dpi-evidence-20261025` retains the log, saved taskbar=true preference, zero latest-startup-step failures and 299 application events. The single Explorer mention was already present in the previous evidence set; this bounded check does not establish absence of defects.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
