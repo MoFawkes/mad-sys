@@ -55,6 +55,7 @@ jobs:
           if ($tag -notmatch '^v(?<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$') { throw "Release tag must be valid SemVer prefixed by v." }
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "value=$($Matches.version)" >> $env:GITHUB_OUTPUT
+          "prerelease=$($Matches.version.Contains('-').ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
       - name: Inject public pilot configuration
         shell: pwsh
@@ -66,8 +67,19 @@ jobs:
           $settings.Updates.RepositoryUrl = $env:RELEASE_REPOSITORY
           $settings | ConvertTo-Json -Depth 10 | Set-Content $path -Encoding utf8
 
+      - name: Build native taskbar component
+        shell: pwsh
+        run: ./scripts/build-taskbar.ps1
+
       - name: Publish self-contained Windows app
         run: dotnet publish src/AqiClock.App/AqiClock.App.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/publish
+
+      - name: Verify packaged taskbar component
+        shell: pwsh
+        run: |
+          foreach ($file in @('AqiClock.Taskbar.dll', 'THIRD_PARTY_NOTICES.txt')) {
+            if (-not (Test-Path "artifacts/publish/taskbar/$file")) { throw "Missing taskbar package file: $file" }
+          }
 
       - name: Install pinned Velopack CLI
         run: dotnet tool install --tool-path artifacts/tools vpk --version 1.2.0
@@ -87,6 +99,8 @@ jobs:
             '--shortcuts', 'StartMenuRoot', '--outputDir', 'artifacts/releases'
           )
           if (Test-Path 'assets/app.ico') { $arguments += @('--icon', 'assets/app.ico') }
+          $notes = 'docs/RELEASE-NOTES-${{ steps.version.outputs.value }}.md'
+          if (Test-Path $notes) { $arguments += @('--releaseNotes', $notes) }
           & artifacts/tools/vpk @arguments
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -98,4 +112,14 @@ jobs:
           if-no-files-found: error
 
       - name: Publish public Velopack release
-        run: artifacts/tools/vpk upload github --repoUrl $env:RELEASE_REPOSITORY --token $env:RELEASES_TOKEN --channel stable --outputDir artifacts/releases --publish --releaseName "AQI Clock ${{ steps.version.outputs.value }}" --tag "${{ steps.version.outputs.tag }}"
+        shell: pwsh
+        run: |
+          $arguments = @(
+            'upload', 'github', '--repoUrl', $env:RELEASE_REPOSITORY, '--token', $env:RELEASES_TOKEN,
+            '--channel', 'stable', '--outputDir', 'artifacts/releases',
+            '--releaseName', 'AQI Clock ${{ steps.version.outputs.value }}', '--tag', '${{ steps.version.outputs.tag }}'
+          )
+          if ('${{ steps.version.outputs.prerelease }}' -eq 'true') { $arguments += '--pre' }
+          else { $arguments += '--publish' }
+          & artifacts/tools/vpk @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

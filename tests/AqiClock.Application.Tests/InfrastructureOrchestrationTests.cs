@@ -290,6 +290,7 @@ public sealed class InfrastructureOrchestrationTests
             StartupServiceStep.UpdateRestartPrompt,
             StartupServiceStep.Updater,
             StartupServiceStep.Tray,
+            StartupServiceStep.TaskbarDisplay,
             StartupServiceStep.NotificationScheduler,
             StartupServiceStep.Clock,
             StartupServiceStep.MainViewModel,
