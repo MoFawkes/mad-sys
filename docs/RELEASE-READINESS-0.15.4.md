@@ -10,9 +10,9 @@ Detailed observations and the complete TB-01–TB-08 checklist are in [MANUAL-TE
 
 | Area | Recorded evidence | Work still required |
 | --- | --- | --- |
-| Corrected snapshot reader | Regression failed before precision fix, passed after; corrected beta.2 DLL hashes verified in installed guest | Real active countdown and period transition on corrected build |
+| Corrected snapshot reader | Regression failed before precision fix, passed after; installed beta.2 DLL hashes verified; cached Lesson 1 countdown and transition to Lesson 2 passed on 24 October while minimized | Continuous every-second behavior with conferencing in front remains unverified |
 | Activation | Corrected beta.2 toolbar click and explicit minimize/restore cycle passed on 24 October | Full tooltip/lifecycle combination and repeated recovery cases |
-| Focus and presenting | Earlier synthetic-publisher, sender-side Zoom checks only | Real beta.2 lesson transition with conferencing in front; typing focus; whole-screen and application-window sharing |
+| Focus and presenting | Corrected beta.2 stayed minimized through a cached lesson transition with Settings foreground; earlier synthetic-publisher, sender-side Zoom checks only. Latest Zoom page stayed blank; Teams reached its loading logo before being closed | Real beta.2 lesson transition with conferencing in front; typing focus; whole-screen and application-window sharing with receiver verification |
 | Sleep/resume | VM offers no Windows Sleep option | Suitable Windows 10 hardware; emulator pause does not qualify |
 | Sessions and timetable | Earlier installed sign-out and stale clearing, plus independent local-scope Auth regression | Full class-change/selection behavior on corrected build |
 | Display matrix | Earlier idle 100%/125%, bottom/top/left, light/dark and auto-hide observations | 150%/200%, high contrast, crowded/resized layouts, full truncated tooltips |
@@ -37,3 +37,9 @@ Detailed observations and the complete TB-01–TB-08 checklist are in [MANUAL-TE
 5. Verify the published stable flag, Latest selection, version, Setup/portable/package/manifest assets and hashes. Verify stable update behavior and retain a rollback path to v0.15.3.
 
 No stable tag or publication has been performed for this target.
+
+## Evidence update — 25 October 2026
+
+The 24 October follow-up used the corrected installed beta.2 on the four-vCPU/4 GB profile. After real-date sync, guest networking was disconnected and the guest clock set to 26 October at 09:37. Main clock Lesson 1 ended at 09:40 with about 2:23 remaining; the toolbar matched within the sampling interval. After explicit minimization, toolbar samples progressed through 2:13, 1:17 and 0:24, then Lesson 2 with 29:49 remaining. Settings stayed foreground and AQI did not restore itself. This passes sampled cached progression and transition, without completing TB-02 or TB-06.
+
+Automatic time was restored and 24 October at 17:38 verified against the host before networking was reconnected; the idle label returned. No production data changed. Conferencing attempts completed no meeting, typing-focus, permissions, sharing or receiving-frame check. Teams may load with more time; its loading logo is not evidence that it cannot load. Hardware sleep/resume remains untested. The teacher checklist is prepared, but no teacher consent or result is recorded and nobody has been contacted.

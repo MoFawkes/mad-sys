@@ -208,6 +208,18 @@ No guest date, production data, security setting or service was changed. Correct
 
 The revised run shut down normally through ACPI; QEMU was verified absent. Offline evidence in ignored `artifacts/win10-taskbar-test/higher-resources-evidence-20261024` retains the checker output, application events and the new AQI log (normal hosting start and closed-day plans, with no error entries in that log). The recovery disk SHA-256 still matched the pre-isolation value. The current optional `Start-HigherResources.ps1` profile is four vCPUs, **4 GB** RAM and four host logical processors, not the abandoned 6 GB configuration. No repeatable startup or performance guarantee is claimed.
 
+### Corrected cached countdown and transition — 2026-10-24 follow-up
+
+Recorded from the session checkpoint on 25 October. The same installed corrected beta.2 was tested on the four-vCPU/4 GB software-emulated guest on DISPLAY2. After visible real-date sync, QMP disconnected guest networking. Automatic time was disabled and only the guest clock set to **26 October 2026, 09:37**. No institute or production data changed.
+
+The main clock showed **Lesson 1**, ending **09:40**, with **2:23** remaining; the toolbar showed **2:24** within the sampling interval. After AQI was explicitly minimized, toolbar samples progressed through **2:13 → 1:17 → 0:24**. At the boundary it changed to **Lesson 2, 29:49 remaining**. Windows Settings stayed foreground throughout and AQI did not restore itself. This establishes sampled cached countdown progression and the corrected-build lesson transition. It does not establish continuous every-second behavior, a toast result, or acceptance with conferencing, typing or sharing. TB-02/TB-06 remain unchecked.
+
+Automatic time was restored and the visible guest date/time **24 October, 17:38** matched the host **before** networking was reconnected. The toolbar returned to its idle label. London timezone, automatic timezone Off and automatic DST On were retained.
+
+Conferencing was attempted in Edge using saved Zoom/Teams URL shortcuts on `conferencing-links.iso` (D:, QMP `ide1-cd0`; inspection tools remained E:). Automated address-bar text entry did not take. Zoom stayed blank/Untitled. Teams eventually displayed its loading logo just as the browser-close action completed; this does not establish that Teams cannot load, and a longer retry may succeed. No meeting, authentication, AV permission, typing-focus, sharing or receiving-frame check completed.
+
+On 25 October QEMU was verified absent; the VM was off and `running.json` contained a stale PID. The final shutdown method of this follow-up was not observed in the retained chat. No full acceptance row is newly checked. The general stable release remains gated by [RELEASE-READINESS-0.15.4.md](RELEASE-READINESS-0.15.4.md). The teacher hardware checklist is prepared separately; no consent, teacher result or contact is recorded.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)
