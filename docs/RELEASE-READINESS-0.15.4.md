@@ -2,7 +2,9 @@
 
 Target requested by owner: **Sunday 25 October 2026**, general stable Windows release. This replaces the earlier limited-prerelease rollout target; it does not mark unfinished acceptance complete.
 
-Current decision: **not ready to publish**. PR [#34](https://github.com/MoFawkes/mad-sys/pull/34) and `v0.15.4-beta.2` remain drafts. Latest published stable is `v0.15.3`.
+Current decision: **owner approved general stable publication with the remaining manual risks accepted**, on 25 October 2026. Publication is pending final green checks and packaging. The incomplete cases below remain untested; this decision does not turn them into passes. Latest published stable at the time of approval is `v0.15.3`.
+
+After the outstanding cases and likely failure areas were explained, the owner asked: “can we release the taskbar update and ill lyk if we encounter errors tomorrow”. In the existing general-stable scope, this authorizes publishing v0.15.4 and following up on reported errors. It supersedes the earlier hold on merging/tagging, while retaining automated gates, honest release notes and a fallback to v0.15.3. The optional taskbar setting defaults to Off. No teacher consent or results are inferred.
 
 ## Evidence and remaining checks
 
@@ -28,15 +30,15 @@ Detailed observations and the complete TB-01–TB-08 checklist are in [MANUAL-TE
 - Record countdown, transition and focus results separately from transmitted sharing results if networking is disconnected. Do not claim the combined conferencing case from separate partial tests.
 - Shut the guest down normally after testing. No host service, security or startup changes.
 
-## Publication sequence after acceptance
+## Publication sequence after owner risk acceptance
 
-1. Record final manual results and resolve failures. Confirm remaining TB-01–TB-08 acceptance is adequate for a general stable release.
-2. Review the final PR diff and green required checks; merge only when release readiness is established.
+1. Preserve the manual results and unchecked TB-01–TB-08 cases above. Disclose startup uncertainty and incomplete manual coverage in the stable release notes.
+2. Review the final PR diff and green required checks before merging PR [#34](https://github.com/MoFawkes/mad-sys/pull/34).
 3. Prepare stable v0.15.4 notes and the exact release commit. Do not relabel the beta package as stable.
 4. Create the stable tag only at the intended publication step: the current stable-tag workflow publishes automatically after its gates and packaging succeed.
 5. Verify the published stable flag, Latest selection, version, Setup/portable/package/manifest assets and hashes. Verify stable update behavior and retain a rollback path to v0.15.3.
 
-No stable tag or publication has been performed for this target.
+At this decision checkpoint, no stable tag or publication has yet been performed. Publication evidence will be recorded after verification.
 
 ## Evidence update — 25 October 2026
 

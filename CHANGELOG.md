@@ -4,9 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.15.4 - 2026-10-25
+
 ### Added
 
 - Optional Windows 10 taskbar toolbar showing the current period and live countdown, next-period details on hover, and click-to-open. Enable it under Settings → Display on x64 Windows 10. Windows 11 retains the existing compact mode.
+
+### Fixed
+
+- Restore the minimized clock when opening it from the toolbar, and allow visible relaunch despite the Start minimized preference.
+- Match precise UTC snapshot timestamps to avoid intermittent taskbar fallback.
+- Complete installer hooks before WPF startup and preserve sessions on other devices when signing out of this desktop.
+
+### Known limitations
+
+- Automatic live startup/recovery, continuous countdown and typing focus during meetings, receiver-side screen sharing, hardware sleep/resume, 200% scaling, crowded/long-label layouts, and remaining installed-client/session/lifecycle cases are not fully validated. The owner approved stable publication with these risks accepted; see [the readiness record](docs/RELEASE-READINESS-0.15.4.md). The toolbar is optional and off by default.
 
 ## 0.15.3 - 2026-10-18
 

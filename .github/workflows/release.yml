@@ -99,6 +99,8 @@ jobs:
             '--shortcuts', 'StartMenuRoot', '--outputDir', 'artifacts/releases'
           )
           if (Test-Path 'assets/app.ico') { $arguments += @('--icon', 'assets/app.ico') }
+          $notes = 'docs/RELEASE-NOTES-${{ steps.version.outputs.value }}.md'
+          if (Test-Path $notes) { $arguments += @('--releaseNotes', $notes) }
           & artifacts/tools/vpk @arguments
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
