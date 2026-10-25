@@ -236,6 +236,16 @@ The saved Teams URL was allowed to load longer, including a reload after real-ti
 
 The retry shut down normally through ACPI; QEMU was verified absent before read-only disk inspection. Evidence in ignored `artifacts/win10-taskbar-test/readiness-evidence-20261025` confirms `taskbarDisplayEnabled=true` after Save, retains today's application log, and contains 152 application events dated 25 October with none mentioning Explorer. The application log contains two warning/error lines, with no taskbar-display failure line identified by the bounded collector. These observations do not explain the earlier Off preference or establish absence of defects.
 
+### Windows 11 packaged-UI check with isolated profile — 2026-10-25
+
+On **Windows 11 Home 10.0.26300**, exercised the real beta.2 SettingsWindow/MainWindow and view models using an isolated WPF harness and empty local cache on DISPLAY2. The extracted package's managed SHA-256 remained `14C37882949AFD95F16F2608A39E0CD242A5C9C9C665D8EF5F8C1B401A8D2CE4`, matching the installed Windows 10 beta.2. The normal host installation remained v0.15.3. This is packaged-UI/OS evidence, not a beta installation, real OS upgrade or complete normal-startup acceptance.
+
+Seeded the temporary profile with `taskbarDisplayEnabled=true` to represent a retained Windows 10 preference. The real OS availability check disabled **Enable Windows 10 taskbar display** and displayed **Taskbar display is available on 64-bit Windows 10. Compact mode is available on this PC.** Changed **Use compact mode on launch** through the UI and Save; the temporary JSON retained taskbar preference true and saved compact-on-launch true. The main clock switched to a readable **320×80** compact window on DISPLAY2 and returned to normal through its return button. After closing and relaunching the harness, the clock opened in compact mode at the saved right-monitor position; returning to normal worked again. These specific UI cases pass with a signed-out, offline, empty-cache profile.
+
+The first harness incorrectly instantiated the production App, whose constructor scheduled normal startup on the dispatcher even without App.Run. This unexpectedly removed the host's existing AQI startup entry. The harness was stopped and the exact original registry value immediately restored; the normal settings file hash was unchanged. The corrected harness uses a plain WPF Application, loads the unchanged packaged resources and screens, and does not start startup registration, updater, tray, authentication restoration or cloud sync. After its UI Save and final shutdown, the original startup value and normal settings hash both matched the pre-test baseline. No persistent host startup change remains. Local harness, temporary profile, hashes and final comparison are in ignored `artifacts/win11-beta2-ui`.
+
+TB-08 remains unchecked for full installed-client/normal-startup acceptance. The Windows 11 UI explanation, retained-preference save and compact-mode cases above are now supported by direct packaged-UI evidence rather than only automated stubs.
+
 ## Test record
 
 - App commit: `feature/audience-aware-app` @ `5f9ffc4` plus in-session UI fixes (committed immediately after this run)

@@ -17,7 +17,7 @@ Detailed observations and the complete TB-01–TB-08 checklist are in [MANUAL-TE
 | Sessions and timetable | Earlier installed sign-out and stale clearing, plus independent local-scope Auth regression | Full class-change/selection behavior on corrected build |
 | Display matrix | Earlier idle 100%/125%, bottom/top/left, light/dark and auto-hide; 25 October idle High Contrast Black label readable and click activation passed, original theme restored | 150%/200%, active/long labels and remaining high-contrast coverage, crowded/resized layouts, full truncated tooltips |
 | Lifecycle | Earlier per-user install/update/uninstall and beta.2 install hook; 25 October band restored but app toggle was Off, enabling and Save recovered live idle text | Explain preference discrepancy and verify reliable saved preference, boot/update/Explorer recovery |
-| Windows 11 | Automated availability behavior covered | Installed UI explanation, compact mode and settings preservation |
+| Windows 11 | On build 26300, unchanged beta.2 packaged UI in an isolated harness disabled/explained the toolbar, saved another preference with stored taskbar=true, and passed compact/normal switching plus compact relaunch | Full installed-client/normal-startup acceptance; harness scope is recorded in manual tests |
 | Automated release checks | Corrected beta.2 passed four gates and packaging | All required checks green for final release commit and package |
 
 ## Safe test procedure
