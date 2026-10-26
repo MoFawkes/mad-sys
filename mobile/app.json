@@ -2,7 +2,7 @@
   "expo": {
     "name": "AQI Clock",
     "slug": "aqi-clock",
-    "version": "0.15.0",
+    "version": "0.16.0-beta.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "aqiclock-mobile",
@@ -18,6 +18,7 @@
     },
     "android": {
       "package": "com.mofawkes.aqiclock",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#F4F0E6"
@@ -39,7 +40,13 @@
       "expo-sqlite",
       "expo-secure-store",
       "expo-background-task",
-      "expo-notifications"
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#112549"
+        }
+      ]
     ],
     "extra": {
       "router": {},

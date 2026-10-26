@@ -1,6 +1,7 @@
-import { Redirect } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Redirect, router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getStatus, Period, resolveDay } from '@/src/domain';
@@ -8,6 +9,7 @@ import { useApp } from '@/src/ui/AppProvider';
 import { getClasses, getOrganization } from '@/src/data/repositories';
 import { deviceZoneDiffers, toInstituteWallClock } from '@/src/time/instituteTime';
 import { theme } from '@/src/ui/theme';
+import { useLiveNaseehah } from '@/src/listening/useLiveNaseehah';
 
 const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -28,6 +30,8 @@ export default function ClockScreen() {
 
   const status = useMemo(() => getStatus(snapshot, instituteNow), [instituteNow, snapshot]);
   const day = useMemo(() => resolveDay(snapshot, instituteNow), [instituteNow, snapshot]);
+  const isNaseehah = /naseeha/i.test(status.current?.period.name ?? '');
+  const liveNaseehah = useLiveNaseehah(isNaseehah && session.status === 'signedIn');
 
   if (session.status !== 'signedIn') return <Redirect href="/role-choice" />;
   if (session.mode === 'student' && !session.selectionComplete) {
@@ -69,9 +73,34 @@ export default function ClockScreen() {
           </View>
         )}
 
+        <View style={styles.clockHeading}>
+          <Text style={styles.eyebrow}>AQI CLOCK</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Listen to Al-Qalam Institute"
+            onPress={() => router.navigate('/(tabs)/listen')}
+            style={styles.listenIcon}>
+            <MaterialCommunityIcons name="headphones" size={22} color={theme.colors.mutedTextOnNavy} />
+          </Pressable>
+        </View>
         <Text style={styles.clock}>{formatClock(instituteNow)}</Text>
         <Text style={styles.date}>{formatDate(instituteNow)}</Text>
         {deviceZoneDiffers(instituteTimeZone) && <Text style={styles.timeZoneNote}>Institute time ({instituteTimeZone}) · your time {formatClock(now).slice(0, 5)}</Text>}
+
+        {liveNaseehah && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Al-Qalam Institute is live. Listen during Naseehah"
+            onPress={() => router.navigate('/(tabs)/listen')}
+            style={styles.liveListen}>
+            <MaterialCommunityIcons name="headphones" size={28} color={theme.colors.cream} />
+            <View style={styles.liveListenCopy}>
+              <Text style={styles.liveListenTitle}>● LIVE · Listen now</Text>
+              <Text style={styles.liveListenDetail}>Naseehah time · Al-Qalam Institute</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.cream} />
+          </Pressable>
+        )}
 
         <View style={styles.hero}>
           <View style={styles.heroHeading}>
@@ -193,6 +222,12 @@ function formatLastSync(date: Date | null) {
 }
 
 const styles = StyleSheet.create({
+  clockHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  listenIcon: { padding: 12, minWidth: 44, minHeight: 44 },
+  liveListen: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, backgroundColor: theme.colors.selectedNavy, borderColor: theme.colors.success, borderWidth: 1, borderRadius: 14 },
+  liveListenCopy: { flex: 1, gap: 4 },
+  liveListenTitle: { color: theme.colors.cream, fontSize: 18, fontWeight: '800' },
+  liveListenDetail: { color: theme.colors.textOnNavy, fontSize: 13 },
   activePeriod: {
     borderColor: theme.colors.cream,
     borderWidth: 1,

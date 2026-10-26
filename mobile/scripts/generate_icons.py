@@ -63,6 +63,17 @@ def main() -> None:
     adaptive = centered(mark, (0, 0, 0, 0))
     adaptive.save(OUTPUT / "adaptive-icon.png", optimize=True)
 
+    # Android small notification icons use only alpha as a monochrome mask.
+    # Keep the launcher background out of this asset to avoid a solid circle.
+    notification_mark = recolor(mark, (255, 255, 255, 255))
+    notification_mark.thumbnail((80, 80), Image.Resampling.LANCZOS)
+    notification = Image.new("RGBA", (96, 96), (255, 255, 255, 0))
+    notification.alpha_composite(
+        notification_mark,
+        ((96 - notification_mark.width) // 2, (96 - notification_mark.height) // 2),
+    )
+    notification.save(OUTPUT / "notification-icon.png", optimize=True)
+
     splash = centered(recolor(mark, CREAM), (0, 0, 0, 0))
     splash.save(OUTPUT / "splash-icon.png", optimize=True)
 

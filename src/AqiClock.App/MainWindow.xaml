@@ -8,6 +8,30 @@
         Closing="OnClosing"
         LocationChanged="OnPlacementChanged"
         SizeChanged="OnPlacementChanged">
+  <Window.Resources>
+    <Style x:Key="LessonToolbarLabel" TargetType="TextBlock">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Clock.IsTeachingLesson}" Value="True">
+          <Setter Property="Visibility" Value="Collapsed" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="LiveListenButton" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
+      <Setter Property="Appearance" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+      <Setter Property="ToolTip" Value="Listen to Al-Qalam Institute" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding IsLiveNaseehah}" Value="True">
+          <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+          <Setter Property="Background" Value="{DynamicResource CurrentPeriodBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource SuccessBrush}" />
+          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="ToolTip" Value="Naseehah time · Al-Qalam Institute is live. Click to listen." />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+  </Window.Resources>
   <Grid Background="{DynamicResource WindowBrush}"
         TextElement.Foreground="{DynamicResource TextBrush}"
         MouseLeftButtonDown="OnMouseLeftButtonDown"
@@ -32,18 +56,32 @@
 
       <DockPanel LastChildFill="True" Margin="2,0,2,0">
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+          <ui:Button Height="36" Click="OnListenLive" Style="{StaticResource LiveListenButton}" Padding="10,0" Margin="2,0"
+                     AutomationProperties.Name="Listen to Al-Qalam Institute">
+            <StackPanel Orientation="Horizontal">
+              <ui:SymbolIcon Symbol="Headphones20" />
+              <TextBlock Text="LIVE · Listen" Margin="7,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold">
+                <TextBlock.Style><Style TargetType="TextBlock">
+                  <Setter Property="Visibility" Value="Collapsed" />
+                  <Style.Triggers><DataTrigger Binding="{Binding IsLiveNaseehah}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                </Style></TextBlock.Style>
+              </TextBlock>
+            </StackPanel>
+          </ui:Button>
           <ui:Button Height="36"
                      Command="{Binding ToggleDisplayModeCommand}"
+                     ToolTip="Switch to compact mode"
                      Appearance="Transparent"
                      Padding="10,0"
                      Margin="2,0">
             <StackPanel Orientation="Horizontal">
               <ui:SymbolIcon Symbol="WindowMultiple20" Margin="0,0,7,0" />
-              <TextBlock Text="Compact" VerticalAlignment="Center" />
+              <TextBlock Text="Compact" Style="{StaticResource LessonToolbarLabel}" />
             </StackPanel>
           </ui:Button>
           <ui:Button Height="36"
                      Command="{Binding TogglePinCommand}"
+                     ToolTip="Always on top"
                      Appearance="Transparent"
                      Padding="10,0"
                      Margin="2,0">
@@ -60,21 +98,23 @@
                   </Style>
                 </ui:SymbolIcon.Style>
               </ui:SymbolIcon>
-              <TextBlock Text="Pin" VerticalAlignment="Center" />
+              <TextBlock Text="Pin" Style="{StaticResource LessonToolbarLabel}" />
             </StackPanel>
           </ui:Button>
           <ui:Button Height="36"
                      Command="{Binding OpenSettingsCommand}"
+                     ToolTip="Settings"
                      Appearance="Transparent"
                      Padding="10,0"
                      Margin="2,0">
             <StackPanel Orientation="Horizontal">
               <ui:SymbolIcon Symbol="Settings20" Margin="0,0,7,0" />
-              <TextBlock Text="Settings" VerticalAlignment="Center" />
+              <TextBlock Text="Settings" Style="{StaticResource LessonToolbarLabel}" />
             </StackPanel>
           </ui:Button>
           <ui:Button Height="36"
                      Command="{Binding EditTimetablesCommand}"
+                     ToolTip="Edit timetables"
                      Appearance="Transparent"
                      Padding="10,0"
                      Margin="2,0">
@@ -90,7 +130,7 @@
             </ui:Button.Style>
             <StackPanel Orientation="Horizontal">
               <ui:SymbolIcon Symbol="Edit20" Margin="0,0,7,0" />
-              <TextBlock Text="Edit timetables" VerticalAlignment="Center" />
+              <TextBlock Text="Edit timetables" Style="{StaticResource LessonToolbarLabel}" />
             </StackPanel>
           </ui:Button>
         </StackPanel>
@@ -399,6 +439,13 @@
                    VerticalAlignment="Center" />
       </Border>
       <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+        <ui:Button Width="28" Height="32" Padding="0" Click="OnListenLive" AutomationProperties.Name="Listen live">
+          <ui:Button.Style><Style TargetType="{x:Type ui:Button}" BasedOn="{StaticResource LiveListenButton}">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers><DataTrigger Binding="{Binding IsLiveNaseehah}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+          </Style></ui:Button.Style>
+          <ui:SymbolIcon Symbol="Headphones20" />
+        </ui:Button>
         <ui:Button ToolTip="Return to normal mode"
                    Appearance="Transparent"
                    Width="32"

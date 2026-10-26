@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.16.0-beta.1 - 2026-10-26
+
+### Added
+
+- Listen to Al-Qalam Institute inside the Windows and mobile apps using eMasjid Live's official mini-player, with manual playback, a reload option, and light/dark player themes that fit the surrounding app.
+- Keep listening access discreet during lessons and highlight it during a scheduled Naseehah only when the official player reports a live broadcast. Availability checks run once a minute during Naseehah; playback remains manual.
+
+### Fixed
+
+- Give Android notifications a transparent monochrome quill icon instead of falling back to the launcher icon, which can appear as a solid white circle in the status bar. Requires a new mobile build.
+
 ## 0.15.4 - 2026-10-25
 
 ### Added

@@ -308,6 +308,33 @@ public sealed class Phase5ViewModelTests
         Assert.Equal("Next: Monday, Lesson 1 at 09:10", vm.NextLesson);
     }
 
+    [Theory]
+    [InlineData("Isha + Naseehah")]
+    [InlineData("Naseehah & Break")]
+    [InlineData("Break / Naseehah")]
+    public async Task ListeningPromotionFollowsNaseehahBoundaries(string naseehahName)
+    {
+        DateTime day = new(2026, 10, 26, 18, 39, 59);
+        Guid timetableId = Guid.NewGuid();
+        Timetable timetable = new(timetableId, "Evening", false, [
+            new(Guid.NewGuid(), "Lesson 1", new(18, 15), new(18, 40), 0),
+            new(Guid.NewGuid(), naseehahName, new(18, 40), new(19, 5), 1),
+            new(Guid.NewGuid(), "Lesson 2", new(19, 5), new(19, 30), 2),
+        ]);
+        var messenger = new WeakReferenceMessenger();
+        var vm = new ClockViewModel(new TimetableRepository(timetable), new WeekRepository(timetableId, day.DayOfWeek), new OverrideRepository(), messenger);
+        await vm.LoadAsync();
+        messenger.Send(new ClockTick(day));
+        Assert.False(vm.IsNaseehah);
+        Assert.True(vm.IsTeachingLesson);
+        messenger.Send(new ClockTick(day.AddSeconds(1)));
+        Assert.True(vm.IsNaseehah);
+        Assert.False(vm.IsTeachingLesson);
+        messenger.Send(new ClockTick(new DateTime(2026, 10, 26, 19, 5, 0)));
+        Assert.False(vm.IsNaseehah);
+        Assert.True(vm.IsTeachingLesson);
+    }
+
     [Fact]
     public async Task TimetableChangeReloadsLessonCardWithoutWaitingForAnotherTick()
     {

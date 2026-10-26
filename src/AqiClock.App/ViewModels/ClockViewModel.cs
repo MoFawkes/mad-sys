@@ -38,6 +38,8 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
     [ObservableProperty] private string _nextLesson = "No upcoming lessons";
     [ObservableProperty] private double _progress;
     [ObservableProperty] private bool _hasCurrentLesson;
+    [ObservableProperty] private bool _isNaseehah;
+    [ObservableProperty] private bool _isTeachingLesson;
     [ObservableProperty] private bool _hasPeriods;
     [ObservableProperty] private string _timeZoneNote = string.Empty;
 
@@ -83,6 +85,8 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
             : string.Empty;
         LessonStatus status = ScheduleEngine.GetStatus(_snapshot, now);
         HasCurrentLesson = status.Current is not null;
+        IsNaseehah = status.Current?.Period.Name.Contains("Naseeha", StringComparison.OrdinalIgnoreCase) == true;
+        IsTeachingLesson = status.Current?.Period.IsLesson == true && !IsNaseehah;
         CurrentLesson = status.Current?.Period.Name ?? (status.Day.IsSchoolDay ? "No lesson right now" : "No lessons today");
         CurrentDetail = status.Current is null ? string.Empty : $"Ends at {status.Current.Period.EndTime:HH:mm}";
         Remaining = status.TimeRemaining is { } remaining ? FormatDuration(remaining) : string.Empty;
