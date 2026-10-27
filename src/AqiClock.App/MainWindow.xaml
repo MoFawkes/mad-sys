@@ -160,7 +160,9 @@
                 BorderThickness="1"
                 CornerRadius="10"
                 Padding="10">
-          <views:ClockView DataContext="{Binding Clock}" />
+          <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
+            <views:ClockView Width="340" DataContext="{Binding Clock}" />
+          </Viewbox>
         </Border>
 
         <Border Grid.Column="2"

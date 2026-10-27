@@ -1,10 +1,10 @@
-# AQI Clock v0.16.0-beta.4
+# AQI Clock v0.16.0-beta.5
 
 A Windows layout hotfix for beta.3.
 
 - Grouped lessons stay together as readable lesson/session blocks with dividers. They wrap within the timetable when the window is narrow, instead of spreading into different columns or clipping off the side.
 - Session labels are larger and the timetable gets more room in wide windows.
-- The clock, current lesson and next lesson stay together. The current-lesson box no longer stretches into a large empty panel between lessons.
+- The clock, current lesson and next lesson stay together. The current-lesson box no longer stretches into a large empty panel between lessons. The clock panel scales down when needed so the next lesson stays visible at minimum height.
 - Removes the blue selected-row outline from the timetable. Current-period highlighting remains.
 
 ## Install
