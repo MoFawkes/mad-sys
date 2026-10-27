@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.16.0-beta.3 - 2026-10-27
+
 ### Added
 
 - Optional "Include beta updates" in Windows and Android Settings, off by default. Windows checks/downloads prereleases after saving and restarting; disabling it also prevents applying a queued beta on exit. A newer stable release can replace an installed beta without downgrading.
