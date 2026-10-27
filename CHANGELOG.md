@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.16.0-beta.2 - 2026-10-27
+
+### Added
+
+- Report a problem from Settings on Windows and Android. Review optional app details and up to five chosen attachments (10 MB combined), then save or share a ZIP yourself. No automatic sending or raw-log collection.
+
+### Changed
+
+- Group today's periods by matching start/end times, with divided session columns and a single heading for shared lessons such as Isha + Naseehah.
+
 ## 0.16.0-beta.1 - 2026-10-26
 
 ### Added

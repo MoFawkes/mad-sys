@@ -308,6 +308,50 @@ public sealed class Phase5ViewModelTests
         Assert.Equal("Next: Monday, Lesson 1 at 09:10", vm.NextLesson);
     }
 
+    [Fact]
+    public async Task TodayGroupsSimultaneousSessionsWithoutLosingClassesOrDifferentEndTimes()
+    {
+        DateTime now = new(2026, 10, 26, 18, 20, 0);
+        Guid firstClass = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        Guid secondClass = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        Timetable first = new(Guid.NewGuid(), "Session 1", false, [
+            new(Guid.NewGuid(), "Lesson 1", new(18, 15), new(18, 40), 0),
+            new(Guid.NewGuid(), "Isha + Naseehah", new(18, 40), new(19, 5), 1, false),
+        ]);
+        Timetable second = new(Guid.NewGuid(), "Session 2", false, [
+            new(Guid.NewGuid(), "Lesson 4", new(18, 15), new(18, 40), 0),
+            new(Guid.NewGuid(), "Isha + Naseehah", new(18, 40), new(19, 5), 1, false),
+            new(Guid.NewGuid(), "Different end", new(18, 15), new(19, 30), 2),
+        ]);
+        var messenger = new WeakReferenceMessenger();
+        var audience = new DeviceAudienceContext(messenger);
+        audience.SetStudent([firstClass, secondClass], []);
+        var week = new WeekSchedule([
+            new(Guid.NewGuid(), now.DayOfWeek, firstClass, first.Id),
+            new(Guid.NewGuid(), now.DayOfWeek, secondClass, second.Id),
+        ]);
+        var vm = new ClockViewModel(new TimetableRepository(first, second), new GroupedWeekRepository(week), new OverrideRepository(), audience, messenger,
+            classes: new GroupedClassRepository(new(firstClass, "Evening Session 3 (6:15)", 1), new(secondClass, "Evening Session 1 (5:00)", 2)));
+        await vm.LoadAsync();
+        messenger.Send(new ClockTick(now));
+        Assert.Equal(5, vm.TodayPeriods.Count);
+        Assert.Equal(3, vm.TodayPeriodGroups.Count);
+        PeriodGroupDisplay lessons = vm.TodayPeriodGroups.Single(group => group.Time == "18:15–18:40");
+        Assert.Equal(["Lesson 1", "Lesson 4"], lessons.Periods.Select(item => item.Name));
+        Assert.Equal(["Evening Session 3 (6:15)", "Evening Session 1 (5:00)"], lessons.Periods.Select(item => item.ClassName));
+        Assert.False(lessons.HasSharedName);
+        Assert.True(lessons.IsCurrent);
+        PeriodGroupDisplay prayer = vm.TodayPeriodGroups.Single(group => group.Time == "18:40–19:05");
+        Assert.True(prayer.HasSharedName);
+        Assert.Equal("Isha + Naseehah", prayer.Name);
+        Assert.Equal(2, prayer.Periods.Count);
+        messenger.Send(new ClockTick(new DateTime(2026, 10, 26, 18, 45, 0)));
+        Assert.True(vm.TodayPeriodGroups.Single(group => group.Time == "18:40–19:05").IsCurrent);
+        Assert.True(vm.TodayPeriodGroups.Single(group => group.Time == "18:15–18:40").IsPast);
+        messenger.Send(new ClockTick(new DateTime(2026, 10, 26, 19, 5, 0)));
+        Assert.True(vm.TodayPeriodGroups.Single(group => group.Time == "18:40–19:05").IsPast);
+    }
+
     [Theory]
     [InlineData("Isha + Naseehah")]
     [InlineData("Naseehah & Break")]
@@ -525,6 +569,12 @@ public sealed class Phase5ViewModelTests
     private sealed class TimetableRepository(params Timetable[] rows) : ITimetableRepository { public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Timetable>>(rows); }
     private sealed class MutableTimetableRepository(params Timetable[] rows) : ITimetableRepository { public IReadOnlyList<Timetable> Items { get; set; } = rows; public Task<IReadOnlyList<Timetable>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items); }
     private sealed class WeekRepository : IWeekScheduleRepository { private readonly WeekSchedule _value; public WeekRepository() => _value = WeekSchedule.Empty; public WeekRepository(Guid id, DayOfWeek day) => _value = new(new Dictionary<DayOfWeek, Guid?> { [day] = id }); public Task<WeekSchedule> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(_value); }
+    private sealed class GroupedWeekRepository(WeekSchedule week) : IWeekScheduleRepository { public Task<WeekSchedule> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(week); }
+    private sealed class GroupedClassRepository(params Class[] rows) : IClassRepository
+    {
+        public Task<IReadOnlyList<Class>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Class>>(rows);
+        public Task<IReadOnlySet<Guid>> GetClassIdsForPeriodAsync(Guid periodId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>());
+    }
     private sealed class OverrideRepository : IDateOverrideRepository { public Task<IReadOnlyList<DateOverride>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<DateOverride>>([]); }
     private sealed class AnnouncementRepository(params Announcement[] rows) : IAnnouncementRepository { public Task<IReadOnlyList<Announcement>> GetCurrentAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Announcement>>(rows); }
     private sealed class ProfileRepository(params Profile[] rows) : IProfileRepository { public Task<IReadOnlyList<Profile>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Profile>>(rows); public Task<Profile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(rows.FirstOrDefault(x => x.Id == id)); }

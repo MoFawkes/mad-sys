@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Windows;
 using AqiClock.Application.Abstractions;
 using AqiClock.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -90,6 +91,19 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
 
     private void Copy(AppSettings value)
     { StartWithWindows = value.StartWithWindows; StartMinimized = value.StartMinimized; CloseToTray = value.CloseToTray; Theme = value.Theme; AlwaysOnTop = value.AlwaysOnTop; CompactOnLaunch = value.CompactOnLaunch; TaskbarDisplayEnabled = value.TaskbarDisplayEnabled; LessonStartNotifications = value.LessonStartNotifications; EndWarningNotifications = value.EndWarningNotifications; EndWarningMinutes = value.EndWarningMinutes; AnnouncementNotifications = value.AnnouncementNotifications; }
+
+    [RelayCommand]
+    private void ReportProblem()
+    {
+        var details = new FeedbackDiagnostics(AppVersion.Current, "Windows", System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+            System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString(), IsStudentDevice ? "Student" : Role,
+            InstituteTimeZone, _settings.Current.Theme.ToString(), _sync.State.ToString(), _sync.LastSyncedAt?.ToString("O"),
+            _audience?.Current.SelectedClassIds.Select(id => id.ToString("D")).Order(StringComparer.Ordinal).ToArray() ?? [],
+            NotificationHealth, _settings.Current.TaskbarDisplayEnabled);
+        Window? owner = System.Windows.Application.Current?.Windows.OfType<Window>().FirstOrDefault(window => window.IsActive);
+        var feedback = new Views.FeedbackWindow(details) { Owner = owner };
+        feedback.ShowDialog();
+    }
 
     private void OnTaskbarStatusChanged(object? sender, EventArgs args)
     {

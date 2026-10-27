@@ -123,6 +123,9 @@
                 </ui:CardControl>
 
                 <TextBlock Text="About" FontSize="{DynamicResource SubtitleFontSize}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                <ui:CardControl Header="Help us improve AQI Clock" Margin="0,0,0,6" IsTabStop="False">
+                    <ui:Button Content="Report a problem" Command="{Binding ReportProblemCommand}" />
+                </ui:CardControl>
                 <ui:CardControl Header="Institute time zone" Margin="0,0,0,6" IsTabStop="False">
                     <TextBlock Text="{Binding InstituteTimeZone}" Foreground="{DynamicResource MutedBrush}" />
                 </ui:CardControl>

@@ -259,6 +259,10 @@ export default function SettingsScreen() {
         />
       </Section>
 
+      <Section title="Help and feedback">
+        <ActionRow label="Report a problem" detail="Share a description, app details and optional attachments" onPress={() => router.push('/feedback')} />
+      </Section>
+
       <Section title="About">
         <View style={styles.row}>
           <View style={styles.rowCopy}>

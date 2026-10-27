@@ -10,6 +10,7 @@ import { getClasses, getOrganization } from '@/src/data/repositories';
 import { deviceZoneDiffers, toInstituteWallClock } from '@/src/time/instituteTime';
 import { theme } from '@/src/ui/theme';
 import { useLiveNaseehah } from '@/src/listening/useLiveNaseehah';
+import { groupPeriods } from '@/src/ui/periodGroups';
 
 const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -18,6 +19,7 @@ export default function ClockScreen() {
   const [now, setNow] = useState(() => new Date());
   const [instituteTimeZone, setInstituteTimeZone] = useState<string>();
   const [classNames, setClassNames] = useState<ReadonlyMap<string, string>>(new Map());
+  const [classOrder, setClassOrder] = useState<ReadonlyMap<string, number>>(new Map());
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -25,11 +27,15 @@ export default function ClockScreen() {
   }, []);
 
   useEffect(() => { void getOrganization().then((organization) => setInstituteTimeZone(organization?.timeZone)); }, [sync.lastSyncedAt]);
-  useEffect(() => { void getClasses().then((items) => setClassNames(new Map(items.map((item) => [item.id, item.name])))); }, [sync.lastSyncedAt]);
+  useEffect(() => { void getClasses().then((items) => {
+    setClassNames(new Map(items.map((item) => [item.id, item.name])));
+    setClassOrder(new Map(items.map((item, index) => [item.id, index])));
+  }); }, [sync.lastSyncedAt]);
   const instituteNow = useMemo(() => toInstituteWallClock(now, instituteTimeZone), [now, instituteTimeZone]);
 
   const status = useMemo(() => getStatus(snapshot, instituteNow), [instituteNow, snapshot]);
   const day = useMemo(() => resolveDay(snapshot, instituteNow), [instituteNow, snapshot]);
+  const periodGroups = useMemo(() => groupPeriods(day.scheduledPeriods, classOrder), [day, classOrder]);
   const isNaseehah = /naseeha/i.test(status.current?.period.name ?? '');
   const liveNaseehah = useLiveNaseehah(isNaseehah && session.status === 'signedIn');
 
@@ -138,24 +144,33 @@ export default function ClockScreen() {
         {day.periods.length === 0 ? (
           <Text style={styles.empty}>No periods scheduled.</Text>
         ) : (
-          day.scheduledPeriods.map(({ period, classId }) => {
-            const active = status.current?.period.id === period.id;
+          periodGroups.map((group) => {
+            const period = group.periods[0].period;
+            const single = group.periods.length === 1;
+            const active = group.periods.some(({ period }) => status.current?.period.id === period.id);
             const past = period.endTime.slice(0, 5) <= formatTimeKey(instituteNow) && !active;
             return (
               <View
-                key={period.id}
+                key={group.key}
                 style={[
                   styles.periodRow,
+                  single && styles.singlePeriodRow,
                   active && styles.activePeriod,
                   past && styles.pastPeriod,
                 ]}>
-                <View style={styles.periodLabel}>
-                  <Text style={styles.periodName}>{period.name}</Text>
-                  {snapshot.viewerClassIds && snapshot.viewerClassIds.size > 1 && classId && (
-                    <Text style={styles.periodClass}>{classNames.get(classId) ?? 'Selected class'}</Text>
-                  )}
+                {!single && <Text style={styles.periodTime}>{formatPeriodTime(period)}</Text>}
+                {group.sharedName && <Text style={styles.periodName}>{group.sharedName}</Text>}
+                <View style={[styles.periodColumns, single && styles.singlePeriodColumns]}>
+                  {group.periods.map(({ period, classId }, index) => (
+                    <View key={period.id} style={[styles.periodLabel, index > 0 && styles.periodDivider]}>
+                      {!group.sharedName && <Text style={styles.periodName}>{period.name}</Text>}
+                      {snapshot.viewerClassIds && snapshot.viewerClassIds.size > 1 && classId && (
+                        <Text style={styles.periodClass}>{classNames.get(classId) ?? 'Selected class'}</Text>
+                      )}
+                    </View>
+                  ))}
                 </View>
-                <Text style={styles.periodTime}>{formatPeriodTime(period)}</Text>
+                {single && <Text style={[styles.periodTime, styles.singlePeriodTime]}>{formatPeriodTime(period)}</Text>}
               </View>
             );
           })
@@ -281,16 +296,19 @@ const styles = StyleSheet.create({
   next: { color: theme.colors.textOnNavy, fontSize: 17, fontWeight: '600', marginTop: theme.spacing.lg },
   offlineDot: { backgroundColor: theme.colors.warning },
   pastPeriod: { opacity: 0.4 },
-  periodName: { color: theme.colors.cream, flex: 1, fontSize: 17, fontWeight: '600' },
-  periodLabel: { flex: 1 },
-  periodClass: { color: theme.colors.textOnNavy, fontSize: 13, marginTop: 2 },
+  periodName: { color: theme.colors.cream, fontSize: 16, fontWeight: '600' },
+  periodLabel: { flex: 1, minWidth: 0, paddingHorizontal: 6 },
+  periodColumns: { flexDirection: 'row', alignItems: 'stretch' },
+  periodDivider: { borderLeftColor: theme.colors.strongBorderOnNavy, borderLeftWidth: 1 },
+  singlePeriodRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
+  singlePeriodColumns: { flex: 1 },
+  singlePeriodTime: { width: 112, textAlign: 'right' },
+  periodClass: { color: theme.colors.textOnNavy, fontSize: 11, marginTop: 3 },
   periodRow: {
-    alignItems: 'center',
+    alignItems: 'stretch',
     borderColor: 'transparent',
     borderRadius: 10,
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-    justifyContent: 'space-between',
+    gap: 8,
     minHeight: 58,
     padding: theme.spacing.md,
   },
@@ -298,8 +316,7 @@ const styles = StyleSheet.create({
     color: theme.colors.cream,
     fontVariant: ['tabular-nums'],
     fontWeight: '700',
-    textAlign: 'right',
-    width: 112,
+    textAlign: 'left',
   },
   progressFill: { backgroundColor: theme.colors.cream, borderRadius: 4, height: 8 },
   progressTrack: {

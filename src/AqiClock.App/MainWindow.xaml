@@ -182,7 +182,7 @@
                        Margin="4,2,4,10" />
 
             <Grid Grid.Row="1">
-              <ListBox ItemsSource="{Binding Clock.TodayPeriods}"
+              <ListBox ItemsSource="{Binding Clock.TodayPeriodGroups}"
                        BorderThickness="0"
                        Background="Transparent"
                        ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -240,9 +240,42 @@
                                    Text="{Binding Time}"
                                    Foreground="{DynamicResource MutedBrush}"
                                    VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="3" VerticalAlignment="Center">
-                          <TextBlock x:Name="PeriodName" Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                          <TextBlock Text="{Binding ClassName}" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
+                        <StackPanel x:Name="PeriodNames" Grid.Column="3" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,4">
+                            <TextBlock.Style><Style TargetType="TextBlock">
+                              <Setter Property="Visibility" Value="Collapsed" />
+                              <Style.Triggers><DataTrigger Binding="{Binding HasSharedName}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                            </Style></TextBlock.Style>
+                          </TextBlock>
+                          <ItemsControl ItemsSource="{Binding Periods}" AlternationCount="2147483647">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate><DataTemplate>
+                              <Border BorderBrush="{DynamicResource DividerBrush}">
+                                <Border.Style><Style TargetType="Border">
+                                  <Setter Property="BorderThickness" Value="1,0,0,0" />
+                                  <Setter Property="Padding" Value="6,0" />
+                                  <Style.Triggers>
+                                    <DataTrigger Binding="{Binding (ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Value="0">
+                                      <Setter Property="BorderThickness" Value="0" />
+                                      <Setter Property="Padding" Value="0,0,6,0" />
+                                    </DataTrigger>
+                                  </Style.Triggers>
+                                </Style></Border.Style>
+                                <StackPanel>
+                                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap">
+                                    <TextBlock.Style><Style TargetType="TextBlock">
+                                      <Style.Triggers><DataTrigger Binding="{Binding DataContext.HasSharedName, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+                                    </Style></TextBlock.Style>
+                                  </TextBlock>
+                                  <TextBlock Text="{Binding ClassName}" ToolTip="{Binding ClassName}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="10">
+                                    <TextBlock.Style><Style TargetType="TextBlock">
+                                      <Style.Triggers><DataTrigger Binding="{Binding HasClassName}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+                                    </Style></TextBlock.Style>
+                                  </TextBlock>
+                                </StackPanel>
+                              </Border>
+                            </DataTemplate></ItemsControl.ItemTemplate>
+                          </ItemsControl>
                         </StackPanel>
                       </Grid>
                     </Border>
@@ -258,7 +291,7 @@
                         <Setter TargetName="CurrentIcon" Property="Visibility" Value="Visible" />
                         <Setter TargetName="UpcomingIcon" Property="Visibility" Value="Collapsed" />
                         <Setter TargetName="PeriodTime" Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                        <Setter TargetName="PeriodName" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                        <Setter TargetName="PeriodNames" Property="TextElement.Foreground" Value="{DynamicResource AccentBrush}" />
                       </DataTrigger>
                     </DataTemplate.Triggers>
                   </DataTemplate>
