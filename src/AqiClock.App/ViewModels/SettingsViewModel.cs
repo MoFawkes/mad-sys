@@ -35,6 +35,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     [ObservableProperty] private bool _alwaysOnTop;
     [ObservableProperty] private bool _compactOnLaunch;
     [ObservableProperty] private bool _taskbarDisplayEnabled;
+    [ObservableProperty] private bool _includeBetaUpdates;
     [ObservableProperty] private string _taskbarDisplayStatus = string.Empty;
     public bool TaskbarDisplayAvailable => _taskbar?.IsAvailable == true;
     [ObservableProperty] private bool _lessonStartNotifications;
@@ -70,7 +71,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
         try
         {
             await _settings.SaveAsync(previous with
-            { StartWithWindows = StartWithWindows, StartMinimized = StartMinimized, CloseToTray = CloseToTray, Theme = Theme, AlwaysOnTop = AlwaysOnTop, CompactOnLaunch = CompactOnLaunch, TaskbarDisplayEnabled = TaskbarDisplayEnabled, LessonStartNotifications = LessonStartNotifications, EndWarningNotifications = EndWarningNotifications, EndWarningMinutes = EndWarningMinutes, AnnouncementNotifications = AnnouncementNotifications }, token);
+            { StartWithWindows = StartWithWindows, StartMinimized = StartMinimized, CloseToTray = CloseToTray, Theme = Theme, AlwaysOnTop = AlwaysOnTop, CompactOnLaunch = CompactOnLaunch, TaskbarDisplayEnabled = TaskbarDisplayEnabled, IncludeBetaUpdates = IncludeBetaUpdates, LessonStartNotifications = LessonStartNotifications, EndWarningNotifications = EndWarningNotifications, EndWarningMinutes = EndWarningMinutes, AnnouncementNotifications = AnnouncementNotifications }, token);
         }
         catch
         {
@@ -90,7 +91,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable, IRecipie
     }
 
     private void Copy(AppSettings value)
-    { StartWithWindows = value.StartWithWindows; StartMinimized = value.StartMinimized; CloseToTray = value.CloseToTray; Theme = value.Theme; AlwaysOnTop = value.AlwaysOnTop; CompactOnLaunch = value.CompactOnLaunch; TaskbarDisplayEnabled = value.TaskbarDisplayEnabled; LessonStartNotifications = value.LessonStartNotifications; EndWarningNotifications = value.EndWarningNotifications; EndWarningMinutes = value.EndWarningMinutes; AnnouncementNotifications = value.AnnouncementNotifications; }
+    { StartWithWindows = value.StartWithWindows; StartMinimized = value.StartMinimized; CloseToTray = value.CloseToTray; Theme = value.Theme; AlwaysOnTop = value.AlwaysOnTop; CompactOnLaunch = value.CompactOnLaunch; TaskbarDisplayEnabled = value.TaskbarDisplayEnabled; IncludeBetaUpdates = value.IncludeBetaUpdates; LessonStartNotifications = value.LessonStartNotifications; EndWarningNotifications = value.EndWarningNotifications; EndWarningMinutes = value.EndWarningMinutes; AnnouncementNotifications = value.AnnouncementNotifications; }
 
     [RelayCommand]
     private void ReportProblem()

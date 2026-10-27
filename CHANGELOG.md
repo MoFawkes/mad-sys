@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added
+
+- Optional "Include beta updates" in Windows and Android Settings, off by default. Windows checks/downloads prereleases after saving and restarting; disabling it also prevents applying a queued beta on exit. A newer stable release can replace an installed beta without downgrading.
+- Android checks the selected release channel once a day while foregrounded, prompts once per available version, and offers a manual check in Settings. Downloads open only after choosing Download; Android still requires approval to install the APK. Offline checks are quiet.
+
 ## 0.16.0-beta.2 - 2026-10-27
 
 ### Added

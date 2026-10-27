@@ -123,6 +123,15 @@
                 </ui:CardControl>
 
                 <TextBlock Text="About" FontSize="{DynamicResource SubtitleFontSize}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                <ui:CardControl Margin="0,0,0,6" IsTabStop="False">
+                    <ui:CardControl.Header>
+                        <StackPanel MaxWidth="340">
+                            <TextBlock Text="Include beta updates" FontWeight="SemiBold" />
+                            <TextBlock Text="Get new features early. Beta versions may have bugs. Save and restart AQI Clock to change the update channel. Turning this off keeps your current version until a newer stable release." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="{DynamicResource CaptionFontSize}" />
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <ui:ToggleSwitch IsChecked="{Binding IncludeBetaUpdates}" />
+                </ui:CardControl>
                 <ui:CardControl Header="Help us improve AQI Clock" Margin="0,0,0,6" IsTabStop="False">
                     <ui:Button Content="Report a problem" Command="{Binding ReportProblemCommand}" />
                 </ui:CardControl>
