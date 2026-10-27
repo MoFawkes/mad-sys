@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.16.0-beta.4 - 2026-10-27
+
+### Fixed
+
+- Windows grouped timetable layout: lesson/session blocks keep a readable size, sit together with dividers, and wrap within the visible list at narrow widths. Removes the unrelated selected-row outline.
+- Give the timetable more room in wide Windows windows and keep the clock/current/next content together, avoiding a stretched empty current-lesson box. Android remains on beta.3.
+
 ## 0.16.0-beta.3 - 2026-10-27
 
 ### Added

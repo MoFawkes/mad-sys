@@ -149,9 +149,9 @@
 
       <Grid Grid.Row="1" Margin="0,10">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="1.05*" />
+          <ColumnDefinition Width="0.7*" MinWidth="300" MaxWidth="440" />
           <ColumnDefinition Width="10" />
-          <ColumnDefinition Width="0.95*" />
+          <ColumnDefinition Width="1.3*" />
         </Grid.ColumnDefinitions>
 
         <Border Grid.Column="0"
@@ -185,6 +185,7 @@
               <ListBox ItemsSource="{Binding Clock.TodayPeriodGroups}"
                        BorderThickness="0"
                        Background="Transparent"
+                       ScrollViewer.CanContentScroll="False"
                        ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListBox.ItemContainerStyle>
                   <Style TargetType="ListBoxItem">
@@ -193,6 +194,13 @@
                     <Setter Property="Margin" Value="0" />
                     <Setter Property="Background" Value="Transparent" />
                     <Setter Property="Focusable" Value="False" />
+                    <Setter Property="Template">
+                      <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                          <ContentPresenter HorizontalAlignment="Stretch" />
+                        </ControlTemplate>
+                      </Setter.Value>
+                    </Setter>
                     <Style.Triggers>
                       <Trigger Property="IsMouseOver" Value="True">
                         <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
@@ -248,9 +256,9 @@
                             </Style></TextBlock.Style>
                           </TextBlock>
                           <ItemsControl ItemsSource="{Binding Periods}" AlternationCount="2147483647">
-                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate><DataTemplate>
-                              <Border BorderBrush="{DynamicResource DividerBrush}">
+                              <Border BorderBrush="{DynamicResource DividerBrush}" MaxWidth="220" Margin="0,3,0,3">
                                 <Border.Style><Style TargetType="Border">
                                   <Setter Property="BorderThickness" Value="1,0,0,0" />
                                   <Setter Property="Padding" Value="6,0" />
@@ -267,7 +275,7 @@
                                       <Style.Triggers><DataTrigger Binding="{Binding DataContext.HasSharedName, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
                                     </Style></TextBlock.Style>
                                   </TextBlock>
-                                  <TextBlock Text="{Binding ClassName}" ToolTip="{Binding ClassName}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="10">
+                                  <TextBlock Text="{Binding ClassName}" ToolTip="{Binding ClassName}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,3,0,0">
                                     <TextBlock.Style><Style TargetType="TextBlock">
                                       <Style.Triggers><DataTrigger Binding="{Binding HasClassName}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
                                     </Style></TextBlock.Style>
