@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.15.5 - 2026-10-27
+
+### Added
+
+- Stable Windows users can enable **Settings → About → Include beta updates**, then save and restart to receive newer beta releases. The preference defaults to off and can be disabled again without downgrading the installed version.
+
 ## 0.15.4 - 2026-10-25
 
 ### Added
