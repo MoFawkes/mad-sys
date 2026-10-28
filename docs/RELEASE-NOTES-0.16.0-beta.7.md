@@ -20,6 +20,8 @@ Local automated validation passed: 247 Windows application tests and 79 domain t
 
 The local Release solution build also passed 15 integration tests. The 64 database tests require a local stack and are covered by the hosted release gates instead.
 
+All four [hosted release checks and Windows packaging](https://github.com/MoFawkes/mad-sys/actions/runs/40788153645) passed. The [Android preview build](https://expo.dev/accounts/denovoorders/projects/aqi-clock/builds/e88360c0-76aa-4eee-b9ec-44e71bc8a00d) completed successfully. Verified the Windows embedded beta.7/source version and updater manifest size/hash, and the APK package/version/signature against the previous beta. SHA256SUMS.txt records the uploaded asset digests.
+
 Real installed-device reminder delivery, Android background delivery, update/install acceptance and the existing live-audio/feedback/device checks remain pending. Windows reminders require AQI Clock to remain running, including in the notification area. Mobile uses its existing seven-day scheduling window, refreshed on sync and reconciliation.
 
 [Previous Windows beta](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0-beta.5) · [Stable fallback](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.15.5)
