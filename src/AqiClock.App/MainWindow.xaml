@@ -9,17 +9,10 @@
         LocationChanged="OnPlacementChanged"
         SizeChanged="OnPlacementChanged">
   <Window.Resources>
-    <Style x:Key="LessonToolbarLabel" TargetType="TextBlock">
-      <Setter Property="VerticalAlignment" Value="Center" />
-      <Style.Triggers>
-        <DataTrigger Binding="{Binding Clock.IsTeachingLesson}" Value="True">
-          <Setter Property="Visibility" Value="Collapsed" />
-        </DataTrigger>
-      </Style.Triggers>
-    </Style>
     <Style x:Key="LiveListenButton" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
       <Setter Property="Appearance" Value="Transparent" />
       <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+      <Setter Property="BorderThickness" Value="0" />
       <Setter Property="ToolTip" Value="Listen to Al-Qalam Institute" />
       <Style.Triggers>
         <DataTrigger Binding="{Binding IsLiveNaseehah}" Value="True">
@@ -59,7 +52,7 @@
           <ui:Button Height="36" Click="OnListenLive" Style="{StaticResource LiveListenButton}" Padding="10,0" Margin="2,0"
                      AutomationProperties.Name="Listen to Al-Qalam Institute">
             <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon Symbol="Headphones20" />
+              <ui:SymbolIcon Symbol="Headphones20" FontSize="20" />
               <TextBlock Text="LIVE · Listen" Margin="7,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold">
                 <TextBlock.Style><Style TargetType="TextBlock">
                   <Setter Property="Visibility" Value="Collapsed" />
@@ -68,25 +61,21 @@
               </TextBlock>
             </StackPanel>
           </ui:Button>
-          <ui:Button Height="36"
+          <ui:Button Height="36" Width="36" BorderThickness="0" AutomationProperties.Name="Switch to compact mode"
                      Command="{Binding ToggleDisplayModeCommand}"
                      ToolTip="Switch to compact mode"
                      Appearance="Transparent"
-                     Padding="10,0"
+                     Padding="0"
                      Margin="2,0">
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon Symbol="WindowMultiple20" Margin="0,0,7,0" />
-              <TextBlock Text="Compact" Style="{StaticResource LessonToolbarLabel}" />
-            </StackPanel>
+            <ui:SymbolIcon Symbol="WindowMultiple20" FontSize="20" />
           </ui:Button>
-          <ui:Button Height="36"
+          <ui:Button Height="36" Width="36" BorderThickness="0" AutomationProperties.Name="Always on top"
                      Command="{Binding TogglePinCommand}"
                      ToolTip="Always on top"
                      Appearance="Transparent"
-                     Padding="10,0"
+                     Padding="0"
                      Margin="2,0">
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon Symbol="Pin20" Margin="0,0,7,0">
+              <ui:SymbolIcon Symbol="Pin20" FontSize="20">
                 <ui:SymbolIcon.Style>
                   <Style TargetType="{x:Type ui:SymbolIcon}">
                     <Style.Triggers>
@@ -98,25 +87,20 @@
                   </Style>
                 </ui:SymbolIcon.Style>
               </ui:SymbolIcon>
-              <TextBlock Text="Pin" Style="{StaticResource LessonToolbarLabel}" />
-            </StackPanel>
           </ui:Button>
-          <ui:Button Height="36"
+          <ui:Button Height="36" Width="36" BorderThickness="0" AutomationProperties.Name="Settings"
                      Command="{Binding OpenSettingsCommand}"
                      ToolTip="Settings"
                      Appearance="Transparent"
-                     Padding="10,0"
+                     Padding="0"
                      Margin="2,0">
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon Symbol="Settings20" Margin="0,0,7,0" />
-              <TextBlock Text="Settings" Style="{StaticResource LessonToolbarLabel}" />
-            </StackPanel>
+            <ui:SymbolIcon Symbol="Settings20" FontSize="20" />
           </ui:Button>
-          <ui:Button Height="36"
+          <ui:Button Height="36" Width="36" BorderThickness="0" AutomationProperties.Name="Edit timetables"
                      Command="{Binding EditTimetablesCommand}"
                      ToolTip="Edit timetables"
                      Appearance="Transparent"
-                     Padding="10,0"
+                     Padding="0"
                      Margin="2,0">
             <ui:Button.Style>
               <Style TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
@@ -128,10 +112,7 @@
                 </Style.Triggers>
               </Style>
             </ui:Button.Style>
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon Symbol="Edit20" Margin="0,0,7,0" />
-              <TextBlock Text="Edit timetables" Style="{StaticResource LessonToolbarLabel}" />
-            </StackPanel>
+            <ui:SymbolIcon Symbol="Edit20" FontSize="20" />
           </ui:Button>
         </StackPanel>
 

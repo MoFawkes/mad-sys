@@ -13,6 +13,35 @@
         ExtendsContentIntoTitleBar="True"
         WindowBackdropType="Mica">
     <ui:FluentWindow.Resources>
+        <Style x:Key="AdminNavigationItem" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Selection" Background="{TemplateBinding Background}" CornerRadius="6" Padding="12,10">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Selection" Property="Background" Value="{DynamicResource CardBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Selection" Property="Background" Value="{DynamicResource CurrentPeriodBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="Selection" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="Selection" Property="BorderThickness" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <converters:HourMinuteConverter x:Key="HourMinuteConverter" />
         <converters:NullableMinutesConverter x:Key="NullableMinutesConverter" />
@@ -79,7 +108,41 @@
                     Title="Administration unavailable"
                     Message="{Binding Banner}"
                     Margin="0,0,0,10" />
-        <TabControl IsEnabled="{Binding IsEditable}">
+        <Grid IsEnabled="{Binding IsEditable}">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="208" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0" Padding="0,0,12,0" Margin="0,0,16,0">
+            <ListBox x:Name="Navigation" Background="Transparent" BorderThickness="0"
+                     AutomationProperties.Name="Administration sections"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ItemContainerStyle="{StaticResource AdminNavigationItem}"
+                     SelectedValuePath="Index" SelectedValue="{Binding SelectedIndex, ElementName=AdminSections, Mode=TwoWay}">
+              <ListBox.GroupStyle>
+                <GroupStyle>
+                  <GroupStyle.HeaderTemplate>
+                    <DataTemplate><TextBlock Text="{Binding Name}" Foreground="{DynamicResource MutedBrush}"
+                                             FontSize="11" FontWeight="SemiBold" Margin="12,18,0,8" /></DataTemplate>
+                  </GroupStyle.HeaderTemplate>
+                </GroupStyle>
+              </ListBox.GroupStyle>
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="{Binding Symbol}" FontSize="20" Margin="0,0,10,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Title}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Border>
+          <DockPanel Grid.Column="1">
+            <TextBlock DockPanel.Dock="Top" Text="{Binding SelectedItem.Header, ElementName=AdminSections}"
+                       FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource HeaderBrush}" Margin="10,12,0,14" />
+            <TabControl x:Name="AdminSections" SelectedIndex="0" BorderThickness="0" Background="Transparent">
+              <TabControl.Template>
+                <ControlTemplate TargetType="TabControl">
+                  <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" />
+                </ControlTemplate>
+              </TabControl.Template>
             <TabItem Header="Timetables">
                 <Grid DataContext="{Binding Timetables}" Margin="10">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="240" /><ColumnDefinition /></Grid.ColumnDefinitions>
@@ -297,7 +360,7 @@
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
-            <TabItem Header="Classes / Audiences">
+            <TabItem Header="Classes">
               <Grid DataContext="{Binding Classes}" Margin="10">
                 <DockPanel><ui:Button DockPanel.Dock="Top" Content="Add class" Command="{Binding AddCommand}" HorizontalAlignment="Left"/>
                   <TextBlock DockPanel.Dock="Top" Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}"/>
@@ -347,8 +410,10 @@
                 </TabControl>
             </TabItem>
             <TabItem Header="Recent changes"><DockPanel DataContext="{Binding Audit}" Margin="10"><ui:Button DockPanel.Dock="Top" Content="Refresh" Command="{Binding LoadCommand}" Appearance="Primary" HorizontalAlignment="Left" /><TextBlock DockPanel.Dock="Top" Text="{Binding Message}" /><DataGrid ItemsSource="{Binding Items}" IsReadOnly="True" AutoGenerateColumns="True" /></DockPanel></TabItem>
-            <TabItem Header="Profiles / Audiences"><DockPanel DataContext="{Binding Users}" Margin="10"><TextBlock DockPanel.Dock="Top" Text="Invitations are managed in the Supabase dashboard for the MVP. Other users' email addresses are not stored in profiles." /><DataGrid ItemsSource="{Binding Items}" AutoGenerateColumns="False" CanUserAddRows="False"><DataGrid.Columns><DataGridTextColumn Header="Name" Binding="{Binding DisplayName, Mode=OneWay}" IsReadOnly="True" /><DataGridTextColumn Header="Email" Binding="{Binding Email, Mode=OneWay}" IsReadOnly="True" /><DataGridTemplateColumn Header="Role"><DataGridTemplateColumn.CellTemplate><DataTemplate><ComboBox IsEnabled="{Binding IsEditable}" ItemsSource="{Binding DataContext.Roles, RelativeSource={RelativeSource AncestorType=DataGrid}}" SelectedItem="{Binding Role, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"><DataGridCheckBoxColumn.ElementStyle><Style TargetType="CheckBox"><Setter Property="IsEnabled" Value="{Binding IsEditable}" /></Style></DataGridCheckBoxColumn.ElementStyle></DataGridCheckBoxColumn><DataGridTemplateColumn><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel><ui:Button Content="Save" Appearance="Primary" IsEnabled="{Binding IsEditable}" Command="{Binding DataContext.SaveCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /><TextBlock Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns></DataGrid></DockPanel></TabItem>
+            <TabItem Header="Staff access"><DockPanel DataContext="{Binding Users}" Margin="10"><TextBlock DockPanel.Dock="Top" Text="Invitations are managed in the Supabase dashboard for the MVP. Other users' email addresses are not stored in profiles." /><DataGrid ItemsSource="{Binding Items}" AutoGenerateColumns="False" CanUserAddRows="False"><DataGrid.Columns><DataGridTextColumn Header="Name" Binding="{Binding DisplayName, Mode=OneWay}" IsReadOnly="True" /><DataGridTextColumn Header="Email" Binding="{Binding Email, Mode=OneWay}" IsReadOnly="True" /><DataGridTemplateColumn Header="Role"><DataGridTemplateColumn.CellTemplate><DataTemplate><ComboBox IsEnabled="{Binding IsEditable}" ItemsSource="{Binding DataContext.Roles, RelativeSource={RelativeSource AncestorType=DataGrid}}" SelectedItem="{Binding Role, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"><DataGridCheckBoxColumn.ElementStyle><Style TargetType="CheckBox"><Setter Property="IsEnabled" Value="{Binding IsEditable}" /></Style></DataGridCheckBoxColumn.ElementStyle></DataGridCheckBoxColumn><DataGridTemplateColumn><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel><ui:Button Content="Save" Appearance="Primary" IsEnabled="{Binding IsEditable}" Command="{Binding DataContext.SaveCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" /><TextBlock Text="{Binding Error}" Foreground="{DynamicResource ErrorBrush}" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns></DataGrid></DockPanel></TabItem>
         </TabControl>
+          </DockPanel>
+        </Grid>
     </DockPanel>
     </Grid>
 </ui:FluentWindow>

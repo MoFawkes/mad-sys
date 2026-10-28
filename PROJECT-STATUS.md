@@ -2,6 +2,10 @@
 
 Last updated: 2026-10-28
 
+## 2026-10-28 beta.8 interface update
+
+Owner requested grouped sidebar navigation in Windows administration and restoration of clean toolbar icons, with beta publication. Implemented a grouped icon sidebar over the existing nine editors, shorter Classes/Staff access labels, and larger icon-only main-toolbar actions with tooltips/accessibility names. Release build and 247 application tests passed (one interactive test skipped). Isolated renders of the actual WPF layouts cover both themes and a short/narrow window; a harness verified all nine navigation destinations and reverse selection synchronisation. Preparing Windows beta.8; Android remains beta.7. Hosted release gates, publication and installed UI/updater acceptance are pending. See `docs/RELEASE-NOTES-0.16.0-beta.8.md`.
+
 ## 2026-10-28 beta.7 release activity
 
 The unpublished beta.6 tag failed the hosted Release analyzer gate (`CA1859` on a notification-plan local variable). Corrected the variable/array length access and passed local Release solution validation: 341 tests passed, with 64 local-stack tests and one interactive test skipped locally. The beta.6 Android build was cancelled. Published a fresh beta.7 tag rather than rewriting the failed tag; all hosted database checks subsequently passed.

@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.16.0-beta.8 - 2026-10-28
+
+### Changed
+
+- Windows administration now uses a grouped icon sidebar for Schedule, People & access, Communication and Activity, with a clear page heading. All existing editors remain available; Classes and Staff access have shorter labels.
+- Restore the clock toolbar's clean icon-only actions with larger icons, hover labels and accessibility names. The live listening highlight and pinned state remain visible.
+
 ## 0.16.0-beta.7 - 2026-10-28
 
 ### Added

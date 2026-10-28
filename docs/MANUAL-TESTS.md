@@ -412,6 +412,12 @@ For PR #1, the Admin-tab checks below supersede the legacy six-tab assertion imm
 
 ### Student classes and optional Naseehah
 
+Pending Windows beta.8 interface acceptance:
+
+- [ ] Open administration and switch through all nine sidebar sections, including Staff access. Confirm each opens the expected editor, preserves existing command/unsaved-edit behaviour, and works with keyboard selection.
+- [ ] Resize to a short window and scroll the sidebar to Announcements and Recent changes. Check light and dark selection/focus states.
+- [ ] Check the main toolbar's icon-only listening, compact, pin, settings and edit actions. Hover labels identify each action; pin state and live broadcast highlighting remain clear.
+
 Pending device acceptance for automatic Naseehah reminders (2026-10-28):
 
 - [ ] On Windows and Android, select a PM class and AM Naseehah. With Announcement notifications on and lesson starts off, a morning `Break / Naseehah` assigned to another class produces one `Naseehah starting` notification. An ordinary lesson from that other class stays silent.
