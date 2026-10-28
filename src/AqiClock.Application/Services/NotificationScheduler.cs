@@ -96,13 +96,13 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
                 _audience.Current.SelectedClassIds);
 
             TimeSpan lead = TimeSpan.FromMinutes(Math.Clamp(_settings.Current.EndWarningMinutes, 0, 15));
-            IReadOnlyList<NotificationEvent> rebuilt = BuildPlan(DateOnly.FromDateTime(now), lead);
+            NotificationEvent[] rebuilt = BuildPlan(DateOnly.FromDateTime(now), lead);
             EffectiveDay day = ScheduleEngine.ResolveDay(_snapshot, DateOnly.FromDateTime(now));
             HealthSummary = day.Timetable is null
                 ? "Today: no timetable assigned to this weekday"
-                : $"Today: {day.Timetable.Name} · {day.Periods.Count} lessons · {rebuilt.Count} alerts planned";
+                : $"Today: {day.Timetable.Name} · {day.Periods.Count} lessons · {rebuilt.Length} alerts planned";
             HealthChanged?.Invoke(this, EventArgs.Empty);
-            LogPlanRebuilt(_logger, day.Timetable?.Name ?? "closed", day.Periods.Count, rebuilt.Count);
+            LogPlanRebuilt(_logger, day.Timetable?.Name ?? "closed", day.Periods.Count, rebuilt.Length);
             foreach (NotificationEvent item in rebuilt)
             {
                 if (_knownTriggers.TryGetValue(item.Key, out DateTime oldTrigger) && oldTrigger <= now && item.TriggerTime > now && oldTrigger != item.TriggerTime)

@@ -2,7 +2,7 @@
   "expo": {
     "name": "AQI Clock",
     "slug": "aqi-clock",
-    "version": "0.16.0-beta.6",
+    "version": "0.16.0-beta.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "aqiclock-mobile",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.mofawkes.aqiclock",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#F4F0E6"

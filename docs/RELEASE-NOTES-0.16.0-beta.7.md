@@ -1,4 +1,4 @@
-# AQI Clock v0.16.0-beta.6
+# AQI Clock v0.16.0-beta.7
 
 Windows and Android now send daily Naseehah reminders automatically from the timetable.
 
@@ -10,13 +10,15 @@ Windows and Android now send daily Naseehah reminders automatically from the tim
 
 ## Install
 
-Use the Windows Setup executable or Android APK attached to this release. Existing beta users can enable **Settings → About → Include beta updates**; on Windows, Save and restart to check. Android retains its package/signing identity, with version name 0.16.0-beta.6 and version code 5.
+Use the Windows Setup executable or Android APK attached to this release. Existing beta users can enable **Settings → About → Include beta updates**; on Windows, Save and restart to check. Android retains its package/signing identity, with version name 0.16.0-beta.7 and version code 6.
 
 This is an opt-in prerelease. Stable remains v0.15.5. The Windows installer is unsigned.
 
 ## Verification
 
 Local automated validation passed: 247 Windows application tests and 79 domain tests, with one interactive Windows test skipped, plus all 157 mobile tests. Mobile TypeScript and lint passed. Coverage includes independent AM/PM subscriptions, cross-class reminders, same-time deduplication, restarts, notification setting changes, date closures/replacements, institute timezone conversion and cancellation of stale mobile requests.
+
+The local Release solution build also passed 15 integration tests. The 64 database tests require a local stack and are covered by the hosted release gates instead.
 
 Real installed-device reminder delivery, Android background delivery, update/install acceptance and the existing live-audio/feedback/device checks remain pending. Windows reminders require AQI Clock to remain running, including in the notification area. Mobile uses its existing seven-day scheduling window, refreshed on sync and reconciliation.
 

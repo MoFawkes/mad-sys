@@ -2,9 +2,11 @@
 
 Last updated: 2026-10-28
 
-## 2026-10-28 beta.6 release activity
+## 2026-10-28 beta.7 release activity
 
-Student AM/PM subscriptions now derive shared daily Naseehah start reminders from all assigned timetables, respecting overrides, Announcement notifications and duplicate suppression. Windows and mobile source, picker copy, business rules and acceptance checks are updated. Local validation passed: 247 application tests, 79 domain tests and 157 mobile tests; one interactive Windows test skipped. TypeScript and lint passed. Preparing v0.16.0-beta.6 for the existing beta channel; Android version code 5. Hosted gates, package publication and installed-device reminder acceptance are pending. Stable remains v0.15.5. See `docs/RELEASE-NOTES-0.16.0-beta.6.md` and the pending reminder section in `docs/MANUAL-TESTS.md`.
+The unpublished beta.6 tag failed the hosted Release analyzer gate (`CA1859` on a notification-plan local variable). Corrected the variable/array length access and passed local Release solution validation: 341 tests passed, with 64 local-stack tests and one interactive test skipped locally. The beta.6 Android build was cancelled. Continuing with a fresh beta.7 tag rather than rewriting the failed tag; hosted database checks remain required.
+
+Student AM/PM subscriptions now derive shared daily Naseehah start reminders from all assigned timetables, respecting overrides, Announcement notifications and duplicate suppression. Windows and mobile source, picker copy, business rules and acceptance checks are updated. Local validation passed: 247 application tests, 79 domain tests and 157 mobile tests; one interactive Windows test skipped. TypeScript and lint passed. Preparing v0.16.0-beta.7 for the existing beta channel; Android version code 6. Hosted gates, package publication and installed-device reminder acceptance are pending. Stable remains v0.15.5. See `docs/RELEASE-NOTES-0.16.0-beta.7.md` and the pending reminder section in `docs/MANUAL-TESTS.md`.
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
