@@ -53,7 +53,7 @@ export type PeriodOccurrence = {
   endsAt: Date;
 };
 
-export type NotificationEventKind = 'start' | 'end-warning';
+export type NotificationEventKind = 'start' | 'end-warning' | 'naseehah';
 
 export type NotificationEvent = {
   key: string;

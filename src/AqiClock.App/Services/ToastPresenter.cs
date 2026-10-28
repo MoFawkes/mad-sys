@@ -28,7 +28,8 @@ public sealed class ToastPresenter : INotificationPresenter, IDisposable
         cancellationToken.ThrowIfCancellationRequested();
         ToastContentBuilder toast = new ToastContentBuilder()
             .AddArgument("action", "open")
-            .AddText(notifications.Count == 1 ? "Lesson starting" : "Lessons starting");
+            .AddText(notifications[0].Kind == NotificationEventKind.NaseehahStart
+                ? "Naseehah starting" : notifications.Count == 1 ? "Lesson starting" : "Lessons starting");
         foreach (NotificationEvent notification in notifications)
             toast.AddText(string.Create(CultureInfo.CurrentCulture, $"{notification.Occurrence.Period.Name} · ends {notification.Occurrence.Period.EndTime:HH:mm}{InstituteSuffix()}"));
         toast.Show();

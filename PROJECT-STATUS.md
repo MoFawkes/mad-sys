@@ -1,6 +1,10 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-09-26
+Last updated: 2026-10-28
+
+## 2026-10-28 beta.6 release activity
+
+Student AM/PM subscriptions now derive shared daily Naseehah start reminders from all assigned timetables, respecting overrides, Announcement notifications and duplicate suppression. Windows and mobile source, picker copy, business rules and acceptance checks are updated. Local validation passed: 247 application tests, 79 domain tests and 157 mobile tests; one interactive Windows test skipped. TypeScript and lint passed. Preparing v0.16.0-beta.6 for the existing beta channel; Android version code 5. Hosted gates, package publication and installed-device reminder acceptance are pending. Stable remains v0.15.5. See `docs/RELEASE-NOTES-0.16.0-beta.6.md` and the pending reminder section in `docs/MANUAL-TESTS.md`.
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,

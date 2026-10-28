@@ -13,6 +13,123 @@ public sealed class NotificationSchedulerTests
 {
     private static readonly DateTime Monday = new(2026, 7, 20, 8, 30, 0, DateTimeKind.Local);
 
+    [Theory]
+    [InlineData(8, true, false, true, 1)]
+    [InlineData(13, false, true, true, 1)]
+    [InlineData(12, true, false, true, 0)]
+    [InlineData(12, false, true, true, 1)]
+    [InlineData(8, false, true, true, 0)]
+    [InlineData(13, true, false, true, 0)]
+    [InlineData(8, false, false, true, 0)]
+    [InlineData(8, true, true, false, 0)]
+    public async Task SharedNaseehahUsesHalfDayAndAnnouncementSettingAcrossClasses(
+        int hour, bool am, bool pm, bool announcements, int expected)
+    {
+        DateTime now = Monday.Date.AddHours(hour);
+        SchedulerFixture fixture = CreateFixture(now);
+        Guid mine = Guid.NewGuid();
+        Guid other = Guid.NewGuid();
+        Guid publicTimetable = Guid.NewGuid();
+        fixture.Audience.SetStudent([mine],
+            (am ? new[] { SessionHalfDay.Am } : []).Concat(pm ? [SessionHalfDay.Pm] : []));
+        fixture.Settings.Value = fixture.Settings.Value with
+        { LessonStartNotifications = false, AnnouncementNotifications = announcements };
+        fixture.Timetables.Items = [new Timetable(publicTimetable, "Other track", false,
+            [new Period(Guid.NewGuid(), "Isha + NASEEHAH", TimeOnly.FromDateTime(now), TimeOnly.FromDateTime(now.AddMinutes(25)), 0, false)])];
+        fixture.Week = new FakeWeek(new WeekSchedule([
+            new(Guid.NewGuid(), DayOfWeek.Monday, mine, null),
+            new(Guid.NewGuid(), DayOfWeek.Monday, other, publicTimetable)]));
+        using NotificationScheduler scheduler = fixture.Create();
+
+        await scheduler.StartAsync();
+        await scheduler.ProcessAsync(now);
+        await scheduler.ProcessAsync(now.AddMinutes(20));
+
+        Assert.Equal(expected, fixture.Presenter.Starts);
+        Assert.Equal(0, fixture.Presenter.EndWarnings);
+        if (expected > 0)
+            Assert.Equal(NotificationEventKind.NaseehahStart, Assert.Single(Assert.Single(fixture.Presenter.StartGroups)).Kind);
+    }
+
+    [Fact]
+    public async Task SharedNaseehahReplacesClassStartAndDeduplicatesAcrossRestart()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.Audience.SetStudent([Guid.NewGuid()], [SessionHalfDay.Am]);
+        fixture.SetPeriods(
+            new Period(Guid.NewGuid(), "Break / Naseehah", new(8, 30), new(9, 0), 0, false),
+            new Period(Guid.NewGuid(), "Naseehah & Break", new(8, 30), new(9, 0), 1, false));
+        using (NotificationScheduler first = fixture.Create())
+        { await first.StartAsync(); await first.ProcessAsync(Monday); }
+        using (NotificationScheduler second = fixture.Create())
+        { await second.StartAsync(); await second.ProcessAsync(Monday); }
+
+        Assert.Equal(1, fixture.Presenter.Starts);
+        Assert.Single(fixture.Log.Entries);
+        Assert.Equal("naseehah:2026-07-20:0830", fixture.Log.Entries.Keys.Single());
+    }
+
+    [Fact]
+    public async Task AnnouncementSettingOffPreservesNaseehahClassAlerts()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.Audience.SetStudent([Guid.NewGuid()], [SessionHalfDay.Am]);
+        fixture.Settings.Value = fixture.Settings.Value with { AnnouncementNotifications = false };
+        fixture.SetPeriods(new Period(Guid.NewGuid(), "Naseehah", new(8, 30), new(9, 0), 0, false));
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync(); await scheduler.ProcessAsync(Monday);
+        Assert.Equal(NotificationEventKind.LessonStart, Assert.Single(Assert.Single(fixture.Presenter.StartGroups)).Kind);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ChangingAnnouncementSettingAtBoundaryDoesNotRepeatNaseehah(bool sharedFirst)
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.Audience.SetStudent([Guid.NewGuid()], [SessionHalfDay.Am]);
+        fixture.Settings.Value = fixture.Settings.Value with { AnnouncementNotifications = sharedFirst };
+        fixture.SetPeriods(new Period(Guid.NewGuid(), "Naseehah", new(8, 30), new(9, 0), 0, false));
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync(); await scheduler.ProcessAsync(Monday);
+        fixture.Settings.Value = fixture.Settings.Value with { AnnouncementNotifications = !sharedFirst };
+        await scheduler.RebuildAsync(Monday.AddSeconds(10));
+        await scheduler.ProcessAsync(Monday.AddSeconds(10));
+        Assert.Equal(1, fixture.Presenter.Starts);
+    }
+
+    [Fact]
+    public async Task SyncedClosureRemovesSharedNaseehahReminder()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday.AddMinutes(-1));
+        fixture.Audience.SetStudent([Guid.NewGuid()], [SessionHalfDay.Am]);
+        fixture.SetPeriods(new Period(Guid.NewGuid(), "Naseehah", new(8, 30), new(9, 0), 0, false));
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync();
+        fixture.Overrides.Items = [new DateOverride(Guid.NewGuid(), DateOnly.FromDateTime(Monday), null, "Closed")];
+        await scheduler.RebuildAsync(Monday.AddSeconds(-1));
+        await scheduler.ProcessAsync(Monday);
+        Assert.Equal(0, fixture.Presenter.Starts);
+    }
+
+    [Fact]
+    public async Task SharedNaseehahResumesOnFollowingDayAndUsesRecentStartSuppression()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.Audience.SetStudent([Guid.NewGuid()], [SessionHalfDay.Am]);
+        fixture.Settings.Value = fixture.Settings.Value with { EndWarningMinutes = 4 };
+        fixture.SetPeriods(new Period(Guid.NewGuid(), "Naseehah", new(8, 30), new(8, 35), 0, false));
+        Guid timetable = fixture.Timetables.Items.Single().Id;
+        fixture.Week = new FakeWeek(new WeekSchedule(new Dictionary<DayOfWeek, Guid?>
+        { [DayOfWeek.Monday] = timetable, [DayOfWeek.Tuesday] = timetable }));
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync(); await scheduler.ProcessAsync(Monday.AddMinutes(1));
+        Assert.Equal(1, fixture.Presenter.Starts);
+        Assert.Equal(0, fixture.Presenter.EndWarnings);
+        await scheduler.ProcessAsync(Monday.AddDays(1));
+        Assert.Equal(2, fixture.Presenter.Starts);
+    }
+
     [Fact]
     public async Task HolidayWeekIsSilentAcrossMidnightAndFollowingMondayResumes()
     {

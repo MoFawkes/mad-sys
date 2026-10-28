@@ -153,6 +153,11 @@ export default function StudentSetupScreen() {
       </View>
 
       <Text style={styles.sectionTitle}>Naseehah (optional)</Text>
+      <Text style={styles.naseehahHelp}>
+        Receive daily reminders for AM/PM Naseehah and announcements for that group.
+        Reminders follow the timetable and use your Announcement notifications setting.
+        This does not change your class timetable.
+      </Text>
       <View style={styles.naseehahCard}>
         <ToggleRow label="Morning (AM)" onValueChange={setOptedAm} value={optedAm} />
         <ToggleRow label="Afternoon (PM)" onValueChange={setOptedPm} value={optedPm} />
@@ -281,6 +286,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: 'hidden',
   },
+  naseehahHelp: { color: theme.colors.mutedTextOnNavy, fontSize: 14 },
   options: { gap: theme.spacing.sm },
   pressed: { opacity: 0.75 },
   sectionTitle: {

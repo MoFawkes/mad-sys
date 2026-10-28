@@ -180,6 +180,10 @@ This amends ADR-027's authoring model and ADR-029's visible maintenance controls
 
 Rejected: retaining the general schema behind a simpler UI, because it preserves two authoring models and a write-then-rollback preview; Maghrib-only configuration without standing prayers, because Asr, Isha, and Friday Jumu'ah are required for valid expansion; rollout conversion, because existing hand-authored timetables must remain untouched until a teacher chooses automation.
 
+## Shared Naseehah reminder extension
+
+Owner decision 2026-10-28 adds shared daily Naseehah start reminders to student AM/PM subscriptions on Windows and mobile. Names containing `Naseeha` identify the blocks, including combined prayer/break periods. Reminder sources are all timetables assigned that day, with date overrides taking precedence, independent of selected classes. The Announcement notifications switch controls these reminders; matching starts across timetables are deduplicated by date/time and replace duplicate class start alerts. Existing class notifications and AM/PM announcement targeting continue. This extends ADR-020 without adding daily announcement records or a new schema.
+
 ## Audience week-schedule follow-ups
 
 - Teacher preview of a non-default track needs a separate persisted `PreviewClassIds` concept and UI; it must not reuse student audience selection because that changes announcement visibility.

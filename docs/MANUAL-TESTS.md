@@ -412,6 +412,16 @@ For PR #1, the Admin-tab checks below supersede the legacy six-tab assertion imm
 
 ### Student classes and optional Naseehah
 
+Pending device acceptance for automatic Naseehah reminders (2026-10-28):
+
+- [ ] On Windows and Android, select a PM class and AM Naseehah. With Announcement notifications on and lesson starts off, a morning `Break / Naseehah` assigned to another class produces one `Naseehah starting` notification. An ordinary lesson from that other class stays silent.
+- [ ] Exercise AM only, PM only, both, and neither. Noon belongs to PM; combined `Isha + Naseehah` alerts at the whole block's start. The picker explains reminders and the Announcement setting.
+- [ ] Duplicate one Naseehah start across assigned class timetables. Get one reminder, including when that block is in the selected class timetable. Restart Windows around the boundary and confirm it does not repeat.
+- [ ] Turn Announcement notifications off or opt out and confirm pending shared reminders disappear on Android. Existing class start/end alerts continue according to lesson settings.
+- [ ] Sync a closed date or replacement timetable before the boundary and confirm stale reminders are removed; an unassigned timetable never supplies reminders. Restore a school day and confirm the following day's reminder returns.
+
+Earlier student-selection checks:
+
 - [x] Select multiple classes using the checkbox rows. With no class selected, **Start student session** remains blocked and shows the inline `Select at least one class.` error.
 - [x] Confirm the independent optional Naseehah checkboxes allow all four states: AM only, PM only, both, and neither.
 - [x] Select a PM-running class and AM Naseehah only. Its class-tagged PM period notification still fires; an AM-audience announcement appears/notifies and a PM-audience announcement does not.

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.16.0-beta.6 - 2026-10-28
+
+### Added
+
+- Student AM/PM Naseehah choices now also subscribe to automatic daily start reminders on Windows and mobile. Reminders follow all timetables assigned that day, respect date overrides and Announcement notifications, and merge shared starts across classes without duplicating the student's class start alert.
+
 ## 0.16.0-beta.5 - 2026-10-27
 
 ### Fixed

@@ -226,6 +226,32 @@ export function getNotificationEvents(
   );
 }
 
+export function isNaseehah(period: Period): boolean {
+  return /naseeha/i.test(period.name);
+}
+
+// Shared reminders use all assigned sources, while a date override replaces them all.
+export function getNaseehahStartEvents(snapshot: ScheduleSnapshot, date: Date): NotificationEvent[] {
+  const day = startOfLocalDay(date);
+  const override = findLast(snapshot.dateOverrides, (item) => item.date === formatLocalDate(day));
+  const timetableIds = new Set(snapshot.weekSchedule
+    .filter((entry) => entry.weekday === jsDayToDbWeekday(day))
+    .map((entry) => entry.timetableId));
+  const periods = override ? resolveDay(snapshot, day).periods : snapshot.timetables
+    .filter((timetable) => timetableIds.has(timetable.id)).flatMap((timetable) => timetable.periods);
+  const starts = new Map<number, Period>();
+  for (const period of [...periods].filter((item) => isValidPeriod(item) && isNaseehah(item))
+    .sort((left, right) => ordinalCompare(left.id, right.id))) {
+    const minutes = parseTimeToMinutes(period.startTime);
+    if (!starts.has(minutes)) starts.set(minutes, period);
+  }
+  return [...starts.entries()].sort(([left], [right]) => left - right).map(([minutes, period]) => {
+    const item = occurrence(day, period);
+    const time = `${Math.floor(minutes / 60).toString().padStart(2, '0')}${(minutes % 60).toString().padStart(2, '0')}`;
+    return { key: `naseehah:${formatLocalDate(day)}:${time}`, kind: 'naseehah', occurrence: item, triggerTime: item.startsAt };
+  });
+}
+
 export function formatLocalDate(date: Date): string {
   return `${date.getFullYear().toString().padStart(4, '0')}-${(date.getMonth() + 1)
     .toString()
