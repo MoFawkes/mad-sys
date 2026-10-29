@@ -1,10 +1,10 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-10-28
+Last updated: 2026-10-29
 
-## 2026-10-28 beta.8 interface update
+## 2026-10-29 beta.8 interface release
 
-Owner requested grouped sidebar navigation in Windows administration and restoration of clean toolbar icons, with beta publication. Implemented a grouped icon sidebar over the existing nine editors, shorter Classes/Staff access labels, and larger icon-only main-toolbar actions with tooltips/accessibility names. Release build and 247 application tests passed (one interactive test skipped). Isolated renders of the actual WPF layouts cover both themes and a short/narrow window; a harness verified all nine navigation destinations and reverse selection synchronisation. Preparing Windows beta.8; Android remains beta.7. Hosted release gates, publication and installed UI/updater acceptance are pending. See `docs/RELEASE-NOTES-0.16.0-beta.8.md`.
+Owner requested grouped sidebar navigation in Windows administration and restoration of clean toolbar icons, with beta publication. Implemented a grouped icon sidebar over the existing nine editors, shorter Classes/Staff access labels, and larger icon-only main-toolbar actions with tooltips/accessibility names. Release build and 247 application tests passed (one interactive test skipped). Isolated renders of the actual WPF layouts cover both themes and a short/narrow window; a harness verified all nine navigation destinations and reverse selection synchronisation. [Windows beta.8](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0-beta.8) is published from source `7af827c`; Android remains beta.7. All four [tag-bound release gates and packaging](https://github.com/MoFawkes/mad-sys/actions/runs/40790643033) passed. Verified packaged version/source, updater manifest size/SHA1 and downloaded asset SHA256. Six public assets include SHA256SUMS.txt; GitHub's latest-release API still reports stable v0.15.5. Installed UI/updater acceptance remains pending. See `docs/RELEASE-NOTES-0.16.0-beta.8.md`.
 
 ## 2026-10-28 beta.7 release activity
 

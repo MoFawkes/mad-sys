@@ -17,6 +17,8 @@ This update changes Windows only. [Android beta.7 APK](https://github.com/MoFawk
 
 Release build and 247 Windows application tests passed locally; one interactive sign-in test is opt-in. Rendered the actual WPF administration and clock layouts with isolated sample data in light and dark themes, including a short/narrow admin window. Checked navigation to all nine sections and synchronisation in both directions between the sidebar and content selection. This checks the real layouts with sample data, rather than installed-client or live editing acceptance.
 
+All four [hosted release checks and Windows packaging](https://github.com/MoFawkes/mad-sys/actions/runs/40790643033) passed. Verified the packaged beta.8/source version, updater manifest size/SHA1 and downloaded asset SHA256 digests. SHA256SUMS.txt accompanies the release assets.
+
 Installed updater, real-device reminder delivery and the existing live-audio/feedback/DPI acceptance checks remain before stable promotion. The installer is unsigned.
 
 [Previous beta](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0-beta.7) · [Stable fallback](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.15.5)
