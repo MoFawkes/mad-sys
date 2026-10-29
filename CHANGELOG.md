@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.16.0-beta.8 - 2026-10-29
+
+### Changed
+
+- Windows administration now uses a grouped icon sidebar for Schedule, People & access, Communication and Activity, with a clear page heading. All existing editors remain available; Classes and Staff access have shorter labels.
+- Restore the clock toolbar's clean icon-only actions with larger icons, hover labels and accessibility names. The live listening highlight and pinned state remain visible.
+
+## 0.16.0-beta.7 - 2026-10-28
+
+### Added
+
+- Student AM/PM Naseehah choices now also subscribe to automatic daily start reminders on Windows and mobile. Reminders follow all timetables assigned that day, respect date overrides and Announcement notifications, and merge shared starts across classes without duplicating the student's class start alert.
+
+## 0.16.0-beta.5 - 2026-10-27
+
+### Fixed
+
+- Windows grouped timetable layout: lesson/session blocks keep a readable size, sit together with dividers, and wrap within the visible list at narrow widths. Removes the unrelated selected-row outline.
+- Give the timetable more room in wide Windows windows and keep the clock/current/next content together, avoiding a stretched empty current-lesson box. Android remains on beta.3.
+
+## 0.16.0-beta.3 - 2026-10-27
+
+### Added
+
+- Optional "Include beta updates" in Windows and Android Settings, off by default. Windows checks/downloads prereleases after saving and restarting; disabling it also prevents applying a queued beta on exit. A newer stable release can replace an installed beta without downgrading.
+- Android checks the selected release channel once a day while foregrounded, prompts once per available version, and offers a manual check in Settings. Downloads open only after choosing Download; Android still requires approval to install the APK. Offline checks are quiet.
+
+## 0.16.0-beta.2 - 2026-10-27
+
+### Added
+
+- Report a problem from Settings on Windows and Android. Review optional app details and up to five chosen attachments (10 MB combined), then save or share a ZIP yourself. No automatic sending or raw-log collection.
+
+### Changed
+
+- Group today's periods by matching start/end times, with divided session columns and a single heading for shared lessons such as Isha + Naseehah.
+
+## 0.16.0-beta.1 - 2026-10-26
+
+### Added
+
+- Listen to Al-Qalam Institute inside the Windows and mobile apps using eMasjid Live's official mini-player, with manual playback, a reload option, and light/dark player themes that fit the surrounding app.
+- Keep listening access discreet during lessons and highlight it during a scheduled Naseehah only when the official player reports a live broadcast. Availability checks run once a minute during Naseehah; playback remains manual.
+
+### Fixed
+
+- Give Android notifications a transparent monochrome quill icon instead of falling back to the launcher icon, which can appear as a solid white circle in the status bar. Requires a new mobile build.
+
 ## 0.15.4 - 2026-10-25
 
 ### Added

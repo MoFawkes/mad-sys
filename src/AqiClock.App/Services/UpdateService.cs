@@ -11,16 +11,18 @@ public sealed partial class UpdateService : IUpdateService
 {
     private readonly AqiClockUpdateOptions _options;
     private readonly ILogger<UpdateService> _logger;
+    private readonly ISettingsService _settings;
     private readonly CancellationTokenSource _lifetime = new();
     private UpdateManager? _manager;
     private Task? _loop;
     private bool _restartRequested;
     private bool _disposed;
 
-    public UpdateService(IOptions<AqiClockUpdateOptions> options, ILogger<UpdateService> logger)
+    public UpdateService(IOptions<AqiClockUpdateOptions> options, ILogger<UpdateService> logger, ISettingsService settings)
     {
         _options = options.Value;
         _logger = logger;
+        _settings = settings;
         Current = string.IsNullOrWhiteSpace(_options.RepositoryUrl)
             ? new(UpdateStatus.Disabled)
             : new(UpdateStatus.Checking);
@@ -33,7 +35,7 @@ public sealed partial class UpdateService : IUpdateService
     public void Start()
     {
         if (_loop is not null || string.IsNullOrWhiteSpace(_options.RepositoryUrl)) return;
-        _manager = new UpdateManager(new GithubSource(_options.RepositoryUrl, null, false));
+        _manager = new UpdateManager(new GithubSource(_options.RepositoryUrl, null, _settings.Current.IncludeBetaUpdates));
         if (!_manager.IsInstalled) { SetState(new(UpdateStatus.Disabled)); return; }
         _loop = RunAsync(_lifetime.Token);
     }
@@ -41,7 +43,8 @@ public sealed partial class UpdateService : IUpdateService
     public void PrepareUpdateOnExit()
     {
         VelopackAsset? pending = _manager?.UpdatePendingRestart;
-        if (pending is not null) _manager!.WaitExitThenApplyUpdates(pending, silent: true, restart: _restartRequested);
+        if (pending is not null && (_settings.Current.IncludeBetaUpdates || !pending.Version.IsPrerelease))
+            _manager!.WaitExitThenApplyUpdates(pending, silent: true, restart: _restartRequested);
     }
 
     public void RequestRestartToApply() => _restartRequested = true;
@@ -62,7 +65,7 @@ public sealed partial class UpdateService : IUpdateService
         try
         {
             VelopackAsset? pending = _manager!.UpdatePendingRestart;
-            if (pending is not null)
+            if (pending is not null && (_settings.Current.IncludeBetaUpdates || !pending.Version.IsPrerelease))
             {
                 SetState(new(UpdateStatus.Downloaded, pending.Version.ToString()));
                 return;
@@ -70,7 +73,17 @@ public sealed partial class UpdateService : IUpdateService
             SetState(new(UpdateStatus.Checking));
             UpdateInfo? update = await _manager.CheckForUpdatesAsync().ConfigureAwait(false);
             if (update is null) { SetState(new(UpdateStatus.UpToDate)); return; }
+            if (update.TargetFullRelease.Version.IsPrerelease && !_settings.Current.IncludeBetaUpdates)
+            {
+                SetState(new(UpdateStatus.UpToDate));
+                return;
+            }
             await _manager.DownloadUpdatesAsync(update, cancelToken: token).ConfigureAwait(false);
+            if (update.TargetFullRelease.Version.IsPrerelease && !_settings.Current.IncludeBetaUpdates)
+            {
+                SetState(new(UpdateStatus.UpToDate));
+                return;
+            }
             SetState(new(UpdateStatus.Downloaded, update.TargetFullRelease.Version.ToString()));
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }

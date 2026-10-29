@@ -17,6 +17,15 @@ public sealed record PeriodDisplay(string Name, string Time, bool IsCurrent, boo
     public bool HasClassName => !string.IsNullOrWhiteSpace(ClassName);
 }
 
+public sealed record PeriodGroupDisplay(string Time, IReadOnlyList<PeriodDisplay> Periods)
+{
+    public bool IsCurrent => Periods.Any(period => period.IsCurrent);
+    public bool IsPast => Periods.All(period => period.IsPast);
+    public bool HasSharedName => Periods.Count > 1 && Periods.All(period =>
+        string.Equals(period.Name, Periods[0].Name, StringComparison.OrdinalIgnoreCase));
+    public string Name => HasSharedName ? Periods[0].Name : string.Empty;
+}
+
 public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, IRecipient<TimeJumped>, IRecipient<DataChanged>, IRecipient<AudienceChanged>
 {
     private readonly ITimetableRepository _timetables;
@@ -26,6 +35,7 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
     private readonly IClock _clock;
     private readonly IClassRepository? _classes;
     private IReadOnlyDictionary<Guid, string> _classNames = new Dictionary<Guid, string>();
+    private IReadOnlyDictionary<Guid, int> _classOrder = new Dictionary<Guid, int>();
     private ScheduleSnapshot _snapshot = ScheduleSnapshot.Empty;
 
     [ObservableProperty] private string _timeText = "--:--:--";
@@ -38,10 +48,13 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
     [ObservableProperty] private string _nextLesson = "No upcoming lessons";
     [ObservableProperty] private double _progress;
     [ObservableProperty] private bool _hasCurrentLesson;
+    [ObservableProperty] private bool _isNaseehah;
+    [ObservableProperty] private bool _isTeachingLesson;
     [ObservableProperty] private bool _hasPeriods;
     [ObservableProperty] private string _timeZoneNote = string.Empty;
 
     public ObservableCollection<PeriodDisplay> TodayPeriods { get; } = [];
+    public ObservableCollection<PeriodGroupDisplay> TodayPeriodGroups { get; } = [];
 
     public ClockViewModel(ITimetableRepository timetables, IWeekScheduleRepository weekSchedule, IDateOverrideRepository overrides, IDeviceAudienceContext audience, IMessenger messenger, IClock? clock = null, IClassRepository? classes = null)
     {
@@ -59,7 +72,11 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
         IReadOnlyList<DateOverride> overrides = await _overrides.GetAllAsync(cancellationToken);
         _snapshot = new ScheduleSnapshot(timetables, schedule, overrides, _audience.Current.SelectedClassIds);
         if (_classes is not null)
-            _classNames = (await _classes.GetAllAsync(cancellationToken)).ToDictionary(item => item.Id, item => item.Name);
+        {
+            IReadOnlyList<Class> classes = await _classes.GetAllAsync(cancellationToken);
+            _classNames = classes.ToDictionary(item => item.Id, item => item.Name);
+            _classOrder = classes.ToDictionary(item => item.Id, item => item.SortOrder);
+        }
     }
 
     public void Receive(ClockTick message) => Recompute(message.Now);
@@ -83,6 +100,8 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
             : string.Empty;
         LessonStatus status = ScheduleEngine.GetStatus(_snapshot, now);
         HasCurrentLesson = status.Current is not null;
+        IsNaseehah = status.Current?.Period.Name.Contains("Naseeha", StringComparison.OrdinalIgnoreCase) == true;
+        IsTeachingLesson = status.Current?.Period.IsLesson == true && !IsNaseehah;
         CurrentLesson = status.Current?.Period.Name ?? (status.Day.IsSchoolDay ? "No lesson right now" : "No lessons today");
         CurrentDetail = status.Current is null ? string.Empty : $"Ends at {status.Current.Period.EndTime:HH:mm}";
         Remaining = status.TimeRemaining is { } remaining ? FormatDuration(remaining) : string.Empty;
@@ -94,14 +113,23 @@ public partial class ClockViewModel : ObservableObject, IRecipient<ClockTick>, I
             ? FormatNextLesson(next, DateOnly.FromDateTime(now))
             : "No upcoming lessons";
         TodayPeriods.Clear();
+        TodayPeriodGroups.Clear();
+        var rows = new List<(TimeOnly Start, TimeOnly End, Guid? ClassId, PeriodDisplay Display)>();
         TimeOnly time = TimeOnly.FromDateTime(now);
         bool showClasses = _audience.Current.SelectedClassIds.Count > 1;
         foreach (ScheduledPeriod scheduled in status.Day.ScheduledPeriods)
         {
             Period period = scheduled.Period;
             string? className = showClasses && scheduled.ClassId is { } classId ? _classNames.GetValueOrDefault(classId) : null;
-            TodayPeriods.Add(new PeriodDisplay(period.Name, $"{period.StartTime:HH:mm}–{period.EndTime:HH:mm}", status.Current?.Period.Id == period.Id, period.EndTime <= time, className));
+            var display = new PeriodDisplay(period.Name, $"{period.StartTime:HH:mm}–{period.EndTime:HH:mm}", status.Current?.Period.Id == period.Id, period.EndTime <= time, className);
+            TodayPeriods.Add(display);
+            rows.Add((period.StartTime, period.EndTime, scheduled.ClassId, display));
         }
+        foreach (var group in rows.GroupBy(row => (row.Start, row.End)))
+            TodayPeriodGroups.Add(new(group.First().Display.Time, group
+                .OrderBy(row => row.ClassId is { } classId ? _classOrder.GetValueOrDefault(classId, int.MaxValue) : int.MaxValue)
+                .ThenBy(row => row.ClassId?.ToString("D"), StringComparer.Ordinal)
+                .Select(row => row.Display).ToArray()));
         HasPeriods = TodayPeriods.Count > 0;
     }
 

@@ -12,6 +12,26 @@ namespace AqiClock.Application.Tests;
 
 public sealed class SettingsViewModelTests
 {
+    [Fact]
+    public async Task BetaUpdatesAreOptInAndSurviveSavingOtherSettings()
+    {
+        var settings = new SettingsStub();
+        using var viewModel = new SettingsViewModel(settings, new SessionStub(), new SyncStub(),
+            new WindowStub(), new NotificationStub(), new UpdateStub());
+        Assert.False(viewModel.IncludeBetaUpdates);
+        viewModel.IncludeBetaUpdates = true;
+        await viewModel.SaveCommand.ExecuteAsync(null);
+        using var reopened = new SettingsViewModel(settings, new SessionStub(), new SyncStub(),
+            new WindowStub(), new NotificationStub(), new UpdateStub());
+        Assert.True(reopened.IncludeBetaUpdates);
+        reopened.EndWarningMinutes = 7;
+        await reopened.SaveCommand.ExecuteAsync(null);
+        Assert.True(settings.Current.IncludeBetaUpdates);
+        reopened.IncludeBetaUpdates = false;
+        await reopened.SaveCommand.ExecuteAsync(null);
+        Assert.False(settings.Current.IncludeBetaUpdates);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

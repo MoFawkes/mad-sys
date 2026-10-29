@@ -1,6 +1,16 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-09-26
+Last updated: 2026-10-29
+
+## 2026-10-29 beta.8 interface release
+
+Owner requested grouped sidebar navigation in Windows administration and restoration of clean toolbar icons, with beta publication. Implemented a grouped icon sidebar over the existing nine editors, shorter Classes/Staff access labels, and larger icon-only main-toolbar actions with tooltips/accessibility names. Release build and 247 application tests passed (one interactive test skipped). Isolated renders of the actual WPF layouts cover both themes and a short/narrow window; a harness verified all nine navigation destinations and reverse selection synchronisation. [Windows beta.8](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0-beta.8) is published from source `7af827c`; Android remains beta.7. All four [tag-bound release gates and packaging](https://github.com/MoFawkes/mad-sys/actions/runs/40790643033) passed. Verified packaged version/source, updater manifest size/SHA1 and downloaded asset SHA256. Six public assets include SHA256SUMS.txt; GitHub's latest-release API still reports stable v0.15.5. Installed UI/updater acceptance remains pending. See `docs/RELEASE-NOTES-0.16.0-beta.8.md`.
+
+## 2026-10-28 beta.7 release activity
+
+The unpublished beta.6 tag failed the hosted Release analyzer gate (`CA1859` on a notification-plan local variable). Corrected the variable/array length access and passed local Release solution validation: 341 tests passed, with 64 local-stack tests and one interactive test skipped locally. The beta.6 Android build was cancelled. Published a fresh beta.7 tag rather than rewriting the failed tag; all hosted database checks subsequently passed.
+
+Student AM/PM subscriptions now derive shared daily Naseehah start reminders from all assigned timetables, respecting overrides, Announcement notifications and duplicate suppression. Windows and mobile source, picker copy, business rules and acceptance checks are updated. Local validation passed: 247 application tests, 79 domain tests and 157 mobile tests; one interactive Windows test skipped. TypeScript and lint passed. [v0.16.0-beta.7](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0-beta.7) is published for Windows and Android (version code 6), from source `e98895e`. All four [tag-bound hosted checks and Windows packaging](https://github.com/MoFawkes/mad-sys/actions/runs/40788153645) passed. [EAS Android build](https://expo.dev/accounts/denovoorders/projects/aqi-clock/builds/e88360c0-76aa-4eee-b9ec-44e71bc8a00d) succeeded. Verified Windows source/version and updater manifest size/hash; APK signature matches beta.3, with the expected package/version. All seven release assets are public, including SHA256SUMS.txt. Stable remains v0.15.5, independently confirmed via GitHub's latest-release API. Installed-device reminder and updater acceptance remain pending; see `docs/RELEASE-NOTES-0.16.0-beta.7.md` and `docs/MANUAL-TESTS.md`.
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,
