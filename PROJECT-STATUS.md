@@ -2,6 +2,14 @@
 
 Last updated: 2026-11-08
 
+## 2026-11-08 v0.16.0 stable publication
+
+Merged all ten v0.16 beta tags through beta.10 into `main` via [PR #36](https://github.com/MoFawkes/mad-sys/pull/36), merge `bb663df`. Owner then requested tagging and release. Published [v0.16.0](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0) for Windows and Android from annotated source tag `v0.16.0` at `f77d857ccfbab0837c022fae436c1f10a187203d`. This is the public Latest stable release, verified through the unauthenticated GitHub API.
+
+All four [stable-tag hosted checks and Windows packaging](https://github.com/MoFawkes/mad-sys/actions/runs/42505603768) passed. [Android stable build](https://expo.dev/accounts/denovoorders/projects/aqi-clock/builds/1edd23a7-a586-49b0-bcbd-bd9dd3f4d1b7) succeeded with version 0.16.0, version code 9 and the beta.10 signing certificate. Verified both build source identities, Windows embedded version/source and public configuration, updater sizes/SHA1/SHA256, matching portable contents and all uploaded asset digests. Seven public assets include the APK and SHA256SUMS.txt. The recurring-reminder production migration was already deployed before beta.10; no additional database migration was needed for stable.
+
+Installed-device reminder delivery, update installation, sharing, live audio/background behaviour and DPI acceptance remain pending. Stable publication does not mark these manual checks complete. See `docs/RELEASE-NOTES-0.16.0.md` and `docs/MANUAL-TESTS.md`.
+
 ## 2026-11-08 beta.10 recurring teacher reminders
 
 Implemented admin-managed weekly reminders in Windows administration under Announcements → Recurring reminders, with custom title/message, weekday selection, lesson-end/fixed-time triggers and edit/pause/resume/delete actions. Teachers and admins receive reminders on Windows and mobile through Announcement notifications; students cannot read or modify the reminder records. Lesson-end triggers resolve actual assigned timetables, skip non-lessons and closed dates, and merge simultaneous ends per rule. Fixed times use institute time and remain calendar-based on holidays. No announcement-feed item is generated.
@@ -37,13 +45,13 @@ the acceptance script.
 | Area | State |
 |---|---|
 | Staff pilot | v0.14.0 is published; feature/device acceptance is complete, while the real-machine v0.13.3 → v0.14.0 update/restart round-trip remains open |
-| Public release channel | v0.14.0 is Latest on `MoFawkes/aqi-clock-releases` |
-| Source | `main` at `0889e44`; annotated tag `v0.14.0` includes PR #28 and the final acceptance record |
-| Production backend | Migration history runs through `20260827223000`; the four original generator migrations are applied, with zero generated timetable/configuration rows |
-| Latest release | v0.14.0 — unified desktop teacher-feedback, interruption reflow, and Expo mobile companion |
-| Next release | v0.15.0 simplified timetable automation implemented; teacher acceptance passed, compatibility/deployment gates remain |
-| Candidate CI | All four required checks passed for final acceptance-fix PR #28 |
-| Release workflow | Run `32755130666` is green; v0.14.0 was published at 2026-08-24 18:42:41Z with full, delta, setup, portable, and stable-manifest assets |
+| Public release channel | v0.16.0 is Latest stable on `MoFawkes/aqi-clock-releases`, for Windows and Android |
+| Source | `main` contains PR #36; annotated tag `v0.16.0` points to release source `f77d857` |
+| Production backend | Migration history runs through `20261108160431`; recurring reminders are deployed with staff-only reads, admin writes, auditing and Realtime |
+| Latest release | v0.16.0 — live listening, feedback export, grouped timetables, Windows navigation, Naseehah and recurring teacher reminders |
+| Next release | No next version assigned; installed-device manual acceptance remains open |
+| Candidate CI | All four stable-tag checks passed; post-merge main CI also passed |
+| Release workflow | Run `42505603768` passed; v0.16.0 published at 2026-11-08 17:42:45Z, with seven verified Windows/Android/checksum assets |
 
 ## Release split — decided 2026-08-02
 

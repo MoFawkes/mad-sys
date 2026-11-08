@@ -22,7 +22,9 @@ Android retains package `com.mofawkes.aqiclock` and the existing signing certifi
 
 The recurring-reminder production migration is already deployed and verified, including RLS, admin-only writes, auditing and Realtime membership. Production security advisors report no errors.
 
-The verified beta source passed 85 domain, 261 Windows application, 16 SQLite/integration and 391 Supabase tests; one opt-in interactive Windows test was skipped. All 162 mobile tests, TypeScript and ESLint passed. Actual WPF layouts/action bindings were checked in light/dark themes and at small window sizes. Stable-tag hosted release checks and package verification are recorded alongside this release.
+The verified beta source passed 85 domain, 261 Windows application, 16 SQLite/integration and 391 Supabase tests; one opt-in interactive Windows test was skipped. All 162 mobile tests, TypeScript and ESLint passed. Actual WPF layouts/action bindings were checked in light/dark themes and at small window sizes.
+
+All four [stable-tag hosted checks and Windows packaging](https://github.com/MoFawkes/mad-sys/actions/runs/42505603768) passed. The [Android stable build](https://expo.dev/accounts/denovoorders/projects/aqi-clock/builds/1edd23a7-a586-49b0-bcbd-bd9dd3f4d1b7) succeeded. Both clients were built from `f77d857ccfbab0837c022fae436c1f10a187203d`. Verified Windows embedded version/source, public configuration, updater sizes and hashes, matching portable contents, Android package/version and signing continuity. SHA256SUMS.txt accompanies the seven public assets.
 
 Windows notifications require AQI Clock to remain running, including in the notification area. Mobile uses a seven-day notification window with an earliest-60-request limit. Offline devices retain their last synced plan until reconnecting; edits, pauses and deletion take effect after sync. Notification permissions and OS restrictions apply.
 

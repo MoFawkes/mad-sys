@@ -9,6 +9,7 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] Deliver on Windows and mobile with institute time, timetable changes/closures, settings and deduplication.
 - [x] Verify domain, scheduler, editor/action bindings, SQLite, database permissions and mobile reconciliation; inspect light/dark/small-window renders.
 - [x] Apply and verify the production database migration, then publish Windows and Android beta.10 with verified assets and unchanged stable Latest.
+- [x] Merge the full beta series into main, tag v0.16.0 and publish verified Windows/Android stable assets, retaining Android signing continuity.
 - [ ] Complete installed Windows and Android notification acceptance in `docs/MANUAL-TESTS.md`.
 
 ## Phase 1 — Foundation ✅ (complete)
