@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.16.0 - 2026-11-08
+
+### Added
+
+- Promote the v0.16 beta series to stable Windows and Android: live eMasjid listening, feedback ZIP export, readable grouped timetables, Windows navigation/toolbar improvements, automatic student Naseehah reminders and admin-managed recurring teacher reminders.
+- Android stable version is 0.16.0, version code 9, retaining the existing package and signing identity. The recurring-reminder database migration is already deployed. Installed-device manual acceptance remains documented as pending.
+
 ## 0.16.0-beta.10 - 2026-11-08
 
 ### Added
