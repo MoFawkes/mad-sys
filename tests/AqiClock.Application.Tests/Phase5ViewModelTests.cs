@@ -444,6 +444,36 @@ public sealed class Phase5ViewModelTests
         await vm.LoadAsync(true); Assert.Equal(0, vm.UnreadCount); Assert.True(await store.IsReadAsync(id));
     }
 
+    [Theory]
+    [InlineData(-12)]
+    [InlineData(12)]
+    public async Task AnnouncementReaderUsesAbsoluteTimeAcrossInstituteAndDeviceZones(int offsetHours)
+    {
+        var clock = new AnnouncementTestClock(offsetHours);
+        var item = new Announcement(Guid.NewGuid(), "Meeting", "At 3", clock.UtcNow.AddMinutes(-2),
+            Guid.NewGuid(), clock.UtcNow.AddMinutes(30), PublishAt: clock.UtcNow.AddMinutes(-1));
+        var repository = new TimeFilteredAnnouncements(item);
+        var store = new ReadStore();
+        var vm = new AnnouncementsViewModel(repository, store, new ProfileRepository(), clock, new WeakReferenceMessenger());
+
+        await vm.LoadAsync(false);
+
+        Assert.Equal(item.Id, Assert.Single(vm.Items).Id);
+        Assert.Equal("2 min ago", vm.Items[0].RelativeTime);
+        Assert.Equal(clock.UtcNow, repository.QueriedAt);
+        Assert.Equal(1, vm.UnreadCount);
+    }
+
+    private sealed class TimeFilteredAnnouncements(Announcement item) : IAnnouncementRepository
+    {
+        public DateTimeOffset? QueriedAt { get; private set; }
+        public Task<IReadOnlyList<Announcement>> GetCurrentAsync(DateTimeOffset now, CancellationToken cancellationToken = default)
+        {
+            QueriedAt = now;
+            return Task.FromResult<IReadOnlyList<Announcement>>(item.IsPublishedAt(now) && !item.IsExpiredAt(now) ? [item] : []);
+        }
+    }
+
     [Fact]
     public async Task AnnouncementLoadCarriesEMasjidLinkIntoReaderDisplay()
     {

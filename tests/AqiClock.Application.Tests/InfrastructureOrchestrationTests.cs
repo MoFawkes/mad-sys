@@ -20,6 +20,21 @@ namespace AqiClock.Application.Tests;
 
 public sealed class InfrastructureOrchestrationTests
 {
+    [Theory]
+    [InlineData("Pacific/Kiritimati")]
+    [InlineData("Pacific/Pago_Pago")]
+    public void InstituteClockExposesUtcInstantIndependentlyOfWallTime(string zone)
+    {
+        AqiClock.Domain.Time.IClock clock = new InstituteClock(new OrganizationRepository(zone),
+            new WeakReferenceMessenger(), NullLogger<InstituteClock>.Instance);
+        DateTimeOffset before = DateTimeOffset.UtcNow;
+
+        DateTimeOffset instant = clock.UtcNow;
+
+        Assert.InRange(instant, before, DateTimeOffset.UtcNow);
+        Assert.Equal(TimeSpan.Zero, instant.Offset);
+    }
+
     [Fact]
     public void InstituteClockResolvesIanaZoneAndFallsBackForUnknownZone()
     {

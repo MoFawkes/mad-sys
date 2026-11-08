@@ -19,6 +19,7 @@ public sealed partial class InstituteClock : IInstituteClock, IRecipient<DataCha
     { _organizations = organizations; _logger = logger; messenger.Register(this); }
 
     public DateTime Now => TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, Zone).DateTime;
+    public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
     public DateOnly LocalToday => DateOnly.FromDateTime(Now);
     public DateTime DeviceNow => DateTime.Now;
     public string TimeZoneId { get { _ = Zone; return _timeZoneId; } }

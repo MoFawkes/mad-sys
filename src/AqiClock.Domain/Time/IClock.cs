@@ -11,6 +11,9 @@ public interface IClock
 
     /// <summary>Current local calendar date.</summary>
     DateOnly LocalToday { get; }
+
+    /// <summary>Current instant for publication, expiry, and other absolute timestamps.</summary>
+    DateTimeOffset UtcNow => new DateTimeOffset(Now).ToUniversalTime();
 }
 
 public interface IInstituteClock : IClock

@@ -84,7 +84,7 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
     {
         await _log.PruneAsync(DateTimeOffset.UtcNow.AddDays(-7), cancellationToken).ConfigureAwait(false);
         await RebuildAsync(_clock.Now, cancellationToken).ConfigureAwait(false);
-        await ProcessAnnouncementsAsync(_clock.Now, cancellationToken).ConfigureAwait(false);
+        await ProcessAnnouncementsAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task RebuildAsync(DateTime now, CancellationToken cancellationToken = default)
@@ -214,7 +214,7 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
     public void Receive(ClockTick message) => RunSafely(async () =>
     {
         await ProcessAsync(message.Now).ConfigureAwait(false);
-        await ProcessAnnouncementsAsync(message.Now).ConfigureAwait(false);
+        await ProcessAnnouncementsAsync().ConfigureAwait(false);
     });
     public void Receive(TimeJumped message) => RunSafely(async () => { await RebuildAsync(message.Current).ConfigureAwait(false); await ProcessAsync(message.Current).ConfigureAwait(false); });
     public void Receive(DataChanged message)
@@ -222,7 +222,7 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
         if (message.Table is CacheTable.Timetables or CacheTable.Periods or CacheTable.WeekSchedule or CacheTable.DateOverrides or CacheTable.RecurringReminders)
             RunSafely(() => RebuildAsync(_clock.Now));
         if (message.Table is CacheTable.Announcements)
-            RunSafely(() => ProcessAnnouncementsAsync(_clock.Now));
+            RunSafely(() => ProcessAnnouncementsAsync());
     }
     public void Receive(SessionChanged message)
     {
@@ -231,7 +231,7 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
     public void Receive(AudienceChanged message) => RunSafely(async () =>
     {
         await RebuildAsync(_clock.Now).ConfigureAwait(false);
-        await ProcessAnnouncementsAsync(_clock.Now).ConfigureAwait(false);
+        await ProcessAnnouncementsAsync().ConfigureAwait(false);
     });
 
     private NotificationEvent[] BuildPlan(DateOnly date, TimeSpan lead)
@@ -267,17 +267,17 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
         return start is { Skipped: false, FiredAt: { } firedAt } && new DateTimeOffset(now) - firedAt < TimeSpan.FromSeconds(60);
     }
 
-    private async Task ProcessAnnouncementsAsync(DateTime now, CancellationToken cancellationToken = default)
+    private async Task ProcessAnnouncementsAsync(CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<Announcement> items = await _announcements.GetCurrentAsync(new DateTimeOffset(now), cancellationToken).ConfigureAwait(false);
-        DateTimeOffset instant = new(now);
+        DateTimeOffset instant = _clock.UtcNow;
+        IReadOnlyList<Announcement> items = await _announcements.GetCurrentAsync(instant, cancellationToken).ConfigureAwait(false);
         foreach (Announcement item in items.Where(item => item.IsPublishedAt(instant) && !item.IsExpiredAt(instant) && _audience.Matches(item)))
         {
             string key = $"announcement:{item.Id:N}";
             if (await _log.ContainsAsync(key, cancellationToken).ConfigureAwait(false)) continue;
             if (_settings.Current.AnnouncementNotifications)
                 await _presenter.ShowAnnouncementAsync(item, cancellationToken).ConfigureAwait(false);
-            await _log.RecordAsync(key, new DateTimeOffset(now), !_settings.Current.AnnouncementNotifications, cancellationToken).ConfigureAwait(false);
+            await _log.RecordAsync(key, instant, !_settings.Current.AnnouncementNotifications, cancellationToken).ConfigureAwait(false);
         }
     }
 

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.16.1 - 2026-11-08
+
+### Fixed
+
+- Windows announcement publication, expiry, relative ages and notification timestamps use UTC instants, preventing hidden or mistimed announcements when institute and device timezones differ. Android remains on v0.16.0.
+
 ## 0.16.0 - 2026-11-08
 
 ### Added

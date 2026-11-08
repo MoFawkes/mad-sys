@@ -44,7 +44,7 @@ public partial class AnnouncementsViewModel : ObservableObject, IRecipient<DataC
 
     public async Task LoadAsync(bool markRead, CancellationToken cancellationToken = default)
     {
-        DateTimeOffset now = new(_clock.Now);
+        DateTimeOffset now = _clock.UtcNow;
         IReadOnlyList<Announcement> announcements = await _repository.GetCurrentAsync(now, cancellationToken);
         // Student devices never sync profiles (student RLS withholds staff data), so an author
         // lookup would miss on every row. Show no author rather than "Unknown" on each one.

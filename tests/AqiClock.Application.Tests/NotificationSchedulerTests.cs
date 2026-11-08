@@ -11,6 +11,25 @@ namespace AqiClock.Application.Tests;
 
 public sealed class NotificationSchedulerTests
 {
+    [Theory]
+    [InlineData(-12)]
+    [InlineData(12)]
+    public async Task AnnouncementNotificationsUseAbsoluteTimeAcrossInstituteAndDeviceZones(int offsetHours)
+    {
+        var clock = new AnnouncementTestClock(offsetHours);
+        SchedulerFixture fixture = CreateFixture(clock.Now);
+        var item = new Announcement(Guid.NewGuid(), "Notice", "Body", clock.UtcNow.AddMinutes(-2),
+            Guid.NewGuid(), clock.UtcNow.AddMinutes(30), PublishAt: clock.UtcNow.AddMinutes(-1));
+        fixture.Announcements.Items = [item];
+        using NotificationScheduler scheduler = fixture.Create(clock);
+
+        await scheduler.StartAsync();
+        fixture.Messenger.Send(new ClockTick(clock.Now));
+
+        Assert.Equal(1, fixture.Presenter.Announcements);
+        Assert.Equal(clock.UtcNow, fixture.Log.Entries[$"announcement:{item.Id:N}"].FiredAt);
+    }
+
     [Fact]
     public async Task RecurringLessonEndIsIndependentOfWarningsAndDoesNotRepeatAfterRestart()
     {
@@ -521,7 +540,7 @@ public sealed class NotificationSchedulerTests
 
         public void SetPeriods(params Period[] periods) => Timetables.Items = [new Timetable(_timetableId, "Normal", false, periods)];
 
-        public NotificationScheduler Create() => new(Timetables, Week, Overrides, Announcements, Classes, Audience, Log, Presenter, Settings, Clock, Messenger, NullLogger<NotificationScheduler>.Instance, Reminders);
+        public NotificationScheduler Create(IClock? clock = null) => new(Timetables, Week, Overrides, Announcements, Classes, Audience, Log, Presenter, Settings, clock ?? Clock, Messenger, NullLogger<NotificationScheduler>.Instance, Reminders);
     }
 
     private sealed class FakeReminders : IRecurringReminderRepository
