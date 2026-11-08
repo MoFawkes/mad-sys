@@ -5,6 +5,10 @@ do $$
 declare
     versions text;
 begin
+    if to_regclass('public.recurring_reminders') is null
+       or not (select relrowsecurity from pg_class where oid = 'public.recurring_reminders'::regclass) then
+        raise exception 'Generator rollback removed or unsecured unrelated recurring reminders';
+    end if;
     if to_regclass('public.organization_anchors') is not null
        or to_regclass('public.anchor_standing_times') is not null
        or to_regclass('public.anchor_date_overrides') is not null
@@ -58,7 +62,7 @@ begin
 
     select string_agg(version, ',' order by version) into versions
     from supabase_migrations.schema_migrations;
-    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000,20260807110000,20260807120000,20260826214012,20260826225951,20260827204758,20260827223000,20260925173216,20260925173217' then
+    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000,20260807110000,20260807120000,20260826214012,20260826225951,20260827204758,20260827223000,20260925173216,20260925173217,20261108160431' then
         raise exception 'Logical rollback rewrote migration history: %', versions;
     end if;
 end $$;

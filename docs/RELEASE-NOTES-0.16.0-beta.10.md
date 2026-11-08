@@ -1,4 +1,4 @@
-# AQI Clock v0.16.0-beta.9
+# AQI Clock v0.16.0-beta.10
 
 Admins can now create recurring reminders for teachers on Windows and Android.
 
@@ -11,7 +11,7 @@ Admins can now create recurring reminders for teachers on Windows and Android.
 
 ## Install
 
-Use the Windows Setup executable or Android APK attached to this release. On Windows, enable **Settings → About → Include beta updates**, Save and restart to check for the update. Android retains its package/signing identity, with version name 0.16.0-beta.9 and version code 7.
+Use the Windows Setup executable or Android APK attached to this release. On Windows, enable **Settings → About → Include beta updates**, Save and restart to check for the update. Android retains its package/signing identity, with version name 0.16.0-beta.10 and version code 8.
 
 This is an opt-in prerelease. Stable remains v0.15.5. The Windows installer is unsigned.
 

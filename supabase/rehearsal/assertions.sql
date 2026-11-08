@@ -4,14 +4,14 @@
 -- production_state.sql.
 -- Every failure raises, which fails the psql run via ON_ERROR_STOP.
 
--- Migration history took the incremental path: all sixteen versions recorded,
+-- Migration history took the incremental path: all seventeen versions recorded,
 -- including the four generator migrations already applied to the hosted estate.
 do $$
 declare versions text;
 begin
     select string_agg(version, ',' order by version) into versions
     from supabase_migrations.schema_migrations;
-    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000,20260807110000,20260807120000,20260826214012,20260826225951,20260827204758,20260827223000,20260925173216,20260925173217' then
+    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000,20260807110000,20260807120000,20260826214012,20260826225951,20260827204758,20260827223000,20260925173216,20260925173217,20261108160431' then
         raise exception 'Unexpected migration history: %', versions;
     end if;
 end $$;
@@ -314,10 +314,13 @@ begin
     if not (select relrowsecurity from pg_class where oid = 'public.period_classes'::regclass) then
         raise exception 'period_classes has row level security disabled';
     end if;
+    if not (select relrowsecurity from pg_class where oid = 'public.recurring_reminders'::regclass) then
+        raise exception 'recurring_reminders has row level security disabled';
+    end if;
     select string_agg(tablename, ',' order by tablename) into tables
     from pg_publication_tables
     where pubname = 'supabase_realtime' and schemaname = 'public';
-    if tables <> 'announcements,classes,date_overrides,period_classes,periods,profiles,timetables,week_schedule' then
+    if tables <> 'announcements,classes,date_overrides,period_classes,periods,profiles,recurring_reminders,timetables,week_schedule' then
         raise exception 'Unexpected realtime publication tables: %', tables;
     end if;
 end $$;
