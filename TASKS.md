@@ -2,6 +2,15 @@
 
 Ordered by implementation dependency: each phase builds only on the phases above it. Specifications: see `docs/`. Decision references (ADR-x) are in `docs/DECISIONS.md`; business inputs (B-x) in `docs/SPECIFICATION.md` §5.
 
+## Recurring teacher reminders — 2026-11-08
+
+- [x] Add staff-only, admin-writable recurring rules with validation, auditing and Realtime sync.
+- [x] Add Windows admin creation, weekday/timing selection, editing, pause/resume and deletion.
+- [x] Deliver on Windows and mobile with institute time, timetable changes/closures, settings and deduplication.
+- [x] Verify domain, scheduler, editor/action bindings, SQLite, database permissions and mobile reconciliation; inspect light/dark/small-window renders.
+- [ ] Apply the database migration before publishing updated clients.
+- [ ] Complete installed Windows and Android notification acceptance in `docs/MANUAL-TESTS.md`.
+
 ## Phase 1 — Foundation ✅ (complete)
 
 - [x] Initialise the .NET solution and required projects.

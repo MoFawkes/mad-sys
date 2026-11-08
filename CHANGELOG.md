@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.16.0-beta.9 - 2026-11-08
+
+### Added
+
+- Admin-managed recurring teacher reminders under Announcements → Recurring reminders. Choose weekdays and either each lesson's end or a fixed institute time; edit, pause/resume or delete rules. Windows and Android delivery follows Announcement notifications, with timetable overrides and closures applied to lesson-end triggers.
+
+### Deployment
+
+- Apply `20261108160431_recurring_reminders.sql` before deploying either updated client. This adds a staff-only, admin-writable, audited Realtime table. Installed-device notification acceptance remains pending.
+
 ## 0.16.0-beta.8 - 2026-10-29
 
 ### Changed

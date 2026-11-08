@@ -99,6 +99,23 @@ public sealed class SqliteAnnouncementRepository(SqliteCacheDatabase database) :
         Enum.Parse<T>(string.Concat(value.Split('_').Select(static part => char.ToUpperInvariant(part[0]) + part[1..])), true);
 }
 
+public sealed class SqliteRecurringReminderRepository(SqliteCacheDatabase database) : IRecurringReminderRepository
+{
+    public async Task<IReadOnlyList<RecurringReminder>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        var result = new List<RecurringReminder>();
+        await using SqliteConnection connection = await database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
+        command.CommandText = "SELECT id,title,body,weekdays,timing,fixed_time,is_enabled FROM recurring_reminders ORDER BY title;";
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            result.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetString(2), reader.GetInt32(3),
+                reader.GetString(4) == "lesson_end" ? ReminderTiming.LessonEnd : ReminderTiming.FixedTime,
+                reader.IsDBNull(5) ? null : TimeOnly.Parse(reader.GetString(5), CultureInfo.InvariantCulture), reader.GetInt64(6) != 0));
+        return result;
+    }
+}
+
 public sealed class SqliteClassRepository(SqliteCacheDatabase database) : IClassRepository
 {
     public async Task<IReadOnlyList<AqiClock.Domain.Entities.Class>> GetAllAsync(CancellationToken cancellationToken = default)

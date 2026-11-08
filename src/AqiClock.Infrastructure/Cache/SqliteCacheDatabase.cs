@@ -9,7 +9,7 @@ namespace AqiClock.Infrastructure.Cache;
 
 public sealed class SqliteCacheDatabase : ILocalCache, IDisposable
 {
-    private const int CurrentSchemaVersion = 3;
+    private const int CurrentSchemaVersion = 4;
     private readonly IReadOnlyList<string> _migrationScripts;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
@@ -191,6 +191,9 @@ public sealed class SqliteCacheDatabase : ILocalCache, IDisposable
                 sql = "INSERT INTO date_overrides VALUES($id,$date,$timetable,$note);"; values = [("$id", x.Id), ("$date", x.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)), ("$timetable", x.TimetableId), ("$note", x.Note)]; break;
             case (CacheTable.Announcements, AnnouncementRow x):
                 sql = "INSERT INTO announcements VALUES($id,$title,$body,$expires,$creator,$created,$audience,$class,$type,$publish,$link,$status,$deleted);"; values = [("$id", x.Id), ("$title", x.Title), ("$body", x.Body), ("$expires", x.ExpiresAt is null ? null : Format(x.ExpiresAt.Value)), ("$creator", x.CreatedBy), ("$created", Format(x.CreatedAt)), ("$audience", x.AudienceType), ("$class", x.AudienceClassId), ("$type", x.UpdateType), ("$publish", x.PublishAt is null ? null : Format(x.PublishAt.Value)), ("$link", x.EMasjidLink), ("$status", x.Status), ("$deleted", x.DeletedAt is null ? null : Format(x.DeletedAt.Value))]; break;
+            case (CacheTable.RecurringReminders, RecurringReminderRow x):
+                sql = "INSERT INTO recurring_reminders VALUES($id,$title,$body,$days,$timing,$time,$enabled);";
+                values = [("$id", x.Id), ("$title", x.Title), ("$body", x.Body), ("$days", x.Weekdays), ("$timing", x.Timing), ("$time", x.FixedTime?.ToString("HH:mm:ss", CultureInfo.InvariantCulture)), ("$enabled", x.IsEnabled ? 1 : 0)]; break;
             default: throw new ArgumentException($"Row type {row.GetType().Name} is invalid for {table}.", nameof(row));
         }
 
@@ -221,6 +224,7 @@ public sealed class SqliteCacheDatabase : ILocalCache, IDisposable
         CacheTable.WeekSchedule => "week_schedule",
         CacheTable.DateOverrides => "date_overrides",
         CacheTable.Announcements => "announcements",
+        CacheTable.RecurringReminders => "recurring_reminders",
         _ => throw new ArgumentOutOfRangeException(nameof(table)),
     };
 

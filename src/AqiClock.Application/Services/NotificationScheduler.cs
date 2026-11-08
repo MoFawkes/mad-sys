@@ -17,6 +17,8 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
     private readonly IWeekScheduleRepository _weekSchedule;
     private readonly IDateOverrideRepository _overrides;
     private readonly IAnnouncementRepository _announcements;
+    private readonly IRecurringReminderRepository? _reminders;
+    private IReadOnlyList<RecurringReminder> _reminderRules = [];
     private readonly IClassRepository _classes;
     private readonly IDeviceAudienceContext _audience;
     private readonly INotificationLogStore _log;
@@ -60,12 +62,13 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
         ISettingsService settings,
         IClock clock,
         IMessenger messenger,
-        ILogger<NotificationScheduler> logger)
+        ILogger<NotificationScheduler> logger, IRecurringReminderRepository? reminders = null)
     {
         _timetables = timetables;
         _weekSchedule = weekSchedule;
         _overrides = overrides;
         _announcements = announcements;
+        _reminders = reminders;
         _classes = classes;
         _audience = audience;
         _log = log;
@@ -96,11 +99,14 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
                 _audience.Current.SelectedClassIds);
 
             TimeSpan lead = TimeSpan.FromMinutes(Math.Clamp(_settings.Current.EndWarningMinutes, 0, 15));
+            _reminderRules = _reminders is null || _audience.Current.Role == DeviceAudienceRole.StudentDevice
+                ? [] : await _reminders.GetAllAsync(cancellationToken).ConfigureAwait(false);
             NotificationEvent[] rebuilt = BuildPlan(DateOnly.FromDateTime(now), lead);
             EffectiveDay day = ScheduleEngine.ResolveDay(_snapshot, DateOnly.FromDateTime(now));
+            int reminderCount = RecurringReminderEngine.GetOccurrences(_snapshot, _reminderRules, day.Date).Count;
             HealthSummary = day.Timetable is null
-                ? "Today: no timetable assigned to this weekday"
-                : $"Today: {day.Timetable.Name} · {day.Periods.Count} lessons · {rebuilt.Length} alerts planned";
+                ? $"Today: no timetable assigned to this weekday · {reminderCount} recurring reminders"
+                : $"Today: {day.Timetable.Name} · {day.Periods.Count} lessons · {rebuilt.Length + reminderCount} alerts planned";
             HealthChanged?.Invoke(this, EventArgs.Empty);
             LogPlanRebuilt(_logger, day.Timetable?.Name ?? "closed", day.Periods.Count, rebuilt.Length);
             foreach (NotificationEvent item in rebuilt)
@@ -132,6 +138,19 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
                 _pending = BuildPlan(today, lead);
                 _knownTriggers = _pending.ToDictionary(item => item.Key, item => item.TriggerTime, StringComparer.Ordinal);
                 _pendingDate = today;
+            }
+
+            if (_audience.Current.Role is DeviceAudienceRole.Teacher or DeviceAudienceRole.Admin)
+            {
+                foreach (ReminderOccurrence item in RecurringReminderEngine.GetOccurrences(_snapshot, _reminderRules, today)
+                    .Where(item => item.TriggerTime <= now))
+                {
+                    if (await _log.ContainsAsync(item.Key, cancellationToken).ConfigureAwait(false)) continue;
+                    bool skipped = now - item.TriggerTime > Grace || !_settings.Current.AnnouncementNotifications;
+                    if (!skipped)
+                        await _presenter.ShowReminderAsync(item.Reminder, cancellationToken).ConfigureAwait(false);
+                    await _log.RecordAsync(item.Key, new DateTimeOffset(now), skipped, cancellationToken).ConfigureAwait(false);
+                }
             }
 
             foreach (IGrouping<(DateTime TriggerTime, NotificationEventKind Kind), NotificationEvent> group in
@@ -200,7 +219,7 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
     public void Receive(TimeJumped message) => RunSafely(async () => { await RebuildAsync(message.Current).ConfigureAwait(false); await ProcessAsync(message.Current).ConfigureAwait(false); });
     public void Receive(DataChanged message)
     {
-        if (message.Table is CacheTable.Timetables or CacheTable.Periods or CacheTable.WeekSchedule or CacheTable.DateOverrides)
+        if (message.Table is CacheTable.Timetables or CacheTable.Periods or CacheTable.WeekSchedule or CacheTable.DateOverrides or CacheTable.RecurringReminders)
             RunSafely(() => RebuildAsync(_clock.Now));
         if (message.Table is CacheTable.Announcements)
             RunSafely(() => ProcessAnnouncementsAsync(_clock.Now));

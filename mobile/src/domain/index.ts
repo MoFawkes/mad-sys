@@ -3,3 +3,4 @@ export * from './announcement';
 export * from './scheduleEngine';
 export * from './scheduleTypes';
 export * from './weekday';
+export * from './recurringReminder';

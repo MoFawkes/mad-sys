@@ -13,6 +13,7 @@ import {
   filterScheduleForAudience,
   getNotificationEvents,
   getNaseehahStartEvents,
+  getReminderOccurrences,
   isNaseehah,
   matchesPeriod,
   ScheduleSnapshot,
@@ -30,7 +31,7 @@ export type DesiredNotification = {
   triggerTime: Date;
   title: string;
   body: string;
-  kind: 'start' | 'end-warning' | 'naseehah';
+  kind: 'start' | 'end-warning' | 'naseehah' | 'reminder';
 };
 
 export type ActualNotification = {
@@ -67,6 +68,12 @@ export function buildDesiredNotifications(
       ? getNaseehahStartEvents(snapshot, date).filter((event) =>
         audience.optedHalfDays.has(event.triggerTime.getHours() < 12 ? 'am' : 'pm'))
       : [];
+    if (audience.role !== 'StudentDevice' && settings.announcementsEnabled) {
+      for (const reminder of getReminderOccurrences(classSnapshot, date)) {
+        const triggerTime = wallClockToInstant(reminder.triggerTime, instituteTimeZone);
+        if (triggerTime.getTime() > now.getTime()) desired.push({ ...reminder, triggerTime });
+      }
+    }
     const sharedStarts = new Set(shared.map((event) => event.triggerTime.getTime()));
     const classEvents = getNotificationEvents(
       classSnapshot,
@@ -97,7 +104,7 @@ export function buildDesiredNotifications(
 
   const grouped = new Map<string, DesiredNotification[]>();
   for (const item of desired) {
-    const key = `${item.triggerTime.getTime()}:${item.kind}`;
+    const key = item.kind === 'reminder' ? item.identifier : `${item.triggerTime.getTime()}:${item.kind}`;
     grouped.set(key, [...(grouped.get(key) ?? []), item]);
   }
 
@@ -259,6 +266,10 @@ export async function reconcileScheduledNotificationsFromCache(): Promise<void> 
     };
   } else {
     const profile = await getCachedProfile(data.session.user.id);
+    if (!profile?.isActive) {
+      await cancelScheduledLessonNotifications();
+      return;
+    }
     audience = {
       role: profile?.role === 'admin' ? 'Admin' : 'Teacher',
       selectedClassIds: new Set(),
@@ -290,5 +301,5 @@ export async function cancelAllScheduledAqiClockNotifications(): Promise<void> {
 }
 
 function isLessonIdentifier(identifier: string): boolean {
-  return identifier.startsWith('start:') || identifier.startsWith('end-warning:') || identifier.startsWith('naseehah:');
+  return identifier.startsWith('start:') || identifier.startsWith('end-warning:') || identifier.startsWith('naseehah:') || identifier.startsWith('reminder:');
 }

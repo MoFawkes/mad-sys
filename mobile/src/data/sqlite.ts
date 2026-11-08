@@ -12,6 +12,7 @@ export const SYNC_TABLES = [
   'profiles',
   'classes',
   'period_classes',
+  'recurring_reminders',
 ] as const;
 
 export type SyncTable = (typeof SYNC_TABLES)[number];
@@ -35,6 +36,10 @@ type InsertSpec = {
 };
 
 const INSERTS: Record<SyncTable, InsertSpec> = {
+  recurring_reminders: {
+    sql: 'INSERT INTO recurring_reminders(id,title,body,weekdays,timing,fixed_time,is_enabled) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    values: (row) => [text(row.id), text(row.title), text(row.body), number(row.weekdays), text(row.timing), nullableText(row.fixed_time), bool(row.is_enabled)],
+  },
   organizations: {
     sql: 'INSERT INTO organizations(id,name,timezone) VALUES (?, ?, ?)',
     values: (row) => [text(row.id), text(row.name), text(row.timezone)],

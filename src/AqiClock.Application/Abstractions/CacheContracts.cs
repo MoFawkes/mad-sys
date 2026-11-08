@@ -13,6 +13,7 @@ public enum CacheTable
     WeekSchedule,
     DateOverrides,
     Announcements,
+    RecurringReminders,
 }
 
 public sealed record OrganizationRow(Guid Id, string Name, string Timezone);
@@ -27,6 +28,10 @@ public sealed record DateOverrideRow(Guid Id, [property: JsonPropertyName("org_i
 public sealed record AnnouncementRow(Guid Id, [property: JsonPropertyName("org_id")] Guid OrganizationId, string Title, string Body, DateTimeOffset? ExpiresAt, Guid CreatedBy, DateTimeOffset CreatedAt, string AudienceType = "everyone", Guid? AudienceClassId = null, string UpdateType = "general", DateTimeOffset? PublishAt = null, string? EMasjidLink = null, string Status = "published", DateTimeOffset? DeletedAt = null);
 
 public sealed record CacheSnapshot(CacheTable Table, IReadOnlyList<object> Rows, DateTimeOffset SyncedAt);
+
+public sealed record RecurringReminderRow(Guid Id, [property: JsonPropertyName("org_id")] Guid OrganizationId,
+    string Title, string Body, int Weekdays, string Timing,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] TimeOnly? FixedTime, bool IsEnabled);
 
 public interface ILocalCache
 {

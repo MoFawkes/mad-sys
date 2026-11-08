@@ -26,6 +26,7 @@ export type DateOverride = {
 };
 
 export type ScheduleSnapshot = {
+  recurringReminders?: readonly import('./recurringReminder').RecurringReminder[];
   timetables: readonly Timetable[];
   weekSchedule: WeekSchedule;
   dateOverrides: readonly DateOverride[];

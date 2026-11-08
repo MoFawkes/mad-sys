@@ -68,6 +68,13 @@ public sealed class ToastPresenter : INotificationPresenter, IDisposable
         return Task.CompletedTask;
     }
 
+    public Task ShowReminderAsync(RecurringReminder reminder, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        new ToastContentBuilder().AddArgument("action", "open").AddText(reminder.Title).AddText(reminder.Body).Show();
+        return Task.CompletedTask;
+    }
+
     private void OnActivated(ToastNotificationActivatedEventArgsCompat args)
     {
         _ = System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>

@@ -1,5 +1,20 @@
 # AQI Clock manual OS-integration checklist
 
+## Recurring teacher reminders — unreleased, 2026-11-08
+
+See [Recurring reminders](RECURRING-REMINDERS.md) for configuration and delivery rules. Apply migration `20261108160431_recurring_reminders.sql` before testing updated clients.
+
+- [ ] As an admin, open Announcements → Recurring reminders. Save a Friday-only lesson-end rule with a custom message; reopen and verify its days, trigger and enabled state.
+- [ ] With Announcement notifications enabled, receive the message at each Friday lesson end on an installed Windows teacher client and Android teacher device. Confirm no alert after a break or on another weekday, and one alert for simultaneous lesson ends.
+- [ ] Edit an upcoming lesson's finish or replace its date timetable, sync, and verify only the new boundary delivers. Close the date, sync, and verify its pending lesson-end reminders disappear.
+- [ ] Save a fixed-time rule and verify institute-time delivery, including on a closed date. Use a device timezone different from the institute's for one check.
+- [ ] Edit a reminder, pause/resume it, then delete it; sync the receiving clients each time and verify the messages and pending requests follow the change. A student device must receive none of these reminders.
+- [ ] Turn Announcement notifications off and verify both reminder types stop while lesson-start/end-warning preferences remain independent. Turn it back on before a future occurrence.
+- [ ] Restart Windows after a delivered occurrence and confirm it does not repeat; resume after more than two minutes and confirm old occurrences do not catch up. Confirm tray delivery with the main window closed and Android background delivery.
+- [ ] Test creating/editing at a small window size and in both themes. Confirm saved list actions work after scrolling.
+
+Automated Release/WPF/database/mobile checks pass; these installed-device checks remain pending.
+
 ## v0.15.3 holiday date ranges
 
 Date overrides now has inclusive first/last closed dates, an optional note and **Save closed dates**. A single bulk upsert writes every selected date using the existing unique constraint, without a database migration. Existing rows retain their IDs; the editor checks current server data and asks before replacing their assignments and notes. Null timetables are explicitly included when saving Closed. The regular week schedule is unchanged; announcements remain independent of lesson closures.

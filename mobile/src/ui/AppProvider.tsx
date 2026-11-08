@@ -207,6 +207,7 @@ export function AppProvider({ children }: PropsWithChildren) {
           'period_classes',
           'week_schedule',
           'date_overrides',
+          'recurring_reminders',
         ].includes(changedTable)
       ) {
         void reloadSnapshot();

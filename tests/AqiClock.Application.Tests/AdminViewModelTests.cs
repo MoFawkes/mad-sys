@@ -19,6 +19,134 @@ namespace AqiClock.Application.Tests;
 
 public sealed class AdminViewModelTests
 {
+    [Theory]
+    [InlineData(1120, 780, false)]
+    [InlineData(910, 485, false)]
+    [InlineData(1120, 780, true)]
+    public void RecurringReminderEditorRendersAndBindsItsActions(double width, double height, bool dark)
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            AdminWindow? window = null;
+            try
+            {
+                var messenger = new WeakReferenceMessenger(); var gateway = new Gateway(); var sync = new Sync(); var windows = new Windows();
+                var timetables = new Timetables(); var week = new Week(); var overrides = new Overrides(); var profiles = new Profiles();
+                var reminders = new RecurringRemindersViewModel(gateway, sync, new ReminderRepository(), windows)
+                { Title = "Weekly chart", Body = "Please fill in your weekly chart after each lesson." };
+                reminders.Weekdays[4].IsSelected = true;
+                var compose = new AnnouncementComposeViewModel(gateway, sync, new Session(Guid.NewGuid()), new Announcements(), new EmptyClassRepository(), windows, reminders);
+                var admin = new AdminViewModel(new(gateway, sync, timetables, week, overrides, windows, messenger),
+                    new(week, timetables, gateway, sync, windows), new(overrides, timetables, gateway, sync, windows), compose,
+                    new(gateway, profiles, sync), new(profiles, gateway, sync, new Session(Guid.NewGuid()), windows), sync, windows, messenger);
+                window = new AdminWindow(admin, new Settings(), Microsoft.Extensions.Logging.Abstractions.NullLogger<AqiClock.App.Services.WindowPlacementController>.Instance);
+                WpfUiTestResources.Attach(window);
+                if (dark)
+                {
+                    window.Resources.MergedDictionaries.Clear();
+                    window.Resources.MergedDictionaries.Add(new Wpf.Ui.Markup.ThemesDictionary { Theme = Wpf.Ui.Appearance.ApplicationTheme.Dark });
+                    window.Resources.MergedDictionaries.Add(new Wpf.Ui.Markup.ControlsDictionary());
+                    window.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/AqiClock.App;component/Themes/Dark.xaml", UriKind.RelativeOrAbsolute) });
+                }
+                window.Width = width; window.Height = height;
+                window.Show();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                var tabs = FindVisualChild<TabControl>(window)!;
+                tabs.SelectedIndex = 6; window.UpdateLayout();
+                var communication = (TabControl)tabs.SelectedContent;
+                communication.SelectedIndex = 0; window.UpdateLayout();
+                reminders.Items.Add(new(new(Guid.NewGuid(), "Weekly chart", "Fill in your chart", 16, ReminderTiming.LessonEnd, null, true)));
+                window.UpdateLayout();
+                var elements = ReminderVisualDescendants(window).ToArray();
+                Button save = elements.OfType<Button>().Single(button => Equals(button.Content, "Save reminder"));
+                Assert.Same(reminders.SaveCommand, save.Command);
+                Button edit = elements.OfType<Button>().Single(button => Equals(button.Content, "Edit"));
+                Assert.Same(reminders.EditCommand, edit.Command);
+                Assert.Same(reminders.Items[0], edit.CommandParameter);
+                CheckBox timing = elements.OfType<CheckBox>().Single(box => Equals(box.Content, "After every lesson"));
+                Assert.True(timing.IsChecked);
+                timing.IsChecked = false; window.UpdateLayout();
+                Assert.False(reminders.AfterEveryLesson);
+                Assert.Contains(ReminderVisualDescendants(window).OfType<TextBox>(), box => box.IsVisible && box.Text == "16:00");
+                timing.IsChecked = true; window.UpdateLayout();
+                if (height < 600) { save.BringIntoView(); window.UpdateLayout(); }
+                string? renderDirectory = Environment.GetEnvironmentVariable("AQICLOCK_REMINDER_RENDER_DIR");
+                if (renderDirectory is not null)
+                {
+                    System.IO.Directory.CreateDirectory(renderDirectory);
+                    var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                    bitmap.Render(window);
+                    var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                    encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                    using var stream = System.IO.File.Create(System.IO.Path.Combine(renderDirectory, $"reminders-{width}x{height}-{(dark ? "dark" : "light")}.png"));
+                    encoder.Save(stream);
+                }
+            }
+            catch (Exception exception) { failure = exception; }
+            finally { window?.Close(); }
+        });
+        thread.SetApartmentState(ApartmentState.STA); thread.Start();
+        Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "Recurring reminder layout test timed out.");
+        Assert.Null(failure);
+    }
+
+    private static IEnumerable<DependencyObject> ReminderVisualDescendants(DependencyObject parent)
+    {
+        for (int index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(parent, index);
+            yield return child;
+            foreach (DependencyObject descendant in ReminderVisualDescendants(child)) yield return descendant;
+        }
+    }
+
+    [Fact]
+    public async Task AdminCanCreateEditPauseAndDeleteAFridayLessonReminder()
+    {
+        var gateway = new Gateway();
+        var vm = new RecurringRemindersViewModel(gateway, new Sync(), new ReminderRepository(), new Windows())
+        { Title = "Week chart", Body = "Fill in the chart" };
+        vm.Weekdays[4].IsSelected = true;
+        await vm.SaveCommand.ExecuteAsync(null);
+        RecurringReminderRow saved = Assert.IsType<RecurringReminderRow>(gateway.LastInsertedRow);
+        Assert.Equal(16, saved.Weekdays);
+        Assert.Equal("lesson_end", saved.Timing);
+        Assert.Null(saved.FixedTime);
+        var item = new ReminderDisplay(new(saved.Id, saved.Title, saved.Body, saved.Weekdays, ReminderTiming.LessonEnd, null, true));
+        vm.EditCommand.Execute(item);
+        vm.AfterEveryLesson = false; vm.FixedTime = "16:15";
+        await vm.SaveCommand.ExecuteAsync(null);
+        RecurringReminderRow changed = Assert.IsType<RecurringReminderRow>(gateway.LastUpdatedRow);
+        Assert.Equal(saved.Id, changed.Id);
+        Assert.Equal(new TimeOnly(16, 15), changed.FixedTime);
+        await vm.ToggleCommand.ExecuteAsync(item);
+        Assert.False(Assert.IsType<RecurringReminderRow>(gateway.LastUpdatedRow).IsEnabled);
+        await vm.DeleteCommand.ExecuteAsync(item);
+        Assert.Equal(1, gateway.DeleteCalls);
+    }
+
+    [Theory]
+    [InlineData(false, "16:00", true)]
+    [InlineData(true, "25:00", true)]
+    [InlineData(true, "16:00", false)]
+    public async Task InvalidOrOfflineRecurringReminderDoesNotWrite(bool selected, string time, bool online)
+    {
+        var gateway = new Gateway();
+        var vm = new RecurringRemindersViewModel(gateway, new Sync { State = online ? ConnectivityState.Online : ConnectivityState.Offline }, new ReminderRepository(), new Windows())
+        { Title = "Chart", Body = "Fill chart", AfterEveryLesson = false, FixedTime = time };
+        vm.Weekdays[4].IsSelected = selected;
+        await vm.SaveCommand.ExecuteAsync(null);
+        Assert.Null(gateway.LastInsertedRow);
+        Assert.NotNull(vm.Message);
+    }
+
+    private sealed class ReminderRepository : IRecurringReminderRepository
+    {
+        public Task<IReadOnlyList<RecurringReminder>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<RecurringReminder>>([]);
+    }
+
     [Fact]
     public async Task HolidayRangeSavesInclusiveDatesAndReportsSuccess()
     {

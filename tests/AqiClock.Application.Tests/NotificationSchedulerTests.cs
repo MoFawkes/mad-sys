@@ -11,6 +11,76 @@ namespace AqiClock.Application.Tests;
 
 public sealed class NotificationSchedulerTests
 {
+    [Fact]
+    public async Task RecurringLessonEndIsIndependentOfWarningsAndDoesNotRepeatAfterRestart()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.SetPeriod(Monday.TimeOfDay, TimeSpan.FromMinutes(30));
+        fixture.Settings.Value = fixture.Settings.Value with { LessonStartNotifications = false, EndWarningNotifications = false };
+        fixture.Reminders.Items = [new(Guid.NewGuid(), "Chart", "Fill chart", 1, ReminderTiming.LessonEnd, null, true)];
+        using (NotificationScheduler scheduler = fixture.Create())
+        {
+            await scheduler.StartAsync();
+            await scheduler.ProcessAsync(Monday.AddMinutes(29));
+            Assert.Equal(0, fixture.Presenter.Announcements);
+            await scheduler.ProcessAsync(Monday.AddMinutes(30));
+            await scheduler.ProcessAsync(Monday.AddMinutes(30).AddSeconds(1));
+        }
+        using (NotificationScheduler scheduler = fixture.Create())
+        { await scheduler.StartAsync(); await scheduler.ProcessAsync(Monday.AddMinutes(30).AddSeconds(2)); }
+        Assert.Equal(1, fixture.Presenter.Announcements);
+    }
+
+    [Theory]
+    [InlineData(true, true, true, 0)]
+    [InlineData(false, true, false, 0)]
+    [InlineData(false, false, true, 0)]
+    [InlineData(false, true, true, 1)]
+    public async Task RecurringReminderRespectsStudentAudiencePauseAndAnnouncementSetting(bool student, bool enabled, bool notifications, int expected)
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        if (student) fixture.Audience.SetStudent([Guid.NewGuid()], []);
+        fixture.Settings.Value = fixture.Settings.Value with { AnnouncementNotifications = notifications };
+        fixture.Reminders.Items = [new(Guid.NewGuid(), "Chart", "Fill chart", 1, ReminderTiming.FixedTime, new(8, 30), enabled)];
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync(); await scheduler.ProcessAsync(Monday);
+        Assert.Equal(expected, fixture.Presenter.Announcements);
+    }
+
+    [Fact]
+    public async Task RecurringPlanRebuildCancelsOldEndsAndDropsPausedOrDeletedRules()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.SetPeriod(Monday.TimeOfDay, TimeSpan.FromMinutes(30));
+        var rule = new RecurringReminder(Guid.NewGuid(), "Chart", "Fill chart", 1, ReminderTiming.LessonEnd, null, true);
+        fixture.Reminders.Items = [rule];
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync();
+        fixture.SetPeriod(Monday.TimeOfDay, TimeSpan.FromMinutes(45));
+        await scheduler.RebuildAsync(Monday);
+        await scheduler.ProcessAsync(Monday.AddMinutes(30));
+        Assert.Equal(0, fixture.Presenter.Announcements);
+        await scheduler.ProcessAsync(Monday.AddMinutes(45));
+        Assert.Equal(1, fixture.Presenter.Announcements);
+        fixture.Reminders.Items = [rule with { Timing = ReminderTiming.FixedTime, FixedTime = new(9, 30), IsEnabled = false }];
+        await scheduler.RebuildAsync(Monday);
+        await scheduler.ProcessAsync(Monday.AddHours(1));
+        fixture.Reminders.Items = [];
+        await scheduler.RebuildAsync(Monday);
+        await scheduler.ProcessAsync(Monday.AddHours(2));
+        Assert.Equal(1, fixture.Presenter.Announcements);
+    }
+
+    [Fact]
+    public async Task RecurringReminderDoesNotCatchUpLongMissedOccurrences()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.Reminders.Items = [new(Guid.NewGuid(), "Chart", "Fill chart", 1, ReminderTiming.FixedTime, new(8, 30), true)];
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync(); await scheduler.ProcessAsync(Monday.AddMinutes(5));
+        Assert.Equal(0, fixture.Presenter.Announcements);
+        Assert.True(Assert.Single(fixture.Log.Entries).Value.Skipped);
+    }
     private static readonly DateTime Monday = new(2026, 7, 20, 8, 30, 0, DateTimeKind.Local);
 
     [Theory]
@@ -425,6 +495,7 @@ public sealed class NotificationSchedulerTests
         private readonly Guid _periodId = Guid.NewGuid();
         public FakeTimetables Timetables { get; } = new();
         public FakeAnnouncements Announcements { get; } = new();
+        public FakeReminders Reminders { get; } = new();
         public FakeOverrides Overrides { get; } = new();
         public FakeLog Log { get; } = new();
         public FakePresenter Presenter { get; } = new();
@@ -450,7 +521,13 @@ public sealed class NotificationSchedulerTests
 
         public void SetPeriods(params Period[] periods) => Timetables.Items = [new Timetable(_timetableId, "Normal", false, periods)];
 
-        public NotificationScheduler Create() => new(Timetables, Week, Overrides, Announcements, Classes, Audience, Log, Presenter, Settings, Clock, Messenger, NullLogger<NotificationScheduler>.Instance);
+        public NotificationScheduler Create() => new(Timetables, Week, Overrides, Announcements, Classes, Audience, Log, Presenter, Settings, Clock, Messenger, NullLogger<NotificationScheduler>.Instance, Reminders);
+    }
+
+    private sealed class FakeReminders : IRecurringReminderRepository
+    {
+        public IReadOnlyList<RecurringReminder> Items { get; set; } = [];
+        public Task<IReadOnlyList<RecurringReminder>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items);
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)
