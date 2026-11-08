@@ -2,11 +2,15 @@
 
 Last updated: 2026-11-08
 
-## 2026-11-08 recurring teacher reminders (unreleased)
+## 2026-11-08 beta.10 recurring teacher reminders
 
 Implemented admin-managed weekly reminders in Windows administration under Announcements → Recurring reminders, with custom title/message, weekday selection, lesson-end/fixed-time triggers and edit/pause/resume/delete actions. Teachers and admins receive reminders on Windows and mobile through Announcement notifications; students cannot read or modify the reminder records. Lesson-end triggers resolve actual assigned timetables, skip non-lessons and closed dates, and merge simultaneous ends per rule. Fixed times use institute time and remain calendar-based on holidays. No announcement-feed item is generated.
 
-Source includes migration `20261108160431_recurring_reminders.sql`, Windows SQLite schema 4 and mobile SQLite schema 7. Apply the server migration before rolling out either client. No production migration, release or installed-app update has been performed.
+Published [v0.16.0-beta.10](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0-beta.10) for Windows and Android from source `952cf115249ae175eb4404dfc53475611803b57c`. The production migration `20261108160431_recurring_reminders.sql` is applied and verified (RLS, four policies, Realtime membership and no anonymous read grant); production security advisors report no errors. Windows SQLite schema is 4 and mobile SQLite schema is 7. This is an opt-in prerelease; GitHub's latest-release endpoint still reports stable v0.15.5. Installed-app acceptance remains pending.
+
+All four [tag-bound hosted gates and Windows packaging](https://github.com/MoFawkes/mad-sys/actions/runs/42503611826) passed. [EAS Android build](https://expo.dev/accounts/denovoorders/projects/aqi-clock/builds/0fe34b37-9528-4001-b581-0f88fd22a620) succeeded, version code 8, with the previous beta's signing certificate. Verified Windows embedded version/source, public configuration, updater size/SHA1/SHA256, matching portable contents and all uploaded asset digests. Seven public assets include the Android APK and SHA256SUMS.txt. See `docs/RELEASE-NOTES-0.16.0-beta.10.md`.
+
+The unpublished beta.9 tag was blocked by rehearsal assertions that still expected the old migration-history/publication lists. Updated those assertions and added a guard that generator rollback preserves the unrelated reminders table; beta.9's Android build was cancelled. Tags were not rewritten. Production's two October migrations absent from this branch were preserved by fetching exact hosted history into an ignored deployment workspace; the dry run and deployment applied only the new November migration.
 
 Validation: Release build, domain/application/SQLite tests, all 391 local Supabase cases (including 15 new reminder permission/constraint/audit cases), all 162 mobile tests, TypeScript and ESLint passed. WPF renders and action bindings were checked in light/dark themes and at 910×485. Installed Windows/Android reminder delivery remains a manual release gate in `docs/MANUAL-TESTS.md`.
 

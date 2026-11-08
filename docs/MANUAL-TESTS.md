@@ -1,6 +1,6 @@
 # AQI Clock manual OS-integration checklist
 
-## Recurring teacher reminders — unreleased, 2026-11-08
+## Recurring teacher reminders — beta.10, 2026-11-08
 
 See [Recurring reminders](RECURRING-REMINDERS.md) for configuration and delivery rules. Apply migration `20261108160431_recurring_reminders.sql` before testing updated clients.
 

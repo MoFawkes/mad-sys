@@ -8,7 +8,7 @@ Ordered by implementation dependency: each phase builds only on the phases above
 - [x] Add Windows admin creation, weekday/timing selection, editing, pause/resume and deletion.
 - [x] Deliver on Windows and mobile with institute time, timetable changes/closures, settings and deduplication.
 - [x] Verify domain, scheduler, editor/action bindings, SQLite, database permissions and mobile reconciliation; inspect light/dark/small-window renders.
-- [ ] Apply the database migration before publishing updated clients.
+- [x] Apply and verify the production database migration, then publish Windows and Android beta.10 with verified assets and unchanged stable Latest.
 - [ ] Complete installed Windows and Android notification acceptance in `docs/MANUAL-TESTS.md`.
 
 ## Phase 1 — Foundation ✅ (complete)

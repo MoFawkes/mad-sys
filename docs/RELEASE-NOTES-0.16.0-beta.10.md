@@ -21,6 +21,8 @@ Windows reminders require AQI Clock to remain running, including in the notifica
 
 Local validation passed: 85 domain, 261 Windows application, 16 SQLite/integration and 391 Supabase tests, with one opt-in interactive test skipped. All 162 mobile tests, TypeScript and ESLint passed. Actual WPF layouts and action bindings were checked in light/dark themes and at a small window size.
 
-The additive staff-only database migration must be deployed before the updated clients. Hosted release checks and package verification are recorded in the release publication notes. Installed Windows/Android reminder delivery, update installation and the existing device acceptance checklist remain pending before stable promotion.
+The additive staff-only database migration is deployed and verified. Production security advisors report no errors. All four [hosted release checks and Windows packaging](https://github.com/MoFawkes/mad-sys/actions/runs/42503611826) passed. The [Android preview build](https://expo.dev/accounts/denovoorders/projects/aqi-clock/builds/0fe34b37-9528-4001-b581-0f88fd22a620) succeeded. Both clients use source `952cf115249ae175eb4404dfc53475611803b57c`.
+
+Verified Windows package version/source, public configuration, updater sizes/SHA1/SHA256 and matching portable contents. Android package/version and signing certificate match the expected update identity. SHA256SUMS.txt accompanies the assets. Installed Windows/Android reminder delivery, update installation and the existing device acceptance checklist remain pending before stable promotion.
 
 [Previous beta](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0-beta.8) · [Stable fallback](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.15.5)

@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 
 ### Deployment
 
-- Apply `20261108160431_recurring_reminders.sql` before deploying either updated client. This adds a staff-only, admin-writable, audited Realtime table. Installed-device notification acceptance remains pending.
+- Deployed `20261108160431_recurring_reminders.sql` before publishing Windows and Android beta.10. This adds a staff-only, admin-writable, audited Realtime table. All hosted release gates passed; package versions, hashes and Android signing continuity are verified. Installed-device notification acceptance remains pending.
 
 ## 0.16.0-beta.8 - 2026-10-29
 
