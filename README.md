@@ -4,7 +4,7 @@ AQI Clock is a Windows tray application with an Expo mobile companion. Teachers 
 
 The desktop presentation uses WPF-UI Fluent controls, light/dark/system themes, a navy brand accent, Mica-capable window chrome on Windows 11, and PerMonitorV2 scaling. MainWindow intentionally retains native WPF chrome switching so its accepted 320×80 frameless compact mode remains stable.
 
-**Status:** [v0.16.0](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0) is published for Windows and Android on the stable channel, including the v0.16 beta features and recurring teacher reminders. Automated release checks and package verification passed; installed-device acceptance items remain open in [`docs/MANUAL-TESTS.md`](docs/MANUAL-TESTS.md). See [`PROJECT-STATUS.md`](PROJECT-STATUS.md) for current release evidence.
+**Status:** [v0.16.1](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.1) is the latest stable Windows release, fixing announcement visibility and notifications across timezones. Android remains on [v0.16.0](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0). Automated release checks and package verification passed; installed-device acceptance items remain open in [`docs/MANUAL-TESTS.md`](docs/MANUAL-TESTS.md). See [`PROJECT-STATUS.md`](PROJECT-STATUS.md) for current release evidence.
 
 ## Key capabilities
 

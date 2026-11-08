@@ -2,6 +2,12 @@
 
 Last updated: 2026-11-08
 
+## 2026-11-08 v0.16.1 announcement timezone patch
+
+Published [v0.16.1](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.1) for Windows from annotated source tag `v0.16.1` at `20a4966d3abd16569cfe1b94b910db23577b7dd9`. Announcement publication, expiry, relative ages, reads and notification timestamps now use the current UTC instant, avoiding incorrect device-zone interpretation of institute wall time. Android remains on v0.16.0; no migration was required.
+
+All four [tag-bound hosted CI gates and Windows packaging](https://github.com/MoFawkes/mad-sys/actions/runs/42519670014) passed. Local Release application tests passed 267 cases, with one opt-in interactive case skipped; six timezone regression cases passed. Verified all downloaded asset sizes/SHA256 digests, updater SHA1/SHA256, packaged version/source, public configuration and matching portable contents. Six public assets include SHA256SUMS.txt. Installed-device reproduction and updater installation remain pending; automated verification does not mark them complete.
+
 ## 2026-11-08 v0.16.0 stable publication
 
 Merged all ten v0.16 beta tags through beta.10 into `main` via [PR #36](https://github.com/MoFawkes/mad-sys/pull/36), merge `bb663df`. Owner then requested tagging and release. Published [v0.16.0](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0) for Windows and Android from annotated source tag `v0.16.0` at `f77d857ccfbab0837c022fae436c1f10a187203d`. This is the public Latest stable release, verified through the unauthenticated GitHub API.
@@ -45,13 +51,13 @@ the acceptance script.
 | Area | State |
 |---|---|
 | Staff pilot | v0.14.0 is published; feature/device acceptance is complete, while the real-machine v0.13.3 → v0.14.0 update/restart round-trip remains open |
-| Public release channel | v0.16.0 is Latest stable on `MoFawkes/aqi-clock-releases`, for Windows and Android |
-| Source | `main` contains PR #36; annotated tag `v0.16.0` points to release source `f77d857` |
+| Public release channel | v0.16.1 is Latest stable on `MoFawkes/aqi-clock-releases` for Windows; Android remains v0.16.0 |
+| Source | `main` contains the announcement timezone fix; annotated tag `v0.16.1` points to release source `20a4966` |
 | Production backend | Migration history runs through `20261108160431`; recurring reminders are deployed with staff-only reads, admin writes, auditing and Realtime |
-| Latest release | v0.16.0 — live listening, feedback export, grouped timetables, Windows navigation, Naseehah and recurring teacher reminders |
+| Latest release | v0.16.1 — Windows announcement timezone patch; Android remains v0.16.0 |
 | Next release | No next version assigned; installed-device manual acceptance remains open |
-| Candidate CI | All four stable-tag checks passed; post-merge main CI also passed |
-| Release workflow | Run `42505603768` passed; v0.16.0 published at 2026-11-08 17:42:45Z, with seven verified Windows/Android/checksum assets |
+| Candidate CI | All four v0.16.1 tag-bound checks passed |
+| Release workflow | Run `42519670014` passed; v0.16.1 has six verified Windows/checksum assets |
 
 ## Release split — decided 2026-08-02
 
