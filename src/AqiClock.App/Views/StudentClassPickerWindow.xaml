@@ -30,7 +30,7 @@
     </ListBox>
     <StackPanel Grid.Row="2" Margin="0,16,0,8">
       <TextBlock Text="Which Naseehah do you attend? (optional)" FontWeight="SemiBold" Foreground="{DynamicResource HeaderBrush}"/>
-      <TextBlock Text="Used to show announcements for the AM or PM Naseehah group. It does not set lesson times." Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+      <TextBlock Text="Receive daily reminders for AM/PM Naseehah and announcements for that group. Reminders follow the timetable and use your Announcement notifications setting. This does not change your class timetable." Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
     </StackPanel>
     <ListBox Grid.Row="3" ItemsSource="{Binding NaseehahChoices}" Background="{DynamicResource CardBrush}">
       <ListBox.ItemContainerStyle>

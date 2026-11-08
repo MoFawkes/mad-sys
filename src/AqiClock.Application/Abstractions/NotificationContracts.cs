@@ -18,6 +18,9 @@ public interface INotificationPresenter
             await ShowEndWarningAsync(notification, followingPeriod, warningMinutes, cancellationToken).ConfigureAwait(false);
     }
     Task ShowAnnouncementAsync(Announcement announcement, CancellationToken cancellationToken = default);
+    Task ShowReminderAsync(RecurringReminder reminder, CancellationToken cancellationToken = default) =>
+        ShowAnnouncementAsync(new Announcement(reminder.Id, reminder.Title, reminder.Body,
+            DateTimeOffset.UtcNow, Guid.Empty, null, AudienceType.Teachers), cancellationToken);
     Task ShowTestAsync(CancellationToken cancellationToken = default);
 }
 

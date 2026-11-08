@@ -20,6 +20,7 @@ tmp/
 *.db-shm
 *.db-wal
 logs/
+.codex-remote-attachments/
 node_modules/
 mobile/.expo/
 mobile/dist/

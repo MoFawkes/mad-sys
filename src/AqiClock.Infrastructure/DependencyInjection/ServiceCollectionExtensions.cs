@@ -44,6 +44,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IOrganizationRepository, SqliteOrganizationRepository>();
         services.AddSingleton<ITimetableRepository, SqliteTimetableRepository>();
         services.AddSingleton<IAnnouncementRepository, SqliteAnnouncementRepository>();
+        services.AddSingleton<IRecurringReminderRepository, SqliteRecurringReminderRepository>();
         services.AddSingleton<IClassRepository, SqliteClassRepository>();
         services.AddSingleton<IDeviceAudienceContext>(provider => new DeviceAudienceContext(provider.GetRequiredService<IMessenger>(), provider.GetRequiredService<ILocalCache>()));
         services.AddSingleton<IWeekScheduleRepository, SqliteWeekScheduleRepository>();

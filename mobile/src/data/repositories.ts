@@ -168,7 +168,15 @@ export async function loadScheduleSnapshot(): Promise<ScheduleSnapshot> {
     timetableId: row.timetable_id,
     note: row.note,
   }));
-  return { timetables, weekSchedule, dateOverrides };
+  const reminderRows = await database.getAllAsync<{
+    id: string; title: string; body: string; weekdays: number;
+    timing: 'lesson_end' | 'fixed_time'; fixed_time: string | null; is_enabled: number;
+  }>('SELECT id,title,body,weekdays,timing,fixed_time,is_enabled FROM recurring_reminders');
+  const recurringReminders = reminderRows.map((row) => ({
+    id: row.id, title: row.title, body: row.body, weekdays: row.weekdays,
+    timing: row.timing, fixedTime: row.fixed_time, isEnabled: row.is_enabled !== 0,
+  }));
+  return { timetables, weekSchedule, dateOverrides, recurringReminders };
 }
 
 export async function getCachedProfile(userId: string): Promise<CachedProfile | null> {

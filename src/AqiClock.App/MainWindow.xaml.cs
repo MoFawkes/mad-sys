@@ -23,7 +23,12 @@ public partial class MainWindow : Window
     private readonly ISettingsService _settings;
     private readonly ILogger<MainWindow> _logger;
     private readonly DispatcherTimer _placementTimer;
+    private readonly DispatcherTimer _broadcastTimer;
+    private bool _broadcastChecking;
+    private bool _broadcastStopped;
+    private int _broadcastEpoch;
     private bool _allowClose;
+    private Window? _listenLive;
     private bool _applyingMode;
     private int _modeTransition;
     private DisplayMode _pendingPlacementMode;
@@ -34,6 +39,9 @@ public partial class MainWindow : Window
         InitializeComponent(); _viewModel = viewModel; _settings = settings; _logger = logger; DataContext = viewModel;
         _placementTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(350) };
         _placementTimer.Tick += OnPlacementTimerTick;
+        _broadcastTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMinutes(1) };
+        _broadcastTimer.Tick += async (_, _) => await RefreshBroadcastAsync();
+        viewModel.Clock.PropertyChanged += OnClockStateChanged;
         viewModel.PropertyChanged += OnViewModelChanged;
         Loaded += OnLoaded;
         SourceInitialized += OnSourceInitialized;
@@ -41,7 +49,35 @@ public partial class MainWindow : Window
     }
 
     public void AllowClose() => _allowClose = true;
-    private async void OnLoaded(object sender, RoutedEventArgs e) { ApplyMode(); await _viewModel.InitializeAsync(); }
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        ApplyMode();
+        await _viewModel.InitializeAsync();
+        _broadcastTimer.Start();
+        await RefreshBroadcastAsync();
+    }
+
+    private async void OnClockStateChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(ClockViewModel.IsNaseehah)) return;
+        ++_broadcastEpoch;
+        _viewModel.IsLiveNaseehah = false;
+        await RefreshBroadcastAsync();
+    }
+
+    private async Task RefreshBroadcastAsync()
+    {
+        if (_broadcastStopped || !_viewModel.Clock.IsNaseehah || _broadcastChecking) return;
+        _broadcastChecking = true;
+        int epoch = _broadcastEpoch;
+        try
+        {
+            bool? live = await EMasjidLiveStatus.FetchAsync();
+            if (!_broadcastStopped && epoch == _broadcastEpoch && _viewModel.Clock.IsNaseehah)
+                _viewModel.IsLiveNaseehah = live == true;
+        }
+        finally { _broadcastChecking = false; }
+    }
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         ApplicationThemeManager.Changed += OnApplicationThemeChanged;
@@ -78,8 +114,25 @@ public partial class MainWindow : Window
         _ = SetWindowPos(handle, 0, 0, 0, 0, 0,
             SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
     }
+    private void OnListenLive(object sender, RoutedEventArgs e)
+    {
+        if (_listenLive is null)
+        {
+            _listenLive = new Views.ListenLiveWindow { Owner = this };
+            _listenLive.Closed += (_, _) => _listenLive = null;
+        }
+        _listenLive.Show();
+        _listenLive.Activate();
+    }
+
     private void OnClosed(object? sender, EventArgs e)
-        => ApplicationThemeManager.Changed -= OnApplicationThemeChanged;
+    {
+        _broadcastStopped = true;
+        _broadcastTimer.Stop();
+        _viewModel.Clock.PropertyChanged -= OnClockStateChanged;
+        _listenLive?.Close();
+        ApplicationThemeManager.Changed -= OnApplicationThemeChanged;
+    }
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MainViewModel.DisplayMode)) ApplyMode();

@@ -313,6 +313,7 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
             CacheTable.WeekSchedule => DeserializeRows<WeekScheduleRow>(document),
             CacheTable.DateOverrides => DeserializeRows<DateOverrideRow>(document),
             CacheTable.Announcements => DeserializeRows<AnnouncementRow>(document),
+            CacheTable.RecurringReminders => DeserializeRows<RecurringReminderRow>(document),
             _ => throw new ArgumentOutOfRangeException(nameof(table)),
         };
         return new CacheSnapshot(table, rows, DateTimeOffset.UtcNow);
@@ -417,6 +418,7 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
             await SubscribeTableAsync<RealtimeWeekSchedule>(CacheTable.WeekSchedule, onChange).ConfigureAwait(false),
             await SubscribeTableAsync<RealtimeDateOverride>(CacheTable.DateOverrides, onChange).ConfigureAwait(false),
             await SubscribeTableAsync<RealtimeAnnouncement>(CacheTable.Announcements, onChange).ConfigureAwait(false),
+            await SubscribeTableAsync<RealtimeRecurringReminder>(CacheTable.RecurringReminders, onChange).ConfigureAwait(false),
             await SubscribeTableAsync<RealtimeProfile>(CacheTable.Profiles, onChange).ConfigureAwait(false),
         };
         return new RealtimeSubscription(_client.Realtime, subscriptions);
@@ -585,13 +587,13 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
 
     private static void EnsureEditable(CacheTable table)
     {
-        if (table is not (CacheTable.Timetables or CacheTable.Periods or CacheTable.Classes or CacheTable.PeriodClasses or CacheTable.WeekSchedule or CacheTable.DateOverrides or CacheTable.Announcements))
+        if (table is not (CacheTable.Timetables or CacheTable.Periods or CacheTable.Classes or CacheTable.PeriodClasses or CacheTable.WeekSchedule or CacheTable.DateOverrides or CacheTable.Announcements or CacheTable.RecurringReminders))
             throw new InvalidOperationException($"{table} is not editable through the client gateway.");
     }
 
     private static string TableName(CacheTable table) => table switch
     {
-        CacheTable.Organizations => "organizations", CacheTable.Profiles => "profiles", CacheTable.Timetables => "timetables", CacheTable.Periods => "periods", CacheTable.Classes => "classes", CacheTable.PeriodClasses => "period_classes", CacheTable.WeekSchedule => "week_schedule", CacheTable.DateOverrides => "date_overrides", CacheTable.Announcements => "announcements", _ => throw new ArgumentOutOfRangeException(nameof(table)),
+        CacheTable.Organizations => "organizations", CacheTable.Profiles => "profiles", CacheTable.Timetables => "timetables", CacheTable.Periods => "periods", CacheTable.Classes => "classes", CacheTable.PeriodClasses => "period_classes", CacheTable.WeekSchedule => "week_schedule", CacheTable.DateOverrides => "date_overrides", CacheTable.Announcements => "announcements", CacheTable.RecurringReminders => "recurring_reminders", _ => throw new ArgumentOutOfRangeException(nameof(table)),
     };
 
     private sealed record AuthResponse([property: JsonPropertyName("access_token")] string AccessToken, [property: JsonPropertyName("refresh_token")] string RefreshToken, [property: JsonPropertyName("expires_in")] int ExpiresIn, AuthUser User);
@@ -639,5 +641,6 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
     [Table("week_schedule")] private sealed class RealtimeWeekSchedule : BaseModel;
     [Table("date_overrides")] private sealed class RealtimeDateOverride : BaseModel;
     [Table("announcements")] private sealed class RealtimeAnnouncement : BaseModel;
+    [Table("recurring_reminders")] private sealed class RealtimeRecurringReminder : BaseModel;
     [Table("profiles")] private sealed class RealtimeProfile : BaseModel;
 }

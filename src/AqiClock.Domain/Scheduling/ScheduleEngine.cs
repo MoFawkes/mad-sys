@@ -164,6 +164,36 @@ public static class ScheduleEngine
             .ToArray();
     }
 
+    public static bool IsNaseehah(Period period) =>
+        period.Name.Contains("Naseeha", StringComparison.OrdinalIgnoreCase);
+
+    public static string NaseehahStartKey(DateOnly date, TimeOnly start) =>
+        string.Create(CultureInfo.InvariantCulture, $"naseehah:{date:yyyy-MM-dd}:{start:HHmm}");
+
+    /// <summary>Shared starts from today's assigned timetables, independent of viewer classes.
+    /// A date override replaces all weekly sources. Copies starting together share one identity.</summary>
+    public static IReadOnlyList<NotificationEvent> GetNaseehahStartEvents(ScheduleSnapshot snapshot, DateOnly date)
+    {
+        IEnumerable<Period> periods = snapshot.FindOverride(date) is not null
+            ? ResolveDay(snapshot, date).Periods
+            : snapshot.WeekSchedule.EntriesFor(date.DayOfWeek)
+                .Select(entry => entry.TimetableId is { } id ? snapshot.FindTimetable(id) : null)
+                .Where(timetable => timetable is not null)
+                .SelectMany(timetable => timetable!.Periods);
+
+        return periods.Where(period => period.IsValid && IsNaseehah(period))
+            .OrderBy(period => period.Id.ToString("D"), StringComparer.Ordinal)
+            .GroupBy(period => period.StartTime)
+            .Select(group =>
+            {
+                var occurrence = new PeriodOccurrence(date, group.First());
+                return new NotificationEvent(
+                    NaseehahStartKey(date, group.Key),
+                    NotificationEventKind.NaseehahStart, occurrence, occurrence.StartsAt);
+            })
+            .OrderBy(item => item.TriggerTime).ToArray();
+    }
+
     private static string EventKey(string kind, Guid periodId, DateOnly date) =>
         string.Create(CultureInfo.InvariantCulture, $"{kind}:{periodId:N}:{date:yyyy-MM-dd}");
 

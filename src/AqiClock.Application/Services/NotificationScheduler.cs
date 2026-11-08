@@ -17,6 +17,8 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
     private readonly IWeekScheduleRepository _weekSchedule;
     private readonly IDateOverrideRepository _overrides;
     private readonly IAnnouncementRepository _announcements;
+    private readonly IRecurringReminderRepository? _reminders;
+    private IReadOnlyList<RecurringReminder> _reminderRules = [];
     private readonly IClassRepository _classes;
     private readonly IDeviceAudienceContext _audience;
     private readonly INotificationLogStore _log;
@@ -60,12 +62,13 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
         ISettingsService settings,
         IClock clock,
         IMessenger messenger,
-        ILogger<NotificationScheduler> logger)
+        ILogger<NotificationScheduler> logger, IRecurringReminderRepository? reminders = null)
     {
         _timetables = timetables;
         _weekSchedule = weekSchedule;
         _overrides = overrides;
         _announcements = announcements;
+        _reminders = reminders;
         _classes = classes;
         _audience = audience;
         _log = log;
@@ -96,13 +99,16 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
                 _audience.Current.SelectedClassIds);
 
             TimeSpan lead = TimeSpan.FromMinutes(Math.Clamp(_settings.Current.EndWarningMinutes, 0, 15));
-            IReadOnlyList<NotificationEvent> rebuilt = ScheduleEngine.GetNotificationEvents(_snapshot, DateOnly.FromDateTime(now), lead);
+            _reminderRules = _reminders is null || _audience.Current.Role == DeviceAudienceRole.StudentDevice
+                ? [] : await _reminders.GetAllAsync(cancellationToken).ConfigureAwait(false);
+            NotificationEvent[] rebuilt = BuildPlan(DateOnly.FromDateTime(now), lead);
             EffectiveDay day = ScheduleEngine.ResolveDay(_snapshot, DateOnly.FromDateTime(now));
+            int reminderCount = RecurringReminderEngine.GetOccurrences(_snapshot, _reminderRules, day.Date).Count;
             HealthSummary = day.Timetable is null
-                ? "Today: no timetable assigned to this weekday"
-                : $"Today: {day.Timetable.Name} · {day.Periods.Count} lessons · {rebuilt.Count} alerts planned";
+                ? $"Today: no timetable assigned to this weekday · {reminderCount} recurring reminders"
+                : $"Today: {day.Timetable.Name} · {day.Periods.Count} lessons · {rebuilt.Length + reminderCount} alerts planned";
             HealthChanged?.Invoke(this, EventArgs.Empty);
-            LogPlanRebuilt(_logger, day.Timetable?.Name ?? "closed", day.Periods.Count, rebuilt.Count);
+            LogPlanRebuilt(_logger, day.Timetable?.Name ?? "closed", day.Periods.Count, rebuilt.Length);
             foreach (NotificationEvent item in rebuilt)
             {
                 if (_knownTriggers.TryGetValue(item.Key, out DateTime oldTrigger) && oldTrigger <= now && item.TriggerTime > now && oldTrigger != item.TriggerTime)
@@ -129,9 +135,22 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
             if (_pendingDate != today)
             {
                 TimeSpan lead = TimeSpan.FromMinutes(Math.Clamp(_settings.Current.EndWarningMinutes, 0, 15));
-                _pending = ScheduleEngine.GetNotificationEvents(_snapshot, today, lead);
+                _pending = BuildPlan(today, lead);
                 _knownTriggers = _pending.ToDictionary(item => item.Key, item => item.TriggerTime, StringComparer.Ordinal);
                 _pendingDate = today;
+            }
+
+            if (_audience.Current.Role is DeviceAudienceRole.Teacher or DeviceAudienceRole.Admin)
+            {
+                foreach (ReminderOccurrence item in RecurringReminderEngine.GetOccurrences(_snapshot, _reminderRules, today)
+                    .Where(item => item.TriggerTime <= now))
+                {
+                    if (await _log.ContainsAsync(item.Key, cancellationToken).ConfigureAwait(false)) continue;
+                    bool skipped = now - item.TriggerTime > Grace || !_settings.Current.AnnouncementNotifications;
+                    if (!skipped)
+                        await _presenter.ShowReminderAsync(item.Reminder, cancellationToken).ConfigureAwait(false);
+                    await _log.RecordAsync(item.Key, new DateTimeOffset(now), skipped, cancellationToken).ConfigureAwait(false);
+                }
             }
 
             foreach (IGrouping<(DateTime TriggerTime, NotificationEventKind Kind), NotificationEvent> group in
@@ -141,13 +160,21 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
                 foreach (NotificationEvent item in group)
                 {
                     if (await _log.ContainsAsync(item.Key, cancellationToken).ConfigureAwait(false)) continue;
+                    if (item.Kind == NotificationEventKind.LessonStart && ScheduleEngine.IsNaseehah(item.Occurrence.Period)
+                        && await _log.GetAsync(ScheduleEngine.NaseehahStartKey(item.Occurrence.Date,
+                            item.Occurrence.Period.StartTime), cancellationToken).ConfigureAwait(false) is { Skipped: false })
+                    {
+                        await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
                     if (now - item.TriggerTime > Grace || !IsEnabled(item.Kind))
                     {
                         LogSuppressed(_logger, item.Key, now - item.TriggerTime > Grace ? "past grace" : "kind disabled");
                         await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
                         continue;
                     }
-                    if (!await AppliesToDeviceAsync(item.Occurrence.Period, cancellationToken).ConfigureAwait(false))
+                    if (item.Kind != NotificationEventKind.NaseehahStart
+                        && !await AppliesToDeviceAsync(item.Occurrence.Period, cancellationToken).ConfigureAwait(false))
                     {
                         LogSuppressed(_logger, item.Key, "audience mismatch");
                         await _log.RecordAsync(item.Key, new DateTimeOffset(now), true, cancellationToken).ConfigureAwait(false);
@@ -163,7 +190,7 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
                 }
 
                 if (due.Count == 0) continue;
-                if (group.Key.Kind == NotificationEventKind.LessonStart)
+                if (group.Key.Kind is NotificationEventKind.LessonStart or NotificationEventKind.NaseehahStart)
                     await _presenter.ShowLessonStartsAsync(due, cancellationToken).ConfigureAwait(false);
                 else
                 {
@@ -172,7 +199,13 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
                 }
 
                 foreach (NotificationEvent item in due)
+                {
                     await _log.RecordAsync(item.Key, new DateTimeOffset(now), false, cancellationToken).ConfigureAwait(false);
+                    // Remember the boundary across switches between class alerts and shared reminders.
+                    if (item.Kind == NotificationEventKind.LessonStart && ScheduleEngine.IsNaseehah(item.Occurrence.Period))
+                        await _log.RecordAsync(ScheduleEngine.NaseehahStartKey(item.Occurrence.Date,
+                            item.Occurrence.Period.StartTime), new DateTimeOffset(now), false, cancellationToken).ConfigureAwait(false);
+                }
             }
         }
         finally { _gate.Release(); }
@@ -186,7 +219,7 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
     public void Receive(TimeJumped message) => RunSafely(async () => { await RebuildAsync(message.Current).ConfigureAwait(false); await ProcessAsync(message.Current).ConfigureAwait(false); });
     public void Receive(DataChanged message)
     {
-        if (message.Table is CacheTable.Timetables or CacheTable.Periods or CacheTable.WeekSchedule or CacheTable.DateOverrides)
+        if (message.Table is CacheTable.Timetables or CacheTable.Periods or CacheTable.WeekSchedule or CacheTable.DateOverrides or CacheTable.RecurringReminders)
             RunSafely(() => RebuildAsync(_clock.Now));
         if (message.Table is CacheTable.Announcements)
             RunSafely(() => ProcessAnnouncementsAsync(_clock.Now));
@@ -201,15 +234,36 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
         await ProcessAnnouncementsAsync(_clock.Now).ConfigureAwait(false);
     });
 
-    private bool IsEnabled(NotificationEventKind kind) => kind == NotificationEventKind.LessonStart
-        ? _settings.Current.LessonStartNotifications
-        : _settings.Current.EndWarningNotifications;
+    private NotificationEvent[] BuildPlan(DateOnly date, TimeSpan lead)
+    {
+        NotificationEvent[] shared = _audience.Current.Role == DeviceAudienceRole.StudentDevice
+            && _settings.Current.AnnouncementNotifications
+            ? ScheduleEngine.GetNaseehahStartEvents(_snapshot, date)
+                .Where(item => _audience.Current.OptedHalfDays.Contains(
+                    item.Occurrence.Period.StartTime.Hour < 12 ? SessionHalfDay.Am : SessionHalfDay.Pm)).ToArray()
+            : [];
+        HashSet<DateTime> sharedStarts = shared.Select(item => item.TriggerTime).ToHashSet();
+        return ScheduleEngine.GetNotificationEvents(_snapshot, date, lead)
+            .Where(item => item.Kind != NotificationEventKind.LessonStart
+                || !ScheduleEngine.IsNaseehah(item.Occurrence.Period) || !sharedStarts.Contains(item.TriggerTime))
+            .Concat(shared).OrderBy(item => item.TriggerTime).ThenBy(item => item.Key, StringComparer.Ordinal).ToArray();
+    }
+
+    private bool IsEnabled(NotificationEventKind kind) => kind switch
+    {
+        NotificationEventKind.LessonStart => _settings.Current.LessonStartNotifications,
+        NotificationEventKind.NaseehahStart => _settings.Current.AnnouncementNotifications,
+        _ => _settings.Current.EndWarningNotifications,
+    };
 
     private async Task<bool> SuppressEndWarningAsync(NotificationEvent item, DateTime now, CancellationToken cancellationToken)
     {
         if (item.Occurrence.Period.Duration <= TimeSpan.FromMinutes(_settings.Current.EndWarningMinutes)) return true;
         string startKey = item.Key.Replace("end-warning:", "start:", StringComparison.Ordinal);
         NotificationLogEntry? start = await _log.GetAsync(startKey, cancellationToken).ConfigureAwait(false);
+        if (start is not { Skipped: false } && ScheduleEngine.IsNaseehah(item.Occurrence.Period))
+            start = await _log.GetAsync(ScheduleEngine.NaseehahStartKey(item.Occurrence.Date,
+                item.Occurrence.Period.StartTime), cancellationToken).ConfigureAwait(false);
         return start is { Skipped: false, FiredAt: { } firedAt } && new DateTimeOffset(now) - firedAt < TimeSpan.FromSeconds(60);
     }
 

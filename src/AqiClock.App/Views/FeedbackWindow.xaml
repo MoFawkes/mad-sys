@@ -1,0 +1,42 @@
+<ui:FluentWindow x:Class="AqiClock.App.Views.FeedbackWindow"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+  Title="Report a problem — AQI Clock" Width="660" Height="760" MinWidth="440" MinHeight="500"
+  WindowStartupLocation="CenterOwner" ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica">
+  <Grid Background="{DynamicResource WindowBrush}" TextElement.Foreground="{DynamicResource TextBrush}">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <ui:TitleBar Title="Report a problem"/>
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="24,12,24,24">
+        <TextBlock Text="Help us understand what happened" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"/>
+        <TextBlock Text="Create a ZIP report to send to the person helping with AQI Clock. Nothing is sent automatically." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,18"/>
+        <TextBlock Text="Area" Margin="0,0,0,5"/>
+        <ComboBox x:Name="Category" SelectionChanged="OnChanged"/>
+        <TextBlock Text="What happened?" Margin="0,16,0,5"/>
+        <ui:TextBox x:Name="Description" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" MaxLength="4000" VerticalScrollBarVisibility="Auto" TextChanged="OnChanged"/>
+        <TextBlock Text="What did you expect? (optional)" Margin="0,16,0,5"/>
+        <ui:TextBox x:Name="Expected" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="55" MaxLength="2000" TextChanged="OnChanged"/>
+        <TextBlock Text="Attachments (optional)" Margin="0,16,0,5" FontWeight="SemiBold"/>
+        <TextBlock Text="Screenshots or files you choose: up to five files, 10 MB total. Files are included as selected." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,8"/>
+        <ListBox x:Name="Attachments" DisplayMemberPath="Name" MaxHeight="130"/>
+        <StackPanel Orientation="Horizontal" Margin="0,8,0,12">
+          <ui:Button Content="Add attachments" Click="OnAdd" Margin="0,0,8,0"/>
+          <ui:Button Content="Remove selected" Click="OnRemove"/>
+        </StackPanel>
+        <CheckBox x:Name="IncludeDetails" IsChecked="True" Content="Include helpful app details" Checked="OnChanged" Unchecked="OnChanged"/>
+        <TextBlock Text="Includes version, Windows version, session type, sync status and class selection. Account emails, tokens and raw logs are excluded." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,14"/>
+        <Expander Header="Preview report" IsExpanded="False">
+          <ui:TextBox x:Name="Preview" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" FontFamily="Consolas" FontSize="11" MaxHeight="260" VerticalScrollBarVisibility="Auto"/>
+        </Expander>
+        <TextBlock x:Name="Status" TextWrapping="Wrap" Margin="0,12,0,0" AutomationProperties.LiveSetting="Polite"/>
+      </StackPanel>
+    </ScrollViewer>
+    <Border Grid.Row="2" Padding="20,12" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <ui:Button Content="Close" IsCancel="True" Click="OnClose" Margin="0,0,8,0"/>
+        <ui:Button x:Name="Export" Content="Save report ZIP" Appearance="Primary" Click="OnExport"/>
+      </StackPanel>
+    </Border>
+  </Grid>
+</ui:FluentWindow>

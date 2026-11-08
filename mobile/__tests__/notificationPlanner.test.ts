@@ -59,6 +59,79 @@ function snapshot(periodCount = 2): ScheduleSnapshot {
 }
 
 describe('notification desired set', () => {
+  function sharedSnapshot(): ScheduleSnapshot {
+    const base = snapshot(1);
+    return {
+      ...base,
+      weekSchedule: [
+        { id: 'mine', weekday: 0, audienceClassId: 'mine', timetableId: null },
+        { id: 'other', weekday: 0, audienceClassId: 'other', timetableId: 'shared' },
+        { id: 'copy', weekday: 0, audienceClassId: 'copy', timetableId: 'copy' },
+      ],
+      timetables: ['shared', 'copy', 'unassigned'].map((id) => ({
+        id, name: id, isArchived: false,
+        periods: [
+          { ...base.timetables[0].periods[0], id: `${id}-am`, name: 'NASEEHAH & Break', startTime: id === 'unassigned' ? '09:00' : '11:00', endTime: '11:25', classIds: ['other'], isLesson: false },
+          { ...base.timetables[0].periods[0], id: `${id}-pm`, name: 'Isha + Naseehah', startTime: id === 'unassigned' ? '18:00' : '12:00', endTime: id === 'unassigned' ? '18:25' : '12:25', classIds: ['other'], isLesson: false },
+          { ...base.timetables[0].periods[0], id: `${id}-lesson`, name: 'Other class lesson', startTime: '10:00', endTime: '10:30', classIds: ['other'] },
+        ],
+      })),
+    };
+  }
+
+  it.each([
+    [[], []],
+    [['am'], ['naseehah:2026-07-27:1100']],
+    [['pm'], ['naseehah:2026-07-27:1200']],
+    [['am', 'pm'], ['naseehah:2026-07-27:1100', 'naseehah:2026-07-27:1200']],
+  ] as const)('shares reminders across classes for opt-ins %j', (opted, expected) => {
+    const desired = buildDesiredNotifications(sharedSnapshot(),
+      { ...student, optedHalfDays: new Set(opted) },
+      { ...DEFAULT_NOTIFICATION_SETTINGS, lessonStartEnabled: false }, new Date(2026, 6, 27, 7));
+    expect(desired.map((item) => item.identifier)).toEqual(expected);
+    expect(desired.every((item) => item.title === 'Naseehah starting' && item.kind === 'naseehah')).toBe(true);
+  });
+
+  it('disables shared reminders with Announcement notifications and leaves class alerts intact', () => {
+    const data = sharedSnapshot();
+    const audience: DeviceAudience = { ...student, optedHalfDays: new Set(['am', 'pm']) };
+    const settings = { ...DEFAULT_NOTIFICATION_SETTINGS, announcementsEnabled: false };
+    expect(buildDesiredNotifications(data, audience, settings, new Date(2026, 6, 27, 7))).toEqual([]);
+    const ownClass = { ...data, weekSchedule: [{ id: 'mine', weekday: 0, audienceClassId: 'mine', timetableId: 'shared' }],
+      timetables: data.timetables.map((t) => ({ ...t, periods: t.periods.map((p) => ({ ...p, classIds: [] })) })) };
+    const ownAlerts = buildDesiredNotifications(ownClass, audience, settings, new Date(2026, 6, 27, 7));
+    expect(ownAlerts.filter((item) => item.kind === 'start')).toHaveLength(3);
+    expect(ownAlerts.filter((item) => item.kind === 'naseehah')).toHaveLength(0);
+  });
+
+  it('replaces the matching class start with one shared reminder and keeps its end warning', () => {
+    const data = sharedSnapshot();
+    const ownClass = { ...data, weekSchedule: [{ id: 'mine', weekday: 0, audienceClassId: 'mine', timetableId: 'shared' }],
+      timetables: data.timetables.map((t) => ({ ...t, periods: t.periods.slice(0, 1).map((p) => ({ ...p, classIds: [] })) })) };
+    const desired = buildDesiredNotifications(ownClass, { ...student, optedHalfDays: new Set(['am']) },
+      DEFAULT_NOTIFICATION_SETTINGS, new Date(2026, 6, 27, 7));
+    expect(desired.map((item) => item.kind)).toEqual(['naseehah', 'end-warning']);
+  });
+
+  it('honours closure and replacement overrides for all shared sources', () => {
+    const data = sharedSnapshot();
+    const audience: DeviceAudience = { ...student, optedHalfDays: new Set(['am', 'pm']) };
+    const closed = { ...data, dateOverrides: [{ id: 'closed', date: '2026-07-27', timetableId: null }] };
+    expect(buildDesiredNotifications(closed, audience, DEFAULT_NOTIFICATION_SETTINGS, new Date(2026, 6, 27, 7))).toEqual([]);
+    const changed = { ...data, dateOverrides: [{ id: 'replacement', date: '2026-07-27', timetableId: 'day' }],
+      timetables: [...data.timetables, snapshot(1).timetables[0]] };
+    expect(buildDesiredNotifications(changed, audience, DEFAULT_NOTIFICATION_SETTINGS, new Date(2026, 6, 27, 7))
+      .some((item) => item.kind === 'naseehah')).toBe(false);
+  });
+
+  it('anchors shared reminders to institute time and drops reminders that already started', () => {
+    const audience: DeviceAudience = { ...student, optedHalfDays: new Set(['am', 'pm']) };
+    const desired = buildDesiredNotifications(sharedSnapshot(), audience, DEFAULT_NOTIFICATION_SETTINGS,
+      new Date('2026-07-27T10:30:00Z'), 'Europe/London');
+    expect(desired.map((item) => item.identifier)).toEqual(['naseehah:2026-07-27:1200']);
+    expect(desired[0].triggerTime.toISOString()).toBe('2026-07-27T11:00:00.000Z');
+  });
+
   it('keeps untagged school-wide periods and excludes another class', () => {
     const desired = buildDesiredNotifications(
       snapshot(),
@@ -206,6 +279,18 @@ describe('notification schedule evidence', () => {
 });
 
 describe('notification cleanup', () => {
+  it('cancels a stale shared reminder after opt-out or closure', async () => {
+    const Notifications = jest.requireMock('expo-notifications') as {
+      getAllScheduledNotificationsAsync: jest.Mock; cancelScheduledNotificationAsync: jest.Mock;
+    };
+    Notifications.getAllScheduledNotificationsAsync.mockResolvedValue([
+      { identifier: 'naseehah:2026-07-27:1100', content: { title: 'Naseehah starting', body: 'Naseehah' } },
+    ]);
+    await reconcileScheduledNotifications({ timetables: [], weekSchedule: [], dateOverrides: [] },
+      student, DEFAULT_NOTIFICATION_SETTINGS, new Date(2026, 6, 27, 7));
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('naseehah:2026-07-27:1100');
+  });
+
   it('cancels every app-owned scheduled notification on sign-out', async () => {
     const Notifications = jest.requireMock('expo-notifications') as {
       cancelAllScheduledNotificationsAsync: jest.Mock;

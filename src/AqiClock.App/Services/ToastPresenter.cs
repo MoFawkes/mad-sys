@@ -28,7 +28,8 @@ public sealed class ToastPresenter : INotificationPresenter, IDisposable
         cancellationToken.ThrowIfCancellationRequested();
         ToastContentBuilder toast = new ToastContentBuilder()
             .AddArgument("action", "open")
-            .AddText(notifications.Count == 1 ? "Lesson starting" : "Lessons starting");
+            .AddText(notifications[0].Kind == NotificationEventKind.NaseehahStart
+                ? "Naseehah starting" : notifications.Count == 1 ? "Lesson starting" : "Lessons starting");
         foreach (NotificationEvent notification in notifications)
             toast.AddText(string.Create(CultureInfo.CurrentCulture, $"{notification.Occurrence.Period.Name} · ends {notification.Occurrence.Period.EndTime:HH:mm}{InstituteSuffix()}"));
         toast.Show();
@@ -64,6 +65,13 @@ public sealed class ToastPresenter : INotificationPresenter, IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         new ToastContentBuilder().AddArgument("action", "open").AddText("AQI Clock notifications are working").AddText("This is a test notification.").Show();
+        return Task.CompletedTask;
+    }
+
+    public Task ShowReminderAsync(RecurringReminder reminder, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        new ToastContentBuilder().AddArgument("action", "open").AddText(reminder.Title).AddText(reminder.Body).Show();
         return Task.CompletedTask;
     }
 

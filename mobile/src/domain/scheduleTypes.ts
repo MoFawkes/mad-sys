@@ -26,6 +26,7 @@ export type DateOverride = {
 };
 
 export type ScheduleSnapshot = {
+  recurringReminders?: readonly import('./recurringReminder').RecurringReminder[];
   timetables: readonly Timetable[];
   weekSchedule: WeekSchedule;
   dateOverrides: readonly DateOverride[];
@@ -53,7 +54,7 @@ export type PeriodOccurrence = {
   endsAt: Date;
 };
 
-export type NotificationEventKind = 'start' | 'end-warning';
+export type NotificationEventKind = 'start' | 'end-warning' | 'naseehah';
 
 export type NotificationEvent = {
   key: string;

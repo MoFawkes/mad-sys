@@ -11,7 +11,194 @@ namespace AqiClock.Application.Tests;
 
 public sealed class NotificationSchedulerTests
 {
+    [Fact]
+    public async Task RecurringLessonEndIsIndependentOfWarningsAndDoesNotRepeatAfterRestart()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.SetPeriod(Monday.TimeOfDay, TimeSpan.FromMinutes(30));
+        fixture.Settings.Value = fixture.Settings.Value with { LessonStartNotifications = false, EndWarningNotifications = false };
+        fixture.Reminders.Items = [new(Guid.NewGuid(), "Chart", "Fill chart", 1, ReminderTiming.LessonEnd, null, true)];
+        using (NotificationScheduler scheduler = fixture.Create())
+        {
+            await scheduler.StartAsync();
+            await scheduler.ProcessAsync(Monday.AddMinutes(29));
+            Assert.Equal(0, fixture.Presenter.Announcements);
+            await scheduler.ProcessAsync(Monday.AddMinutes(30));
+            await scheduler.ProcessAsync(Monday.AddMinutes(30).AddSeconds(1));
+        }
+        using (NotificationScheduler scheduler = fixture.Create())
+        { await scheduler.StartAsync(); await scheduler.ProcessAsync(Monday.AddMinutes(30).AddSeconds(2)); }
+        Assert.Equal(1, fixture.Presenter.Announcements);
+    }
+
+    [Theory]
+    [InlineData(true, true, true, 0)]
+    [InlineData(false, true, false, 0)]
+    [InlineData(false, false, true, 0)]
+    [InlineData(false, true, true, 1)]
+    public async Task RecurringReminderRespectsStudentAudiencePauseAndAnnouncementSetting(bool student, bool enabled, bool notifications, int expected)
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        if (student) fixture.Audience.SetStudent([Guid.NewGuid()], []);
+        fixture.Settings.Value = fixture.Settings.Value with { AnnouncementNotifications = notifications };
+        fixture.Reminders.Items = [new(Guid.NewGuid(), "Chart", "Fill chart", 1, ReminderTiming.FixedTime, new(8, 30), enabled)];
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync(); await scheduler.ProcessAsync(Monday);
+        Assert.Equal(expected, fixture.Presenter.Announcements);
+    }
+
+    [Fact]
+    public async Task RecurringPlanRebuildCancelsOldEndsAndDropsPausedOrDeletedRules()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.SetPeriod(Monday.TimeOfDay, TimeSpan.FromMinutes(30));
+        var rule = new RecurringReminder(Guid.NewGuid(), "Chart", "Fill chart", 1, ReminderTiming.LessonEnd, null, true);
+        fixture.Reminders.Items = [rule];
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync();
+        fixture.SetPeriod(Monday.TimeOfDay, TimeSpan.FromMinutes(45));
+        await scheduler.RebuildAsync(Monday);
+        await scheduler.ProcessAsync(Monday.AddMinutes(30));
+        Assert.Equal(0, fixture.Presenter.Announcements);
+        await scheduler.ProcessAsync(Monday.AddMinutes(45));
+        Assert.Equal(1, fixture.Presenter.Announcements);
+        fixture.Reminders.Items = [rule with { Timing = ReminderTiming.FixedTime, FixedTime = new(9, 30), IsEnabled = false }];
+        await scheduler.RebuildAsync(Monday);
+        await scheduler.ProcessAsync(Monday.AddHours(1));
+        fixture.Reminders.Items = [];
+        await scheduler.RebuildAsync(Monday);
+        await scheduler.ProcessAsync(Monday.AddHours(2));
+        Assert.Equal(1, fixture.Presenter.Announcements);
+    }
+
+    [Fact]
+    public async Task RecurringReminderDoesNotCatchUpLongMissedOccurrences()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.Reminders.Items = [new(Guid.NewGuid(), "Chart", "Fill chart", 1, ReminderTiming.FixedTime, new(8, 30), true)];
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync(); await scheduler.ProcessAsync(Monday.AddMinutes(5));
+        Assert.Equal(0, fixture.Presenter.Announcements);
+        Assert.True(Assert.Single(fixture.Log.Entries).Value.Skipped);
+    }
     private static readonly DateTime Monday = new(2026, 7, 20, 8, 30, 0, DateTimeKind.Local);
+
+    [Theory]
+    [InlineData(8, true, false, true, 1)]
+    [InlineData(13, false, true, true, 1)]
+    [InlineData(12, true, false, true, 0)]
+    [InlineData(12, false, true, true, 1)]
+    [InlineData(8, false, true, true, 0)]
+    [InlineData(13, true, false, true, 0)]
+    [InlineData(8, false, false, true, 0)]
+    [InlineData(8, true, true, false, 0)]
+    public async Task SharedNaseehahUsesHalfDayAndAnnouncementSettingAcrossClasses(
+        int hour, bool am, bool pm, bool announcements, int expected)
+    {
+        DateTime now = Monday.Date.AddHours(hour);
+        SchedulerFixture fixture = CreateFixture(now);
+        Guid mine = Guid.NewGuid();
+        Guid other = Guid.NewGuid();
+        Guid publicTimetable = Guid.NewGuid();
+        fixture.Audience.SetStudent([mine],
+            (am ? new[] { SessionHalfDay.Am } : []).Concat(pm ? [SessionHalfDay.Pm] : []));
+        fixture.Settings.Value = fixture.Settings.Value with
+        { LessonStartNotifications = false, AnnouncementNotifications = announcements };
+        fixture.Timetables.Items = [new Timetable(publicTimetable, "Other track", false,
+            [new Period(Guid.NewGuid(), "Isha + NASEEHAH", TimeOnly.FromDateTime(now), TimeOnly.FromDateTime(now.AddMinutes(25)), 0, false)])];
+        fixture.Week = new FakeWeek(new WeekSchedule([
+            new(Guid.NewGuid(), DayOfWeek.Monday, mine, null),
+            new(Guid.NewGuid(), DayOfWeek.Monday, other, publicTimetable)]));
+        using NotificationScheduler scheduler = fixture.Create();
+
+        await scheduler.StartAsync();
+        await scheduler.ProcessAsync(now);
+        await scheduler.ProcessAsync(now.AddMinutes(20));
+
+        Assert.Equal(expected, fixture.Presenter.Starts);
+        Assert.Equal(0, fixture.Presenter.EndWarnings);
+        if (expected > 0)
+            Assert.Equal(NotificationEventKind.NaseehahStart, Assert.Single(Assert.Single(fixture.Presenter.StartGroups)).Kind);
+    }
+
+    [Fact]
+    public async Task SharedNaseehahReplacesClassStartAndDeduplicatesAcrossRestart()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.Audience.SetStudent([Guid.NewGuid()], [SessionHalfDay.Am]);
+        fixture.SetPeriods(
+            new Period(Guid.NewGuid(), "Break / Naseehah", new(8, 30), new(9, 0), 0, false),
+            new Period(Guid.NewGuid(), "Naseehah & Break", new(8, 30), new(9, 0), 1, false));
+        using (NotificationScheduler first = fixture.Create())
+        { await first.StartAsync(); await first.ProcessAsync(Monday); }
+        using (NotificationScheduler second = fixture.Create())
+        { await second.StartAsync(); await second.ProcessAsync(Monday); }
+
+        Assert.Equal(1, fixture.Presenter.Starts);
+        Assert.Single(fixture.Log.Entries);
+        Assert.Equal("naseehah:2026-07-20:0830", fixture.Log.Entries.Keys.Single());
+    }
+
+    [Fact]
+    public async Task AnnouncementSettingOffPreservesNaseehahClassAlerts()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.Audience.SetStudent([Guid.NewGuid()], [SessionHalfDay.Am]);
+        fixture.Settings.Value = fixture.Settings.Value with { AnnouncementNotifications = false };
+        fixture.SetPeriods(new Period(Guid.NewGuid(), "Naseehah", new(8, 30), new(9, 0), 0, false));
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync(); await scheduler.ProcessAsync(Monday);
+        Assert.Equal(NotificationEventKind.LessonStart, Assert.Single(Assert.Single(fixture.Presenter.StartGroups)).Kind);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ChangingAnnouncementSettingAtBoundaryDoesNotRepeatNaseehah(bool sharedFirst)
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.Audience.SetStudent([Guid.NewGuid()], [SessionHalfDay.Am]);
+        fixture.Settings.Value = fixture.Settings.Value with { AnnouncementNotifications = sharedFirst };
+        fixture.SetPeriods(new Period(Guid.NewGuid(), "Naseehah", new(8, 30), new(9, 0), 0, false));
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync(); await scheduler.ProcessAsync(Monday);
+        fixture.Settings.Value = fixture.Settings.Value with { AnnouncementNotifications = !sharedFirst };
+        await scheduler.RebuildAsync(Monday.AddSeconds(10));
+        await scheduler.ProcessAsync(Monday.AddSeconds(10));
+        Assert.Equal(1, fixture.Presenter.Starts);
+    }
+
+    [Fact]
+    public async Task SyncedClosureRemovesSharedNaseehahReminder()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday.AddMinutes(-1));
+        fixture.Audience.SetStudent([Guid.NewGuid()], [SessionHalfDay.Am]);
+        fixture.SetPeriods(new Period(Guid.NewGuid(), "Naseehah", new(8, 30), new(9, 0), 0, false));
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync();
+        fixture.Overrides.Items = [new DateOverride(Guid.NewGuid(), DateOnly.FromDateTime(Monday), null, "Closed")];
+        await scheduler.RebuildAsync(Monday.AddSeconds(-1));
+        await scheduler.ProcessAsync(Monday);
+        Assert.Equal(0, fixture.Presenter.Starts);
+    }
+
+    [Fact]
+    public async Task SharedNaseehahResumesOnFollowingDayAndUsesRecentStartSuppression()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        fixture.Audience.SetStudent([Guid.NewGuid()], [SessionHalfDay.Am]);
+        fixture.Settings.Value = fixture.Settings.Value with { EndWarningMinutes = 4 };
+        fixture.SetPeriods(new Period(Guid.NewGuid(), "Naseehah", new(8, 30), new(8, 35), 0, false));
+        Guid timetable = fixture.Timetables.Items.Single().Id;
+        fixture.Week = new FakeWeek(new WeekSchedule(new Dictionary<DayOfWeek, Guid?>
+        { [DayOfWeek.Monday] = timetable, [DayOfWeek.Tuesday] = timetable }));
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync(); await scheduler.ProcessAsync(Monday.AddMinutes(1));
+        Assert.Equal(1, fixture.Presenter.Starts);
+        Assert.Equal(0, fixture.Presenter.EndWarnings);
+        await scheduler.ProcessAsync(Monday.AddDays(1));
+        Assert.Equal(2, fixture.Presenter.Starts);
+    }
 
     [Fact]
     public async Task HolidayWeekIsSilentAcrossMidnightAndFollowingMondayResumes()
@@ -308,6 +495,7 @@ public sealed class NotificationSchedulerTests
         private readonly Guid _periodId = Guid.NewGuid();
         public FakeTimetables Timetables { get; } = new();
         public FakeAnnouncements Announcements { get; } = new();
+        public FakeReminders Reminders { get; } = new();
         public FakeOverrides Overrides { get; } = new();
         public FakeLog Log { get; } = new();
         public FakePresenter Presenter { get; } = new();
@@ -333,7 +521,13 @@ public sealed class NotificationSchedulerTests
 
         public void SetPeriods(params Period[] periods) => Timetables.Items = [new Timetable(_timetableId, "Normal", false, periods)];
 
-        public NotificationScheduler Create() => new(Timetables, Week, Overrides, Announcements, Classes, Audience, Log, Presenter, Settings, Clock, Messenger, NullLogger<NotificationScheduler>.Instance);
+        public NotificationScheduler Create() => new(Timetables, Week, Overrides, Announcements, Classes, Audience, Log, Presenter, Settings, Clock, Messenger, NullLogger<NotificationScheduler>.Instance, Reminders);
+    }
+
+    private sealed class FakeReminders : IRecurringReminderRepository
+    {
+        public IReadOnlyList<RecurringReminder> Items { get; set; } = [];
+        public Task<IReadOnlyList<RecurringReminder>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items);
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)

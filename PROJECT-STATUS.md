@@ -1,6 +1,30 @@
 # AQI Clock — Architecture / Engineering Status
 
-Last updated: 2026-09-26
+Last updated: 2026-11-08
+
+## 2026-11-08 beta.10 recurring teacher reminders
+
+Implemented admin-managed weekly reminders in Windows administration under Announcements → Recurring reminders, with custom title/message, weekday selection, lesson-end/fixed-time triggers and edit/pause/resume/delete actions. Teachers and admins receive reminders on Windows and mobile through Announcement notifications; students cannot read or modify the reminder records. Lesson-end triggers resolve actual assigned timetables, skip non-lessons and closed dates, and merge simultaneous ends per rule. Fixed times use institute time and remain calendar-based on holidays. No announcement-feed item is generated.
+
+Published [v0.16.0-beta.10](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0-beta.10) for Windows and Android from source `952cf115249ae175eb4404dfc53475611803b57c`. The production migration `20261108160431_recurring_reminders.sql` is applied and verified (RLS, four policies, Realtime membership and no anonymous read grant); production security advisors report no errors. Windows SQLite schema is 4 and mobile SQLite schema is 7. This is an opt-in prerelease; GitHub's latest-release endpoint still reports stable v0.15.5. Installed-app acceptance remains pending.
+
+All four [tag-bound hosted gates and Windows packaging](https://github.com/MoFawkes/mad-sys/actions/runs/42503611826) passed. [EAS Android build](https://expo.dev/accounts/denovoorders/projects/aqi-clock/builds/0fe34b37-9528-4001-b581-0f88fd22a620) succeeded, version code 8, with the previous beta's signing certificate. Verified Windows embedded version/source, public configuration, updater size/SHA1/SHA256, matching portable contents and all uploaded asset digests. Seven public assets include the Android APK and SHA256SUMS.txt. See `docs/RELEASE-NOTES-0.16.0-beta.10.md`.
+
+The unpublished beta.9 tag was blocked by rehearsal assertions that still expected the old migration-history/publication lists. Updated those assertions and added a guard that generator rollback preserves the unrelated reminders table; beta.9's Android build was cancelled. Tags were not rewritten. Production's two October migrations absent from this branch were preserved by fetching exact hosted history into an ignored deployment workspace; the dry run and deployment applied only the new November migration.
+
+Validation: Release build, domain/application/SQLite tests, all 391 local Supabase cases (including 15 new reminder permission/constraint/audit cases), all 162 mobile tests, TypeScript and ESLint passed. WPF renders and action bindings were checked in light/dark themes and at 910×485. Installed Windows/Android reminder delivery remains a manual release gate in `docs/MANUAL-TESTS.md`.
+
+Local database note: the existing disposable stack carries three October migration-history entries absent from this checkout, so CLI migration-up refuses to run. The new table was applied directly using local SQL and tested without altering that older history; the November migration is not recorded as applied locally. Advisors report no issues for the new table (existing schedule-table permissive-policy warnings remain).
+
+## 2026-10-29 beta.8 interface release
+
+Owner requested grouped sidebar navigation in Windows administration and restoration of clean toolbar icons, with beta publication. Implemented a grouped icon sidebar over the existing nine editors, shorter Classes/Staff access labels, and larger icon-only main-toolbar actions with tooltips/accessibility names. Release build and 247 application tests passed (one interactive test skipped). Isolated renders of the actual WPF layouts cover both themes and a short/narrow window; a harness verified all nine navigation destinations and reverse selection synchronisation. [Windows beta.8](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0-beta.8) is published from source `7af827c`; Android remains beta.7. All four [tag-bound release gates and packaging](https://github.com/MoFawkes/mad-sys/actions/runs/40790643033) passed. Verified packaged version/source, updater manifest size/SHA1 and downloaded asset SHA256. Six public assets include SHA256SUMS.txt; GitHub's latest-release API still reports stable v0.15.5. Installed UI/updater acceptance remains pending. See `docs/RELEASE-NOTES-0.16.0-beta.8.md`.
+
+## 2026-10-28 beta.7 release activity
+
+The unpublished beta.6 tag failed the hosted Release analyzer gate (`CA1859` on a notification-plan local variable). Corrected the variable/array length access and passed local Release solution validation: 341 tests passed, with 64 local-stack tests and one interactive test skipped locally. The beta.6 Android build was cancelled. Published a fresh beta.7 tag rather than rewriting the failed tag; all hosted database checks subsequently passed.
+
+Student AM/PM subscriptions now derive shared daily Naseehah start reminders from all assigned timetables, respecting overrides, Announcement notifications and duplicate suppression. Windows and mobile source, picker copy, business rules and acceptance checks are updated. Local validation passed: 247 application tests, 79 domain tests and 157 mobile tests; one interactive Windows test skipped. TypeScript and lint passed. [v0.16.0-beta.7](https://github.com/MoFawkes/aqi-clock-releases/releases/tag/v0.16.0-beta.7) is published for Windows and Android (version code 6), from source `e98895e`. All four [tag-bound hosted checks and Windows packaging](https://github.com/MoFawkes/mad-sys/actions/runs/40788153645) passed. [EAS Android build](https://expo.dev/accounts/denovoorders/projects/aqi-clock/builds/e88360c0-76aa-4eee-b9ec-44e71bc8a00d) succeeded. Verified Windows source/version and updater manifest size/hash; APK signature matches beta.3, with the expected package/version. All seven release assets are public, including SHA256SUMS.txt. Stable remains v0.15.5, independently confirmed via GitHub's latest-release API. Installed-device reminder and updater acceptance remain pending; see `docs/RELEASE-NOTES-0.16.0-beta.7.md` and `docs/MANUAL-TESTS.md`.
 
 This is the shared handoff document for Fable 5 (Architecture) and Codex
 (Implementation / Engineering). Keep it current when scope, release state,

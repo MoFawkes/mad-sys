@@ -22,6 +22,7 @@ public partial class MainViewModel : ObservableObject, IRecipient<ConnectivityCh
     [ObservableProperty] private bool _isAdmin;
     [ObservableProperty] private bool _isAnnouncementsOpen;
     [ObservableProperty] private bool _alwaysOnTop;
+    [ObservableProperty] private bool _isLiveNaseehah;
 
     public ClockViewModel Clock { get; }
     public AnnouncementsViewModel Announcements { get; }

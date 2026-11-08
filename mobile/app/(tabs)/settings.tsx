@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import * as Linking from 'expo-linking';
 import { Redirect, router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -23,6 +24,8 @@ import { getSupabaseClient } from '@/src/data/sessionStore';
 import { exportNotificationDiagnostics } from '@/src/notifications/diagnostics';
 import { useApp } from '@/src/ui/AppProvider';
 import { theme } from '@/src/ui/theme';
+import { fetchAndroidUpdate } from '@/src/updates/releases';
+import { getIncludeBetaUpdates, saveIncludeBetaUpdates } from '@/src/updates/settings';
 
 export default function SettingsScreen() {
   const { session, signOut, sync, syncNow } = useApp();
@@ -33,6 +36,8 @@ export default function SettingsScreen() {
   const [studentJoinCode, setStudentJoinCode] = useState<string | null>(null);
   const [joinCodeError, setJoinCodeError] = useState<string | null>(null);
   const [exportingDiagnostics, setExportingDiagnostics] = useState(false);
+  const [includeBeta, setIncludeBeta] = useState(false);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
 
   const canDistributeStudentCode =
     session.status === 'signedIn' &&
@@ -47,6 +52,7 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     void getNotificationSettings().then(setSettings);
+    void getIncludeBetaUpdates().then(setIncludeBeta).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -104,6 +110,33 @@ export default function SettingsScreen() {
       Alert.alert('Sync failed', error instanceof Error ? error.message : 'Try again.');
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const changeBetaUpdates = async (value: boolean) => {
+    try {
+      await saveIncludeBetaUpdates(value);
+      setIncludeBeta(value);
+    } catch {
+      Alert.alert('Could not save update preference', 'Please try again.');
+    }
+  };
+
+  const checkUpdates = async () => {
+    setCheckingUpdates(true);
+    try {
+      const version = Constants.expoConfig?.version;
+      if (!version) throw new Error('App version unavailable.');
+      const update = await fetchAndroidUpdate(version, includeBeta);
+      if (!update) Alert.alert('Up to date', 'No newer Android release is available for your update preference.');
+      else Alert.alert('Update available', `Download version ${update.version}, then approve APK installation.`, [
+        { text: 'Later', style: 'cancel' },
+        { text: 'Download', onPress: () => { void Linking.openURL(update.url).catch(() => Alert.alert('Could not open download', 'Please try again.')); } },
+      ]);
+    } catch (error) {
+      Alert.alert('Update check failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setCheckingUpdates(false);
     }
   };
 
@@ -259,7 +292,16 @@ export default function SettingsScreen() {
         />
       </Section>
 
+      <Section title="Help and feedback">
+        <ActionRow label="Report a problem" detail="Share a description, app details and optional attachments" onPress={() => router.push('/feedback')} />
+      </Section>
+
       <Section title="About">
+        <ToggleRow label="Include beta updates" value={includeBeta} onValueChange={(value) => void changeBetaUpdates(value)} />
+        <View style={styles.row}>
+          <Text style={styles.rowDetail}>Get new features early. Beta versions may have bugs. Checks run daily when the app is open. Android asks you to install each update. Turning this off keeps your current version until a newer stable release.</Text>
+        </View>
+        <ActionRow label={checkingUpdates ? 'Checking for updates…' : 'Check for updates'} disabled={checkingUpdates} onPress={() => void checkUpdates()} />
         <View style={styles.row}>
           <View style={styles.rowCopy}>
             <Text style={styles.rowLabel}>AQI Clock</Text>

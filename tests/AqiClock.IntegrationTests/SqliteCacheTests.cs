@@ -5,6 +5,24 @@ namespace AqiClock.IntegrationTests;
 
 public sealed class SqliteCacheTests : IDisposable
 {
+    [Fact]
+    public async Task RecurringReminderSnapshotPreservesPauseDaysAndNullableFixedTime()
+    {
+        using var database = CreateDatabase();
+        await database.InitializeAsync();
+        var lesson = new RecurringReminderRow(Guid.NewGuid(), Guid.NewGuid(), "Chart", "Fill chart", 16, "lesson_end", null, true);
+        var fixedTime = lesson with { Id = Guid.NewGuid(), Timing = "fixed_time", FixedTime = new(16, 0), IsEnabled = false, Weekdays = 65 };
+        await database.ReplaceSnapshotAsync(Snapshot(CacheTable.RecurringReminders, new[] { lesson, fixedTime }));
+        IReadOnlyList<AqiClock.Domain.Entities.RecurringReminder> rules = await new SqliteRecurringReminderRepository(database).GetAllAsync();
+        Assert.Equal(2, rules.Count);
+        Assert.Null(rules.Single(item => item.Id == lesson.Id).FixedTime);
+        AqiClock.Domain.Entities.RecurringReminder paused = rules.Single(item => item.Id == fixedTime.Id);
+        Assert.Equal(65, paused.Weekdays);
+        Assert.Equal(new TimeOnly(16, 0), paused.FixedTime);
+        Assert.False(paused.IsEnabled);
+        await database.ReplaceSnapshotAsync(new CacheSnapshot(CacheTable.RecurringReminders, [], DateTimeOffset.UtcNow));
+        Assert.Empty(await new SqliteRecurringReminderRepository(database).GetAllAsync());
+    }
     private static readonly int[] AtomicSnapshotCounts = [25, 50];
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "AqiClock.Tests", Guid.NewGuid().ToString("N"));
 
@@ -15,7 +33,7 @@ public sealed class SqliteCacheTests : IDisposable
         await database.InitializeAsync();
         await database.InitializeAsync();
 
-        Assert.Equal("3", await database.GetMetaAsync("schema_version"));
+        Assert.Equal("4", await database.GetMetaAsync("schema_version"));
     }
 
     [Fact]
@@ -28,7 +46,7 @@ public sealed class SqliteCacheTests : IDisposable
 
         await database.InitializeAsync();
 
-        Assert.Equal("3", await database.GetMetaAsync("schema_version"));
+        Assert.Equal("4", await database.GetMetaAsync("schema_version"));
     }
 
     [Fact]

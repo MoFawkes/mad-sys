@@ -207,6 +207,7 @@ export function AppProvider({ children }: PropsWithChildren) {
           'period_classes',
           'week_schedule',
           'date_overrides',
+          'recurring_reminders',
         ].includes(changedTable)
       ) {
         void reloadSnapshot();
@@ -292,7 +293,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       if (granted) {
         const organization = await getOrganization();
         await reconcileScheduledNotifications(
-          visibleSnapshot,
+          snapshot,
           audience,
           await getNotificationSettings(),
           new Date(),
@@ -303,7 +304,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     })().catch(() => {
       // Notification denial or platform scheduling failure must never break the clock.
     });
-  }, [audience, dataRevision, session, visibleSnapshot]);
+  }, [audience, dataRevision, session, snapshot]);
 
   const value = useMemo<AppContextValue>(
     () => {

@@ -153,6 +153,8 @@ Data volume is tiny (KBs), so sync is a **full snapshot pull per table**, not de
 
 ## 7. Notification behaviour
 
+Student Naseehah subscriptions add `NaseehahStart` events (`naseehah` on mobile) from `GetNaseehahStartEvents`. These inspect all weekly assignments for the day, independent of viewer class selection, or only the overriding timetable when a date override exists. Case-insensitive `Naseeha` matching includes combined prayer/break names. Valid blocks with the same start produce one stable `naseehah:{yyyy-MM-dd}:{HHmm}` event. The student opt-in uses the block's institute-local start (before noon AM, otherwise PM) and the Announcement notifications setting. Shared events have no end warning and replace matching ordinary Naseehah start events when enabled; class-period end warnings and unsubscribed class alerts retain their usual rules. No persisted announcement is generated. Mobile planners receive the unfiltered cache snapshot and separately derive the class plan and shared reminder plan, so other-class Naseehah remains discoverable; reconciliation and sign-out cleanup recognise the new key prefix.
+
 Mobile owns durable delivery evidence. A foreground listener and repeat presented-notification sweep insert idempotently into `notification_delivery`; every reconcile captures desired/actual state in `notification_schedule_snapshot`. Diagnostics exports both tables before sign-out, and privacy teardown clears them.
 
 Three categories: **lesson start**, **end warning** (N min before end, default 5), **announcement**. Each locally toggleable.

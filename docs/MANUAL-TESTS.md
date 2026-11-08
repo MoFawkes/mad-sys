@@ -1,5 +1,20 @@
 # AQI Clock manual OS-integration checklist
 
+## Recurring teacher reminders — beta.10, 2026-11-08
+
+See [Recurring reminders](RECURRING-REMINDERS.md) for configuration and delivery rules. Apply migration `20261108160431_recurring_reminders.sql` before testing updated clients.
+
+- [ ] As an admin, open Announcements → Recurring reminders. Save a Friday-only lesson-end rule with a custom message; reopen and verify its days, trigger and enabled state.
+- [ ] With Announcement notifications enabled, receive the message at each Friday lesson end on an installed Windows teacher client and Android teacher device. Confirm no alert after a break or on another weekday, and one alert for simultaneous lesson ends.
+- [ ] Edit an upcoming lesson's finish or replace its date timetable, sync, and verify only the new boundary delivers. Close the date, sync, and verify its pending lesson-end reminders disappear.
+- [ ] Save a fixed-time rule and verify institute-time delivery, including on a closed date. Use a device timezone different from the institute's for one check.
+- [ ] Edit a reminder, pause/resume it, then delete it; sync the receiving clients each time and verify the messages and pending requests follow the change. A student device must receive none of these reminders.
+- [ ] Turn Announcement notifications off and verify both reminder types stop while lesson-start/end-warning preferences remain independent. Turn it back on before a future occurrence.
+- [ ] Restart Windows after a delivered occurrence and confirm it does not repeat; resume after more than two minutes and confirm old occurrences do not catch up. Confirm tray delivery with the main window closed and Android background delivery.
+- [ ] Test creating/editing at a small window size and in both themes. Confirm saved list actions work after scrolling.
+
+Automated Release/WPF/database/mobile checks pass; these installed-device checks remain pending.
+
 ## v0.15.3 holiday date ranges
 
 Date overrides now has inclusive first/last closed dates, an optional note and **Save closed dates**. A single bulk upsert writes every selected date using the existing unique constraint, without a database migration. Existing rows retain their IDs; the editor checks current server data and asks before replacing their assignments and notes. Null timetables are explicitly included when saving Closed. The regular week schedule is unchanged; announcements remain independent of lesson closures.
@@ -411,6 +426,22 @@ For PR #1, the Admin-tab checks below supersede the legacy six-tab assertion imm
   repeat the out/in cycle once more.
 
 ### Student classes and optional Naseehah
+
+Pending Windows beta.8 interface acceptance:
+
+- [ ] Open administration and switch through all nine sidebar sections, including Staff access. Confirm each opens the expected editor, preserves existing command/unsaved-edit behaviour, and works with keyboard selection.
+- [ ] Resize to a short window and scroll the sidebar to Announcements and Recent changes. Check light and dark selection/focus states.
+- [ ] Check the main toolbar's icon-only listening, compact, pin, settings and edit actions. Hover labels identify each action; pin state and live broadcast highlighting remain clear.
+
+Pending device acceptance for automatic Naseehah reminders (2026-10-28):
+
+- [ ] On Windows and Android, select a PM class and AM Naseehah. With Announcement notifications on and lesson starts off, a morning `Break / Naseehah` assigned to another class produces one `Naseehah starting` notification. An ordinary lesson from that other class stays silent.
+- [ ] Exercise AM only, PM only, both, and neither. Noon belongs to PM; combined `Isha + Naseehah` alerts at the whole block's start. The picker explains reminders and the Announcement setting.
+- [ ] Duplicate one Naseehah start across assigned class timetables. Get one reminder, including when that block is in the selected class timetable. Restart Windows around the boundary and confirm it does not repeat.
+- [ ] Turn Announcement notifications off or opt out and confirm pending shared reminders disappear on Android. Existing class start/end alerts continue according to lesson settings.
+- [ ] Sync a closed date or replacement timetable before the boundary and confirm stale reminders are removed; an unassigned timetable never supplies reminders. Restore a school day and confirm the following day's reminder returns.
+
+Earlier student-selection checks:
 
 - [x] Select multiple classes using the checkbox rows. With no class selected, **Start student session** remains blocked and shows the inline `Select at least one class.` error.
 - [x] Confirm the independent optional Naseehah checkboxes allow all four states: AM only, PM only, both, and neither.

@@ -34,7 +34,7 @@ const PROFILE_FIRST: readonly SyncTable[] = [
 // ever yields an empty snapshot. Omitting it matches the desktop client's
 // TablesForAudience and avoids a per-sync query that can never return data.
 const STUDENT_TABLES: readonly SyncTable[] = SYNC_TABLES.filter(
-  (table) => table !== 'profiles',
+  (table) => table !== 'profiles' && table !== 'recurring_reminders',
 );
 
 export function syncOrderFor(audience: SyncAudience): readonly SyncTable[] {

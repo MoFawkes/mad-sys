@@ -8,6 +8,23 @@
         Closing="OnClosing"
         LocationChanged="OnPlacementChanged"
         SizeChanged="OnPlacementChanged">
+  <Window.Resources>
+    <Style x:Key="LiveListenButton" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
+      <Setter Property="Appearance" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="ToolTip" Value="Listen to Al-Qalam Institute" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding IsLiveNaseehah}" Value="True">
+          <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+          <Setter Property="Background" Value="{DynamicResource CurrentPeriodBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource SuccessBrush}" />
+          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="ToolTip" Value="Naseehah time · Al-Qalam Institute is live. Click to listen." />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+  </Window.Resources>
   <Grid Background="{DynamicResource WindowBrush}"
         TextElement.Foreground="{DynamicResource TextBrush}"
         MouseLeftButtonDown="OnMouseLeftButtonDown"
@@ -32,23 +49,33 @@
 
       <DockPanel LastChildFill="True" Margin="2,0,2,0">
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-          <ui:Button Height="36"
-                     Command="{Binding ToggleDisplayModeCommand}"
-                     Appearance="Transparent"
-                     Padding="10,0"
-                     Margin="2,0">
+          <ui:Button Height="36" Click="OnListenLive" Style="{StaticResource LiveListenButton}" Padding="10,0" Margin="2,0"
+                     AutomationProperties.Name="Listen to Al-Qalam Institute">
             <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon Symbol="WindowMultiple20" Margin="0,0,7,0" />
-              <TextBlock Text="Compact" VerticalAlignment="Center" />
+              <ui:SymbolIcon Symbol="Headphones20" FontSize="20" />
+              <TextBlock Text="LIVE · Listen" Margin="7,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold">
+                <TextBlock.Style><Style TargetType="TextBlock">
+                  <Setter Property="Visibility" Value="Collapsed" />
+                  <Style.Triggers><DataTrigger Binding="{Binding IsLiveNaseehah}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                </Style></TextBlock.Style>
+              </TextBlock>
             </StackPanel>
           </ui:Button>
-          <ui:Button Height="36"
-                     Command="{Binding TogglePinCommand}"
+          <ui:Button Height="36" Width="36" BorderThickness="0" AutomationProperties.Name="Switch to compact mode"
+                     Command="{Binding ToggleDisplayModeCommand}"
+                     ToolTip="Switch to compact mode"
                      Appearance="Transparent"
-                     Padding="10,0"
+                     Padding="0"
                      Margin="2,0">
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon Symbol="Pin20" Margin="0,0,7,0">
+            <ui:SymbolIcon Symbol="WindowMultiple20" FontSize="20" />
+          </ui:Button>
+          <ui:Button Height="36" Width="36" BorderThickness="0" AutomationProperties.Name="Always on top"
+                     Command="{Binding TogglePinCommand}"
+                     ToolTip="Always on top"
+                     Appearance="Transparent"
+                     Padding="0"
+                     Margin="2,0">
+              <ui:SymbolIcon Symbol="Pin20" FontSize="20">
                 <ui:SymbolIcon.Style>
                   <Style TargetType="{x:Type ui:SymbolIcon}">
                     <Style.Triggers>
@@ -60,23 +87,20 @@
                   </Style>
                 </ui:SymbolIcon.Style>
               </ui:SymbolIcon>
-              <TextBlock Text="Pin" VerticalAlignment="Center" />
-            </StackPanel>
           </ui:Button>
-          <ui:Button Height="36"
+          <ui:Button Height="36" Width="36" BorderThickness="0" AutomationProperties.Name="Settings"
                      Command="{Binding OpenSettingsCommand}"
+                     ToolTip="Settings"
                      Appearance="Transparent"
-                     Padding="10,0"
+                     Padding="0"
                      Margin="2,0">
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon Symbol="Settings20" Margin="0,0,7,0" />
-              <TextBlock Text="Settings" VerticalAlignment="Center" />
-            </StackPanel>
+            <ui:SymbolIcon Symbol="Settings20" FontSize="20" />
           </ui:Button>
-          <ui:Button Height="36"
+          <ui:Button Height="36" Width="36" BorderThickness="0" AutomationProperties.Name="Edit timetables"
                      Command="{Binding EditTimetablesCommand}"
+                     ToolTip="Edit timetables"
                      Appearance="Transparent"
-                     Padding="10,0"
+                     Padding="0"
                      Margin="2,0">
             <ui:Button.Style>
               <Style TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
@@ -88,10 +112,7 @@
                 </Style.Triggers>
               </Style>
             </ui:Button.Style>
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon Symbol="Edit20" Margin="0,0,7,0" />
-              <TextBlock Text="Edit timetables" VerticalAlignment="Center" />
-            </StackPanel>
+            <ui:SymbolIcon Symbol="Edit20" FontSize="20" />
           </ui:Button>
         </StackPanel>
 
@@ -109,9 +130,9 @@
 
       <Grid Grid.Row="1" Margin="0,10">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="1.05*" />
+          <ColumnDefinition Width="0.7*" MinWidth="300" MaxWidth="440" />
           <ColumnDefinition Width="10" />
-          <ColumnDefinition Width="0.95*" />
+          <ColumnDefinition Width="1.3*" />
         </Grid.ColumnDefinitions>
 
         <Border Grid.Column="0"
@@ -120,7 +141,9 @@
                 BorderThickness="1"
                 CornerRadius="10"
                 Padding="10">
-          <views:ClockView DataContext="{Binding Clock}" />
+          <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
+            <views:ClockView Width="340" DataContext="{Binding Clock}" />
+          </Viewbox>
         </Border>
 
         <Border Grid.Column="2"
@@ -142,9 +165,10 @@
                        Margin="4,2,4,10" />
 
             <Grid Grid.Row="1">
-              <ListBox ItemsSource="{Binding Clock.TodayPeriods}"
+              <ListBox ItemsSource="{Binding Clock.TodayPeriodGroups}"
                        BorderThickness="0"
                        Background="Transparent"
+                       ScrollViewer.CanContentScroll="False"
                        ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListBox.ItemContainerStyle>
                   <Style TargetType="ListBoxItem">
@@ -153,6 +177,13 @@
                     <Setter Property="Margin" Value="0" />
                     <Setter Property="Background" Value="Transparent" />
                     <Setter Property="Focusable" Value="False" />
+                    <Setter Property="Template">
+                      <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                          <ContentPresenter HorizontalAlignment="Stretch" />
+                        </ControlTemplate>
+                      </Setter.Value>
+                    </Setter>
                     <Style.Triggers>
                       <Trigger Property="IsMouseOver" Value="True">
                         <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
@@ -200,9 +231,42 @@
                                    Text="{Binding Time}"
                                    Foreground="{DynamicResource MutedBrush}"
                                    VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="3" VerticalAlignment="Center">
-                          <TextBlock x:Name="PeriodName" Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                          <TextBlock Text="{Binding ClassName}" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
+                        <StackPanel x:Name="PeriodNames" Grid.Column="3" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,4">
+                            <TextBlock.Style><Style TargetType="TextBlock">
+                              <Setter Property="Visibility" Value="Collapsed" />
+                              <Style.Triggers><DataTrigger Binding="{Binding HasSharedName}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                            </Style></TextBlock.Style>
+                          </TextBlock>
+                          <ItemsControl ItemsSource="{Binding Periods}" AlternationCount="2147483647">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate><DataTemplate>
+                              <Border BorderBrush="{DynamicResource DividerBrush}" MaxWidth="220" Margin="0,3,0,3">
+                                <Border.Style><Style TargetType="Border">
+                                  <Setter Property="BorderThickness" Value="1,0,0,0" />
+                                  <Setter Property="Padding" Value="6,0" />
+                                  <Style.Triggers>
+                                    <DataTrigger Binding="{Binding (ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Value="0">
+                                      <Setter Property="BorderThickness" Value="0" />
+                                      <Setter Property="Padding" Value="0,0,6,0" />
+                                    </DataTrigger>
+                                  </Style.Triggers>
+                                </Style></Border.Style>
+                                <StackPanel>
+                                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap">
+                                    <TextBlock.Style><Style TargetType="TextBlock">
+                                      <Style.Triggers><DataTrigger Binding="{Binding DataContext.HasSharedName, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+                                    </Style></TextBlock.Style>
+                                  </TextBlock>
+                                  <TextBlock Text="{Binding ClassName}" ToolTip="{Binding ClassName}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,3,0,0">
+                                    <TextBlock.Style><Style TargetType="TextBlock">
+                                      <Style.Triggers><DataTrigger Binding="{Binding HasClassName}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+                                    </Style></TextBlock.Style>
+                                  </TextBlock>
+                                </StackPanel>
+                              </Border>
+                            </DataTemplate></ItemsControl.ItemTemplate>
+                          </ItemsControl>
                         </StackPanel>
                       </Grid>
                     </Border>
@@ -218,7 +282,7 @@
                         <Setter TargetName="CurrentIcon" Property="Visibility" Value="Visible" />
                         <Setter TargetName="UpcomingIcon" Property="Visibility" Value="Collapsed" />
                         <Setter TargetName="PeriodTime" Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                        <Setter TargetName="PeriodName" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                        <Setter TargetName="PeriodNames" Property="TextElement.Foreground" Value="{DynamicResource AccentBrush}" />
                       </DataTrigger>
                     </DataTemplate.Triggers>
                   </DataTemplate>
@@ -399,6 +463,13 @@
                    VerticalAlignment="Center" />
       </Border>
       <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+        <ui:Button Width="28" Height="32" Padding="0" Click="OnListenLive" AutomationProperties.Name="Listen live">
+          <ui:Button.Style><Style TargetType="{x:Type ui:Button}" BasedOn="{StaticResource LiveListenButton}">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers><DataTrigger Binding="{Binding IsLiveNaseehah}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+          </Style></ui:Button.Style>
+          <ui:SymbolIcon Symbol="Headphones20" />
+        </ui:Button>
         <ui:Button ToolTip="Return to normal mode"
                    Appearance="Transparent"
                    Width="32"

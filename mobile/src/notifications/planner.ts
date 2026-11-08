@@ -12,6 +12,9 @@ import {
   DeviceAudience,
   filterScheduleForAudience,
   getNotificationEvents,
+  getNaseehahStartEvents,
+  getReminderOccurrences,
+  isNaseehah,
   matchesPeriod,
   ScheduleSnapshot,
 } from '@/src/domain';
@@ -28,7 +31,7 @@ export type DesiredNotification = {
   triggerTime: Date;
   title: string;
   body: string;
-  kind: 'start' | 'end-warning';
+  kind: 'start' | 'end-warning' | 'naseehah' | 'reminder';
 };
 
 export type ActualNotification = {
@@ -51,6 +54,7 @@ export function buildDesiredNotifications(
   instituteTimeZone?: string,
 ): DesiredNotification[] {
   const desired: DesiredNotification[] = [];
+  const classSnapshot = filterScheduleForAudience(snapshot, audience);
   const instituteNow = toInstituteWallClock(now, instituteTimeZone);
   const firstDate = new Date(instituteNow.getFullYear(), instituteNow.getMonth(), instituteNow.getDate());
 
@@ -60,14 +64,27 @@ export function buildDesiredNotifications(
       firstDate.getMonth(),
       firstDate.getDate() + offset,
     );
-    for (const event of getNotificationEvents(
-      snapshot,
+    const shared = audience.role === 'StudentDevice' && settings.announcementsEnabled
+      ? getNaseehahStartEvents(snapshot, date).filter((event) =>
+        audience.optedHalfDays.has(event.triggerTime.getHours() < 12 ? 'am' : 'pm'))
+      : [];
+    if (audience.role !== 'StudentDevice' && settings.announcementsEnabled) {
+      for (const reminder of getReminderOccurrences(classSnapshot, date)) {
+        const triggerTime = wallClockToInstant(reminder.triggerTime, instituteTimeZone);
+        if (triggerTime.getTime() > now.getTime()) desired.push({ ...reminder, triggerTime });
+      }
+    }
+    const sharedStarts = new Set(shared.map((event) => event.triggerTime.getTime()));
+    const classEvents = getNotificationEvents(
+      classSnapshot,
       date,
       settings.endWarningMinutes,
-    )) {
+    ).filter((event) => event.kind !== 'start' || !isNaseehah(event.occurrence.period)
+      || !sharedStarts.has(event.triggerTime.getTime()));
+    for (const event of [...classEvents, ...shared]) {
       const triggerTime = wallClockToInstant(event.triggerTime, instituteTimeZone);
       if (triggerTime.getTime() <= now.getTime()) continue;
-      if (!matchesPeriod(audience, new Set(event.occurrence.period.classIds ?? []))) continue;
+      if (event.kind !== 'naseehah' && !matchesPeriod(audience, new Set(event.occurrence.period.classIds ?? []))) continue;
       if (event.kind === 'start' && !settings.lessonStartEnabled) continue;
       if (event.kind === 'end-warning' && !settings.endWarningEnabled) continue;
 
@@ -75,9 +92,10 @@ export function buildDesiredNotifications(
         identifier: event.key,
         triggerTime,
         kind: event.kind,
-        title: event.kind === 'start' ? 'Lesson starting' : 'Lesson ending soon',
+        title: event.kind === 'naseehah' ? 'Naseehah starting'
+          : event.kind === 'start' ? 'Lesson starting' : 'Lesson ending soon',
         body:
-          event.kind === 'start'
+          event.kind !== 'end-warning'
             ? event.occurrence.period.name
             : `${event.occurrence.period.name} ends in ${settings.endWarningMinutes} minutes`,
       });
@@ -86,7 +104,7 @@ export function buildDesiredNotifications(
 
   const grouped = new Map<string, DesiredNotification[]>();
   for (const item of desired) {
-    const key = `${item.triggerTime.getTime()}:${item.kind}`;
+    const key = item.kind === 'reminder' ? item.identifier : `${item.triggerTime.getTime()}:${item.kind}`;
     grouped.set(key, [...(grouped.get(key) ?? []), item]);
   }
 
@@ -248,6 +266,10 @@ export async function reconcileScheduledNotificationsFromCache(): Promise<void> 
     };
   } else {
     const profile = await getCachedProfile(data.session.user.id);
+    if (!profile?.isActive) {
+      await cancelScheduledLessonNotifications();
+      return;
+    }
     audience = {
       role: profile?.role === 'admin' ? 'Admin' : 'Teacher',
       selectedClassIds: new Set(),
@@ -255,7 +277,7 @@ export async function reconcileScheduledNotificationsFromCache(): Promise<void> 
     };
   }
   await reconcileScheduledNotifications(
-    filterScheduleForAudience(snapshot, audience),
+    snapshot,
     audience,
     await getNotificationSettings(),
     new Date(),
@@ -279,5 +301,5 @@ export async function cancelAllScheduledAqiClockNotifications(): Promise<void> {
 }
 
 function isLessonIdentifier(identifier: string): boolean {
-  return identifier.startsWith('start:') || identifier.startsWith('end-warning:');
+  return identifier.startsWith('start:') || identifier.startsWith('end-warning:') || identifier.startsWith('naseehah:') || identifier.startsWith('reminder:');
 }
