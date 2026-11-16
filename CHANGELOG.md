@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- Windows and mobile sync read each table in ordered pages until the server's exact row count is reached. Previously a table larger than the Supabase response cap (1,000 rows) was silently truncated in the local cache.
+
 ## 0.16.1 - 2026-11-08
 
 ### Fixed

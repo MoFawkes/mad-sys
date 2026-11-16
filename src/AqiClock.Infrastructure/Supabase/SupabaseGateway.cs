@@ -298,25 +298,61 @@ public sealed class SupabaseGateway : ISupabaseGateway, IDisposable
         return document.RootElement.GetInt32();
     }
 
+    // PostgREST silently caps every response at the project's max_rows setting, and the cache
+    // replaces a table with whatever a pull returns. Reading in ordered pages until the server's
+    // own exact count is reached keeps rows beyond the cap from disappearing from the device.
+    public const int PullPageSize = 1000;
+
     public async Task<CacheSnapshot> PullAsync(CacheTable table, CancellationToken cancellationToken = default)
     {
         string tableName = TableName(table);
-        using JsonDocument document = await GetJsonAsync($"rest/v1/{tableName}?select=*", cancellationToken).ConfigureAwait(false);
-        IReadOnlyList<object> rows = table switch
+        string order = table == CacheTable.PeriodClasses ? "period_id.asc,class_id.asc" : "id.asc";
+        List<object> rows = [];
+        while (true)
         {
-            CacheTable.Organizations => DeserializeRows<OrganizationRow>(document),
-            CacheTable.Profiles => DeserializeRows<ProfileRow>(document),
-            CacheTable.Timetables => DeserializeRows<TimetableRow>(document),
-            CacheTable.Periods => DeserializeRows<PeriodRow>(document),
-            CacheTable.Classes => DeserializeRows<ClassRow>(document),
-            CacheTable.PeriodClasses => DeserializeRows<PeriodClassRow>(document),
-            CacheTable.WeekSchedule => DeserializeRows<WeekScheduleRow>(document),
-            CacheTable.DateOverrides => DeserializeRows<DateOverrideRow>(document),
-            CacheTable.Announcements => DeserializeRows<AnnouncementRow>(document),
-            CacheTable.RecurringReminders => DeserializeRows<RecurringReminderRow>(document),
-            _ => throw new ArgumentOutOfRangeException(nameof(table)),
-        };
+            (JsonDocument document, long? total) = await GetPageAsync(
+                $"rest/v1/{tableName}?select=*&order={order}&limit={PullPageSize}&offset={rows.Count}", cancellationToken).ConfigureAwait(false);
+            int received;
+            using (document)
+            {
+                object[] page = table switch
+                {
+                    CacheTable.Organizations => DeserializeRows<OrganizationRow>(document),
+                    CacheTable.Profiles => DeserializeRows<ProfileRow>(document),
+                    CacheTable.Timetables => DeserializeRows<TimetableRow>(document),
+                    CacheTable.Periods => DeserializeRows<PeriodRow>(document),
+                    CacheTable.Classes => DeserializeRows<ClassRow>(document),
+                    CacheTable.PeriodClasses => DeserializeRows<PeriodClassRow>(document),
+                    CacheTable.WeekSchedule => DeserializeRows<WeekScheduleRow>(document),
+                    CacheTable.DateOverrides => DeserializeRows<DateOverrideRow>(document),
+                    CacheTable.Announcements => DeserializeRows<AnnouncementRow>(document),
+                    CacheTable.RecurringReminders => DeserializeRows<RecurringReminderRow>(document),
+                    _ => throw new ArgumentOutOfRangeException(nameof(table)),
+                };
+                received = page.Length;
+                rows.AddRange(page);
+            }
+            // Without a usable count, keep reading until a page comes back empty.
+            if (received == 0 || (total is not null && rows.Count >= total)) break;
+        }
         return new CacheSnapshot(table, rows, DateTimeOffset.UtcNow);
+    }
+
+    private async Task<(JsonDocument Document, long? Total)> GetPageAsync(string path, CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = CreateRequest(HttpMethod.Get, path);
+        request.Headers.Add("Prefer", "count=exact");
+        using HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+        CheckClockSkew(response);
+        response.EnsureSuccessStatusCode();
+        // PostgREST reports "0-999/1234" (or "*/0") without the unit the typed header parser expects.
+        long? total = response.Content.Headers.TryGetValues("Content-Range", out IEnumerable<string>? values)
+            && values.FirstOrDefault() is { } range
+            && long.TryParse(range.AsSpan(range.LastIndexOf('/') + 1), NumberStyles.None, CultureInfo.InvariantCulture, out long parsed)
+                ? parsed
+                : null;
+        await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        return (await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false), total);
     }
 
     public Task InsertAsync(CacheTable table, object row, CancellationToken cancellationToken = default) => SendWriteAsync(HttpMethod.Post, table, null, row, cancellationToken);

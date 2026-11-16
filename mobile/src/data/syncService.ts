@@ -2,9 +2,9 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 
 import { getSupabaseClient } from './sessionStore';
 import { getLastSyncedAt } from './repositories';
+import { pullAllRows } from './pullTable';
 import {
   getMeta,
-  RemoteRow,
   replaceSnapshot,
   setMeta,
   SYNC_TABLES,
@@ -156,9 +156,7 @@ export class SyncService {
 
   private async pullAndReplace(table: SyncTable): Promise<void> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase.from(table).select('*');
-    if (error) throw error;
-    const rows = (data ?? []) as RemoteRow[];
+    const rows = await pullAllRows(supabase, table);
 
     if (table === 'profiles' && this.userId && this.audience === 'teacher') {
       const ownProfile = rows.find((row) => row.id === this.userId);
