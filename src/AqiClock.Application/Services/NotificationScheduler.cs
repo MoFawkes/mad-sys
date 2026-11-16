@@ -31,6 +31,8 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
     private IReadOnlyList<NotificationEvent> _pending = [];
     private DateOnly? _pendingDate;
     private Dictionary<string, DateTime> _knownTriggers = new(StringComparer.Ordinal);
+    private int _processingTick;
+    private int _processingAnnouncements;
     private bool _disposed;
     public string HealthSummary { get; private set; } = "Today: notification plan not loaded yet";
     public event EventHandler? HealthChanged;
@@ -80,11 +82,11 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
         settings.Changed += OnSettingsChanged;
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken = default)
+    public async Task StartAsync(bool deferAnnouncements = false, CancellationToken cancellationToken = default)
     {
         await _log.PruneAsync(DateTimeOffset.UtcNow.AddDays(-7), cancellationToken).ConfigureAwait(false);
         await RebuildAsync(_clock.Now, cancellationToken).ConfigureAwait(false);
-        await ProcessAnnouncementsAsync(cancellationToken).ConfigureAwait(false);
+        if (!deferAnnouncements) await ProcessAnnouncementsAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task RebuildAsync(DateTime now, CancellationToken cancellationToken = default)
@@ -147,8 +149,13 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
                 {
                     if (await _log.ContainsAsync(item.Key, cancellationToken).ConfigureAwait(false)) continue;
                     bool skipped = now - item.TriggerTime > Grace || !_settings.Current.AnnouncementNotifications;
-                    if (!skipped)
+                    if (skipped)
+                        LogSuppressed(_logger, item.Key, now - item.TriggerTime > Grace ? "past grace" : "announcement notifications off");
+                    else
+                    {
                         await _presenter.ShowReminderAsync(item.Reminder, cancellationToken).ConfigureAwait(false);
+                        LogReminderDelivered(_logger, item.Key);
+                    }
                     await _log.RecordAsync(item.Key, new DateTimeOffset(now), skipped, cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -211,11 +218,21 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
         finally { _gate.Release(); }
     }
 
-    public void Receive(ClockTick message) => RunSafely(async () =>
+    public void Receive(ClockTick message)
     {
-        await ProcessAsync(message.Now).ConfigureAwait(false);
-        await ProcessAnnouncementsAsync().ConfigureAwait(false);
-    });
+        RunSafely(() => ProcessAnnouncementsAsync());
+        // Each tick checks all due alerts. Let the next fresh tick catch up instead of
+        // queueing stale timestamps while Windows is slow to accept a notification.
+        if (Interlocked.CompareExchange(ref _processingTick, 1, 0) != 0) return;
+        RunSafely(async () =>
+        {
+            try
+            {
+                await ProcessAsync(message.Now).ConfigureAwait(false);
+            }
+            finally { Volatile.Write(ref _processingTick, 0); }
+        });
+    }
     public void Receive(TimeJumped message) => RunSafely(async () => { await RebuildAsync(message.Current).ConfigureAwait(false); await ProcessAsync(message.Current).ConfigureAwait(false); });
     public void Receive(DataChanged message)
     {
@@ -269,6 +286,14 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
 
     private async Task ProcessAnnouncementsAsync(CancellationToken cancellationToken = default)
     {
+        // Several events can request a scan; only one should submit and record each alert.
+        if (Interlocked.CompareExchange(ref _processingAnnouncements, 1, 0) != 0) return;
+        try { await ScanAnnouncementsAsync(cancellationToken).ConfigureAwait(false); }
+        finally { Volatile.Write(ref _processingAnnouncements, 0); }
+    }
+
+    private async Task ScanAnnouncementsAsync(CancellationToken cancellationToken)
+    {
         DateTimeOffset instant = _clock.UtcNow;
         IReadOnlyList<Announcement> items = await _announcements.GetCurrentAsync(instant, cancellationToken).ConfigureAwait(false);
         foreach (Announcement item in items.Where(item => item.IsPublishedAt(instant) && !item.IsExpiredAt(instant) && _audience.Matches(item)))
@@ -305,6 +330,9 @@ public sealed partial class NotificationScheduler : INotificationScheduler,
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Notification {EventKey} suppressed: {Reason}")]
     private static partial void LogSuppressed(ILogger logger, string eventKey, string reason);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Recurring reminder {EventKey} delivered")]
+    private static partial void LogReminderDelivered(ILogger logger, string eventKey);
 
     public void Dispose()
     {

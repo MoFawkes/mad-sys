@@ -37,6 +37,18 @@ it('plans every Friday lesson end, skips breaks and deduplicates simultaneous en
   expect(buildDesiredNotifications(snapshot(), teacher, settings, new Date(2026, 10, 13, 10, 30))).toHaveLength(1);
 });
 
+it('uses every timetable assigned that day when staff have no class selection', () => {
+  const input = snapshot();
+  input.timetables = [...input.timetables, { id: 'part', name: 'Part-time', isArchived: false, periods: [
+    { id: 'evening', name: 'Evening lesson', startTime: '17:00', endTime: '18:00', sortOrder: 0, isLesson: true },
+    { id: 'same-end', name: 'Same end as Lesson 2', startTime: '10:30', endTime: '11:00', sortOrder: 1, isLesson: true },
+  ] }];
+  input.weekSchedule = [...input.weekSchedule, { id: 'part-friday', weekday: 4, audienceClassId: 'class-a', timetableId: 'part' }];
+  expect(buildDesiredNotifications(input, teacher, settings, friday).map((item) => item.triggerTime)).toEqual([
+    new Date(2026, 10, 13, 10), new Date(2026, 10, 13, 11), new Date(2026, 10, 13, 18),
+  ]);
+});
+
 it('follows date replacements and closures', () => {
   const closed = { ...snapshot(), dateOverrides: [{ id: 'closed', date: '2026-11-13', timetableId: null }] };
   expect(buildDesiredNotifications(closed, teacher, settings, friday)).toEqual([]);

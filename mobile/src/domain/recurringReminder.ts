@@ -1,4 +1,4 @@
-import { formatLocalDate, parseTimeToMinutes, resolveDay } from './scheduleEngine';
+import { formatLocalDate, getAllAssignedPeriods, parseTimeToMinutes } from './scheduleEngine';
 import type { ScheduleSnapshot } from './scheduleTypes';
 
 export type RecurringReminder = {
@@ -13,7 +13,8 @@ export type RecurringReminder = {
 
 export function getReminderOccurrences(snapshot: ScheduleSnapshot, date: Date) {
   const weekdayBit = 1 << ((date.getDay() + 6) % 7);
-  const ends = [...new Set(resolveDay(snapshot, date).periods
+  // Staff select no classes, so use every timetable assigned that day rather than the viewer's own.
+  const ends = [...new Set(getAllAssignedPeriods(snapshot, date)
     .filter((period) => period.isLesson)
     .map((period) => parseTimeToMinutes(period.endTime)))];
   return (snapshot.recurringReminders ?? []).flatMap((reminder) => {

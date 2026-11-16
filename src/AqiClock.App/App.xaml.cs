@@ -142,7 +142,10 @@ public partial class App : System.Windows.Application, IDisposable
             case StartupServiceStep.Updater: services.GetRequiredService<IUpdateService>().Start(); break;
             case StartupServiceStep.Tray: services.GetRequiredService<TrayService>().Start(); break;
             case StartupServiceStep.TaskbarDisplay: services.GetRequiredService<TaskbarDisplayService>().Start(); break;
-            case StartupServiceStep.NotificationScheduler: services.GetRequiredService<INotificationScheduler>().StartAsync().GetAwaiter().GetResult(); break;
+            case StartupServiceStep.NotificationScheduler:
+                // The first clock tick checks announcements without holding up window startup.
+                services.GetRequiredService<INotificationScheduler>().StartAsync(deferAnnouncements: true).GetAwaiter().GetResult();
+                break;
             case StartupServiceStep.Clock: services.GetRequiredService<IClockService>().Start(); break;
             case StartupServiceStep.MainViewModel:
                 if (session.Current.UserId is not null)

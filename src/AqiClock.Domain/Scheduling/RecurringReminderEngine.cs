@@ -13,9 +13,9 @@ public static class RecurringReminderEngine
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(reminders);
         var result = new List<ReminderOccurrence>();
-        // Resolve the actual day, including replacements, closures and class-specific schedules.
-        TimeOnly[] lessonEnds = ScheduleEngine.ResolveDay(snapshot, date).Periods
-            .Where(period => period.IsLesson && period.IsValid)
+        // Staff select no classes, so use every timetable assigned that day rather than the viewer's own.
+        TimeOnly[] lessonEnds = ScheduleEngine.GetAllAssignedPeriods(snapshot, date)
+            .Where(period => period.IsLesson)
             .Select(period => period.EndTime).Distinct().Order().ToArray();
         foreach (RecurringReminder reminder in reminders.Where(item => item.IsEnabled && item.RunsOn(date.DayOfWeek)))
         {

@@ -33,6 +33,31 @@ public sealed class RecurringReminderTests
     }
 
     [Fact]
+    public void LessonEndsComeFromEveryAssignedTimetableWithoutAClassSelection()
+    {
+        Timetable fullTime = Day();
+        Timetable partTime = new(Guid.NewGuid(), "Part-time", false,
+            [new(Guid.NewGuid(), "Evening lesson", new(17, 0), new(18, 0), 0),
+             new(Guid.NewGuid(), "Same end as Lesson 2", new(10, 30), new(11, 0), 1)]);
+        Timetable otherPartTime = new(Guid.NewGuid(), "Part-time 2", false,
+            [new(Guid.NewGuid(), "Late lesson", new(18, 30), new(19, 15), 0)]);
+        var week = new WeekSchedule([
+            new(Guid.NewGuid(), DayOfWeek.Friday, null, fullTime.Id),
+            new(Guid.NewGuid(), DayOfWeek.Friday, Guid.NewGuid(), partTime.Id),
+            new(Guid.NewGuid(), DayOfWeek.Friday, Guid.NewGuid(), otherPartTime.Id)]);
+        var snapshot = new ScheduleSnapshot([fullTime, partTime, otherPartTime], week, []);
+
+        Assert.Equal(
+            [Friday.ToDateTime(new(10, 0)), Friday.ToDateTime(new(11, 0)), Friday.ToDateTime(new(18, 0)), Friday.ToDateTime(new(19, 15))],
+            RecurringReminderEngine.GetOccurrences(snapshot, [Reminder], Friday).Select(item => item.TriggerTime));
+
+        var replaced = new ScheduleSnapshot([fullTime, partTime, otherPartTime], week,
+            [new(Guid.NewGuid(), Friday, otherPartTime.Id, null)]);
+        Assert.Equal(Friday.ToDateTime(new(19, 15)),
+            Assert.Single(RecurringReminderEngine.GetOccurrences(replaced, [Reminder], Friday)).TriggerTime);
+    }
+
+    [Fact]
     public void FixedTimeRemindersAreCalendarBasedAndKeepDifferentMessagesSeparate()
     {
         var first = Reminder with { Timing = ReminderTiming.FixedTime, FixedTime = new(16, 0) };

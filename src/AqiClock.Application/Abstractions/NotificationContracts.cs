@@ -28,7 +28,7 @@ public interface INotificationScheduler
 {
     string HealthSummary { get; }
     event EventHandler? HealthChanged;
-    Task StartAsync(CancellationToken cancellationToken = default);
+    Task StartAsync(bool deferAnnouncements = false, CancellationToken cancellationToken = default);
     Task RebuildAsync(DateTime now, CancellationToken cancellationToken = default);
     Task ProcessAsync(DateTime now, CancellationToken cancellationToken = default);
 }
