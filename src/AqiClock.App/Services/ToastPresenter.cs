@@ -79,8 +79,8 @@ public sealed partial class ToastPresenter : INotificationPresenter, IDisposable
             LogSubmissionStarted(_logger, kind);
             long started = Stopwatch.GetTimestamp();
             toast.Show();
-            if (_logger.IsEnabled(LogLevel.Debug))
-                LogSubmissionReturned(_logger, kind, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            double elapsedMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            LogSubmissionReturned(_logger, kind, elapsedMilliseconds);
         }, cancellationToken);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Submitting {Kind} notification to Windows")]
