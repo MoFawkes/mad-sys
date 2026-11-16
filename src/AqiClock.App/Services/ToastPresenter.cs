@@ -1,22 +1,24 @@
+using System.Diagnostics;
 using System.Globalization;
-using System.Windows;
 using AqiClock.Application.Abstractions;
 using AqiClock.Domain.Entities;
 using AqiClock.Domain.Scheduling;
 using AqiClock.Domain.Time;
+using Microsoft.Extensions.Logging;
 using Microsoft.Toolkit.Uwp.Notifications;
 
 namespace AqiClock.App.Services;
 
-public sealed class ToastPresenter : INotificationPresenter, IDisposable
+public sealed partial class ToastPresenter : INotificationPresenter, IDisposable
 {
     private readonly IWindowService _windows;
+    private readonly ILogger<ToastPresenter> _logger;
     private readonly IClock? _clock;
     private bool _disposed;
 
-    public ToastPresenter(IWindowService windows, IClock? clock = null)
+    public ToastPresenter(IWindowService windows, ILogger<ToastPresenter> logger, IClock? clock = null)
     {
-        _windows = windows; _clock = clock;
+        _windows = windows; _logger = logger; _clock = clock;
         ToastNotificationManagerCompat.OnActivated += OnActivated;
     }
 
@@ -32,8 +34,7 @@ public sealed class ToastPresenter : INotificationPresenter, IDisposable
                 ? "Naseehah starting" : notifications.Count == 1 ? "Lesson starting" : "Lessons starting");
         foreach (NotificationEvent notification in notifications)
             toast.AddText(string.Create(CultureInfo.CurrentCulture, $"{notification.Occurrence.Period.Name} · ends {notification.Occurrence.Period.EndTime:HH:mm}{InstituteSuffix()}"));
-        toast.Show();
-        return Task.CompletedTask;
+        return SubmitAsync(toast, notifications[0].Kind.ToString(), cancellationToken);
     }
 
     public Task ShowEndWarningAsync(NotificationEvent notification, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default)
@@ -49,31 +50,44 @@ public sealed class ToastPresenter : INotificationPresenter, IDisposable
             toast.AddText(string.Create(CultureInfo.CurrentCulture, $"{notification.Occurrence.Period.Name} · {notification.Occurrence.Period.EndTime:HH:mm}{InstituteSuffix()}"));
         if (followingPeriod is not null)
             toast.AddText($"Next: {followingPeriod.Period.Name}");
-        toast.Show();
-        return Task.CompletedTask;
+        return SubmitAsync(toast, nameof(NotificationEventKind.EndWarning), cancellationToken);
     }
 
     public Task ShowAnnouncementAsync(Announcement announcement, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         string body = announcement.Body.Length <= 100 ? announcement.Body : announcement.Body[..100] + "…";
-        new ToastContentBuilder().AddArgument("action", "announcement").AddText(announcement.Title).AddText(body).Show();
-        return Task.CompletedTask;
+        return SubmitAsync(new ToastContentBuilder().AddArgument("action", "announcement").AddText(announcement.Title).AddText(body), "Announcement", cancellationToken);
     }
 
     public Task ShowTestAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        new ToastContentBuilder().AddArgument("action", "open").AddText("AQI Clock notifications are working").AddText("This is a test notification.").Show();
-        return Task.CompletedTask;
+        return SubmitAsync(new ToastContentBuilder().AddArgument("action", "open").AddText("AQI Clock test notification").AddText("This is a test notification."), "Test", cancellationToken);
     }
 
     public Task ShowReminderAsync(RecurringReminder reminder, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        new ToastContentBuilder().AddArgument("action", "open").AddText(reminder.Title).AddText(reminder.Body).Show();
-        return Task.CompletedTask;
+        return SubmitAsync(new ToastContentBuilder().AddArgument("action", "open").AddText(reminder.Title).AddText(reminder.Body), "Reminder", cancellationToken);
     }
+
+    // Windows submits to the notification service synchronously. Keep that call off the UI thread.
+    private Task SubmitAsync(ToastContentBuilder toast, string kind, CancellationToken cancellationToken)
+        => Task.Run(() =>
+        {
+            LogSubmissionStarted(_logger, kind);
+            long started = Stopwatch.GetTimestamp();
+            toast.Show();
+            double elapsedMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            LogSubmissionReturned(_logger, kind, elapsedMilliseconds);
+        }, cancellationToken);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Submitting {Kind} notification to Windows")]
+    private static partial void LogSubmissionStarted(ILogger logger, string kind);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Windows notification call for {Kind} returned after {ElapsedMilliseconds:F0} ms")]
+    private static partial void LogSubmissionReturned(ILogger logger, string kind, double elapsedMilliseconds);
 
     private void OnActivated(ToastNotificationActivatedEventArgsCompat args)
     {

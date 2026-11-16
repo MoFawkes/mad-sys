@@ -11,6 +11,32 @@ namespace AqiClock.Application.Tests;
 
 public sealed class NotificationSchedulerTests
 {
+    [Fact]
+    public async Task SlowToastDoesNotReplayAnExpiredLessonFromAQueuedTick()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        DateTime laterStart = Monday.AddMinutes(30);
+        fixture.SetPeriods(
+            new Period(Guid.NewGuid(), "First", TimeOnly.FromDateTime(Monday), TimeOnly.FromDateTime(Monday.AddMinutes(20)), 1),
+            new Period(Guid.NewGuid(), "Second", TimeOnly.FromDateTime(laterStart), TimeOnly.FromDateTime(laterStart.AddMinutes(20)), 2));
+        fixture.Settings.Value = fixture.Settings.Value with { EndWarningNotifications = false };
+        var release = new TaskCompletionSource();
+        fixture.Presenter.StartDelivery = release.Task;
+        using NotificationScheduler scheduler = fixture.Create();
+        await scheduler.StartAsync();
+
+        fixture.Messenger.Send(new ClockTick(Monday));
+        fixture.Messenger.Send(new ClockTick(laterStart));
+        release.SetResult();
+        await WaitUntilAsync(() =>
+        {
+            fixture.Messenger.Send(new ClockTick(laterStart.AddMinutes(3)));
+            return fixture.Log.Entries.Count == 3;
+        });
+
+        Assert.Equal(1, fixture.Presenter.Starts);
+    }
+
     [Theory]
     [InlineData(-12)]
     [InlineData(12)]
@@ -87,6 +113,26 @@ public sealed class NotificationSchedulerTests
         fixture.Reminders.Items = [];
         await scheduler.RebuildAsync(Monday);
         await scheduler.ProcessAsync(Monday.AddHours(2));
+        Assert.Equal(1, fixture.Presenter.Announcements);
+    }
+
+    [Fact]
+    public async Task TeacherReceivesLessonEndReminderFromClassSpecificTimetable()
+    {
+        SchedulerFixture fixture = CreateFixture(Monday);
+        Guid partTime = Guid.NewGuid();
+        fixture.Settings.Value = fixture.Settings.Value with { LessonStartNotifications = false, EndWarningNotifications = false };
+        fixture.Timetables.Items = [new Timetable(partTime, "Part-time", false,
+            [new Period(Guid.NewGuid(), "Evening lesson", TimeOnly.FromDateTime(Monday), TimeOnly.FromDateTime(Monday.AddMinutes(30)), 0)])];
+        fixture.Week = new FakeWeek(new WeekSchedule([
+            new(Guid.NewGuid(), DayOfWeek.Monday, null, null),
+            new(Guid.NewGuid(), DayOfWeek.Monday, Guid.NewGuid(), partTime)]));
+        fixture.Reminders.Items = [new(Guid.NewGuid(), "Chart", "Fill chart", 1, ReminderTiming.LessonEnd, null, true)];
+        using NotificationScheduler scheduler = fixture.Create();
+
+        await scheduler.StartAsync();
+        await scheduler.ProcessAsync(Monday.AddMinutes(30));
+
         Assert.Equal(1, fixture.Presenter.Announcements);
     }
 
@@ -573,8 +619,9 @@ public sealed class NotificationSchedulerTests
         public List<IReadOnlyList<NotificationEvent>> StartGroups { get; } = [];
         public List<IReadOnlyList<NotificationEvent>> EndWarningGroups { get; } = [];
         public List<AudienceType> AnnouncementAudiences { get; } = [];
+        public Task StartDelivery { get; set; } = Task.CompletedTask;
         public Task ShowLessonStartAsync(NotificationEvent notification, CancellationToken cancellationToken = default) { Starts++; return Task.CompletedTask; }
-        public Task ShowLessonStartsAsync(IReadOnlyList<NotificationEvent> notifications, CancellationToken cancellationToken = default) { StartGroups.Add(notifications.ToArray()); Starts += notifications.Count; return Task.CompletedTask; }
+        public Task ShowLessonStartsAsync(IReadOnlyList<NotificationEvent> notifications, CancellationToken cancellationToken = default) { StartGroups.Add(notifications.ToArray()); Starts += notifications.Count; return StartDelivery; }
         public Task ShowEndWarningAsync(NotificationEvent notification, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default) { EndWarnings++; return Task.CompletedTask; }
         public Task ShowEndWarningsAsync(IReadOnlyList<NotificationEvent> notifications, PeriodOccurrence? followingPeriod, int warningMinutes, CancellationToken cancellationToken = default) { EndWarningGroups.Add(notifications.ToArray()); EndWarnings += notifications.Count; return Task.CompletedTask; }
         public Task ShowAnnouncementAsync(Announcement announcement, CancellationToken cancellationToken = default) { Announcements++; AnnouncementAudiences.Add(announcement.AudienceType); return Task.CompletedTask; }

@@ -174,14 +174,7 @@ public static class ScheduleEngine
     /// A date override replaces all weekly sources. Copies starting together share one identity.</summary>
     public static IReadOnlyList<NotificationEvent> GetNaseehahStartEvents(ScheduleSnapshot snapshot, DateOnly date)
     {
-        IEnumerable<Period> periods = snapshot.FindOverride(date) is not null
-            ? ResolveDay(snapshot, date).Periods
-            : snapshot.WeekSchedule.EntriesFor(date.DayOfWeek)
-                .Select(entry => entry.TimetableId is { } id ? snapshot.FindTimetable(id) : null)
-                .Where(timetable => timetable is not null)
-                .SelectMany(timetable => timetable!.Periods);
-
-        return periods.Where(period => period.IsValid && IsNaseehah(period))
+        return GetAllAssignedPeriods(snapshot, date).Where(IsNaseehah)
             .OrderBy(period => period.Id.ToString("D"), StringComparer.Ordinal)
             .GroupBy(period => period.StartTime)
             .Select(group =>
@@ -192,6 +185,24 @@ public static class ScheduleEngine
                     NotificationEventKind.NaseehahStart, occurrence, occurrence.StartsAt);
             })
             .OrderBy(item => item.TriggerTime).ToArray();
+    }
+
+    /// <summary>
+    /// Valid periods from every timetable assigned to the date, whatever classes the viewer selected.
+    /// A date override replaces all weekly assignments.
+    /// </summary>
+    public static IReadOnlyList<Period> GetAllAssignedPeriods(ScheduleSnapshot snapshot, DateOnly date)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        if (snapshot.FindOverride(date) is not null) return ResolveDay(snapshot, date).Periods;
+        return snapshot.WeekSchedule.EntriesFor(date.DayOfWeek)
+            .Select(entry => entry.TimetableId)
+            .OfType<Guid>().Distinct()
+            .Select(snapshot.FindTimetable)
+            .OfType<Timetable>()
+            .SelectMany(timetable => timetable.Periods)
+            .Where(period => period.IsValid)
+            .ToArray();
     }
 
     private static string EventKey(string kind, Guid periodId, DateOnly date) =>

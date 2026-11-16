@@ -230,8 +230,8 @@ export function isNaseehah(period: Period): boolean {
   return /naseeha/i.test(period.name);
 }
 
-// Shared reminders use all assigned sources, while a date override replaces them all.
-export function getNaseehahStartEvents(snapshot: ScheduleSnapshot, date: Date): NotificationEvent[] {
+// Valid periods from every timetable assigned to the date, whatever classes the viewer selected.
+export function getAllAssignedPeriods(snapshot: ScheduleSnapshot, date: Date): Period[] {
   const day = startOfLocalDay(date);
   const override = findLast(snapshot.dateOverrides, (item) => item.date === formatLocalDate(day));
   const timetableIds = new Set(snapshot.weekSchedule
@@ -239,8 +239,14 @@ export function getNaseehahStartEvents(snapshot: ScheduleSnapshot, date: Date): 
     .map((entry) => entry.timetableId));
   const periods = override ? resolveDay(snapshot, day).periods : snapshot.timetables
     .filter((timetable) => timetableIds.has(timetable.id)).flatMap((timetable) => timetable.periods);
+  return periods.filter(isValidPeriod);
+}
+
+// Shared reminders use all assigned sources, while a date override replaces them all.
+export function getNaseehahStartEvents(snapshot: ScheduleSnapshot, date: Date): NotificationEvent[] {
+  const day = startOfLocalDay(date);
   const starts = new Map<number, Period>();
-  for (const period of [...periods].filter((item) => isValidPeriod(item) && isNaseehah(item))
+  for (const period of getAllAssignedPeriods(snapshot, day).filter(isNaseehah)
     .sort((left, right) => ordinalCompare(left.id, right.id))) {
     const minutes = parseTimeToMinutes(period.startTime);
     if (!starts.has(minutes)) starts.set(minutes, period);
