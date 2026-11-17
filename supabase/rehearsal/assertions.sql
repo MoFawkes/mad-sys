@@ -4,14 +4,13 @@
 -- production_state.sql.
 -- Every failure raises, which fails the psql run via ON_ERROR_STOP.
 
--- Migration history took the incremental path: all seventeen versions recorded,
--- including the four generator migrations already applied to the hosted estate.
+-- Migration history took the incremental path and recorded each repository migration.
 do $$
 declare versions text;
 begin
     select string_agg(version, ',' order by version) into versions
     from supabase_migrations.schema_migrations;
-    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000,20260807110000,20260807120000,20260826214012,20260826225951,20260827204758,20260827223000,20260925173216,20260925173217,20261108160431' then
+    if versions <> '20260716000100,20260716000200,20260716000300,20260720153657,20260727225644,20260728130441,20260728134650,20260803120000,20260807110000,20260807120000,20260826214012,20260826225951,20260827204758,20260827223000,20260925173216,20260925173217,20261108160431,20261117134023' then
         raise exception 'Unexpected migration history: %', versions;
     end if;
 end $$;

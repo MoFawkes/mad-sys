@@ -681,8 +681,13 @@ public partial class PrayerFixedTimeEditorItem : ObservableObject
     public required string AnchorKey { get; init; }
     public required string Label { get; init; }
     public int? Weekday { get; init; }
-    [ObservableProperty] private TimeSpan _start;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(SalahTime))]
+    private TimeSpan _start;
     [ObservableProperty] private int? _durationMinutes = TimetableGenerator.PrayerMinutes;
+
+    public string SalahTime => AnchorKey == "zuhr" && Weekday is null
+        ? TimeOnly.FromTimeSpan(Start).AddMinutes(7).ToString("HH:mm", CultureInfo.InvariantCulture)
+        : string.Empty;
 }
 
 public partial class PrayerTimesViewModel(ISupabaseGateway gateway, IMessenger? messenger = null) : ObservableObject
@@ -720,6 +725,7 @@ public partial class PrayerTimesViewModel(ISupabaseGateway gateway, IMessenger? 
     private void PopulateFixedTimes()
     {
         FixedTimes.Clear();
+        AddFixed("zuhr", "Zuhr", null, new(12, 30, 0), 20);
         AddFixed("asr", "Asr", null, new(17, 0, 0), 10);
         AddFixed("isha", "Isha", null, new(20, 15, 0), 10);
         AddFixed("zuhr", "Friday Jumu'ah", 4, new(13, 0, 0), null);

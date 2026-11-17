@@ -418,6 +418,7 @@ public sealed class GatewaySmokeTests(SupabaseFixture fixture)
             Assert.Null(await gateway.GetTimetableShapeAsync(timetableId));
             PrayerTimesSnapshot prayers = await gateway.GetPrayerTimesAsync(targetDate);
             Guid maghrib = prayers.Anchors.Single(x => x.Key == "maghrib").Id;
+            Guid zuhr = prayers.Anchors.Single(x => x.Key == "zuhr").Id;
             DateOnly bulkDate = targetDate.AddYears(5);
             var shape = new TimetableShape(new(9, 5), 3, 20, null, null, false);
             GeneratorResult expected = TimetableGenerator.Expand(timetableId, shape, []);
@@ -449,6 +450,15 @@ public sealed class GatewaySmokeTests(SupabaseFixture fixture)
                 new("zuhr", new(13, 0), null, 4)
             ], standingDate);
             Assert.Equal(3, fixedWritten);
+            Assert.Equal(4, await gateway.SavePrayerFixedTimesAsync(
+            [
+                new("zuhr", new(12, 30), 20),
+                new("asr", new(17, 0), 10), new("isha", new(20, 15), 10),
+                new("zuhr", new(13, 0), null, 4)
+            ], standingDate));
+            Assert.Contains((await gateway.GetPrayerTimesAsync(standingDate)).StandingTimes,
+                row => row.AnchorId == zuhr && row.Weekday is null && row.EffectiveFrom == standingDate
+                    && row.StartTime == new TimeOnly(12, 30) && row.DurationMinutes == 20);
             Assert.True(await fixture.SqlScalarAsync<bool>(
                 """
                 select standing.duration_minutes is null

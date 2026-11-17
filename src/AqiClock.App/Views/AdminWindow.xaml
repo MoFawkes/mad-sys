@@ -342,7 +342,7 @@
 
                         <Separator Margin="0,22,0,18" />
                         <TextBlock Text="Fixed prayer times" FontSize="22" FontWeight="SemiBold" />
-                        <TextBlock Text="These times remain in force until a later effective date is saved. Friday Jumu'ah replaces Zuhr on Friday."
+                        <TextBlock Text="These times remain in force until a later effective date is saved. The Zuhr break starts at Azan, with Salah 7 minutes later. Friday Jumu'ah replaces Zuhr on Friday."
                                    TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,12" />
                         <WrapPanel Margin="0,0,0,8">
                             <TextBlock Text="Applies from" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -353,6 +353,7 @@
                                 <DataGridTextColumn Header="Prayer" Binding="{Binding Label}" IsReadOnly="True" Width="*" />
                                 <DataGridTextColumn Header="Starts" Binding="{Binding Start, Converter={StaticResource HourMinuteConverter}, UpdateSourceTrigger=PropertyChanged}" Width="140" />
                                 <DataGridTextColumn Header="Length (min)" Binding="{Binding DurationMinutes, Converter={StaticResource NullableMinutesConverter}, UpdateSourceTrigger=PropertyChanged}" Width="140" />
+                                <DataGridTextColumn Header="Salah" Binding="{Binding SalahTime, Mode=OneWay}" IsReadOnly="True" Width="90" />
                             </DataGrid.Columns>
                         </DataGrid>
                         <ui:Button Content="Save fixed times" Command="{Binding SaveFixedTimesCommand}" Appearance="Primary" HorizontalAlignment="Left" Margin="0,10,0,0" />

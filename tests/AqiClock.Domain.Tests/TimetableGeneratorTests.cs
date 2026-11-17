@@ -39,6 +39,17 @@ public sealed class TimetableGeneratorTests
     }
 
     [Fact]
+    public void WeekdayZuhrBreakResumesLessonsAt1250()
+    {
+        GeneratorResult result = TimetableGenerator.Expand(TimetableId, new(new(9, 10), 8, 30, 4, 25),
+            [new(Guid.NewGuid(), "zuhr", "Zuhr", new(12, 30), 20)]);
+
+        At(result.Periods[6], "Lesson 6 (part 1)", "12:05", "12:30");
+        At(result.Periods[7], "Zuhr", "12:30", "12:50");
+        At(result.Periods[8], "Lesson 6 (part 2)", "12:50", "12:55");
+    }
+
+    [Fact]
     public void MissingApplicableAnchorDurationRefusesExpansion()
     {
         Assert.Throws<InvalidOperationException>(() => TimetableGenerator.Expand(TimetableId, new(new(9, 10), 8, 30, null, null),
