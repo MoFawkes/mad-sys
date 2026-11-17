@@ -2,11 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.16.2 - 2026-11-17
+
+### Added
+
+- Fixed Zuhr in the Windows prayer-time editor. The defaults reserve a 20-minute break from Azan at 12:30, display Salah at 12:37, and resume automated lessons at 12:50. Friday Jumu'ah takes precedence.
 
 ### Fixed
 
-- Recurring "After every lesson" reminders now use every timetable assigned that day on Windows and Android. Previously staff only received them for the organisation-wide timetable, so lessons in class-specific timetables produced no reminder.
+- Windows recurring "After every lesson" reminders now use every timetable assigned that day, including class-specific timetables.
 - Windows submits notifications off the UI thread and no longer queues stale clock ticks behind a slow notification, so a slow Windows notification service cannot push later alerts past their two-minute window.
 - The Windows log now records delivered and skipped recurring reminders.
 
