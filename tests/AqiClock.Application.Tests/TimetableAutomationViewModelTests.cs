@@ -142,7 +142,7 @@ public sealed class TimetableAutomationViewModelTests
     }
 
     [Fact]
-    public async Task FixedPrayerTimesKeepOnlyAsrIshaAndFridayRowsWithOneEffectiveDate()
+    public async Task FixedPrayerTimesSaveZuhrAndFridayJumuahSeparatelyWithOneEffectiveDate()
     {
         Guid orgId = Guid.NewGuid();
         Guid zuhrId = Guid.NewGuid();
@@ -161,12 +161,19 @@ public sealed class TimetableAutomationViewModelTests
         };
         var vm = new PrayerTimesViewModel(gateway);
         await vm.LoadAsync();
+        var zuhr = Assert.Single(vm.FixedTimes, row => row.AnchorKey == "zuhr" && row.Weekday is null);
+        Assert.Equal(new TimeSpan(13, 30, 0), zuhr.Start);
+        zuhr.Start = new TimeSpan(12, 30, 0);
+        zuhr.DurationMinutes = 20;
+        Assert.Equal("12:37", zuhr.SalahTime);
         vm.EffectiveFrom = effective.ToDateTime(TimeOnly.MinValue);
 
         await vm.SaveFixedTimesCommand.ExecuteAsync(null);
 
         Assert.Equal(effective, gateway.SavedFixedEffectiveFrom);
         Assert.Collection(gateway.SavedFixedRows!,
+            row => Assert.Equal(("zuhr", (int?)null, new TimeOnly(12, 30), (int?)20),
+                (row.AnchorKey, row.Weekday, row.StartTime, row.DurationMinutes)),
             row => Assert.Equal(("asr", (int?)null), (row.AnchorKey, row.Weekday)),
             row => Assert.Equal(("isha", (int?)null), (row.AnchorKey, row.Weekday)),
             row => Assert.Equal(("zuhr", (int?)4, new TimeOnly(12, 58)), (row.AnchorKey, row.Weekday, row.StartTime)));
